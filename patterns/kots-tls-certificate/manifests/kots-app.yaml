@@ -1,0 +1,15 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: kots-tls-pattern
+spec:
+  title: Speciftying TLS Certificates for a Replicated KOTS Application
+  icon: https://storage.googleapis.com/shared-lab-assets/icons/red/safety.png
+  statusInformers:
+    - deployment/server
+  ports:
+    - serviceName: "server"
+      servicePort: 443
+      localPort: 8843
+      applicationUrl: "https://server"

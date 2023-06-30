@@ -1,0 +1,31 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: kots-tls-pattern
+spec:
+  groups:
+    - name: core
+      title: Core Application
+      items:
+      - name: fqdn
+        title: Domain Name 
+        help_text: "the fully-qualified domain name (FQDN) for the automate instance"
+        type: text
+        validation: 
+          regex: 
+            pattern: "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$"
+            message: The domain name must be a complete valid internet domain name
+        required: true
+    - name: certs
+      title: TLS Certificates
+      items:
+      - name: tls_private_key_file
+        title: Private Key
+        type: file
+      - name: tls_certificate_file
+        title: Certificate
+        type: file
+      - name: tls_certificate_chain_file
+        title: CA Certificate Chain
+        type: file

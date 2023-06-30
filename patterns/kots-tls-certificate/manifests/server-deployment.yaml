@@ -1,0 +1,46 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  labels:
+    app: server
+spec:
+  selector:
+    matchLabels:
+      app: server
+  template:
+    metadata:
+      labels:
+        app: server
+      annotations:
+        backup.velero.io/backup-volumes: static-content
+    spec:
+      containers:
+      - name: server
+        image: nginx
+        volumeMounts:
+        - name: server-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: tls-certificates
+          mountPath: /etc/nginx/ssl
+        - name: static-content
+          mountPath: /var/lib/nginx/html
+        resources:
+          limits:
+            memory: '256Mi'
+            cpu: '500m'
+          requests:
+            memory: '32Mi'
+            cpu: '100m'
+      volumes:
+      - name: server-config
+        configMap:
+          name: server-config
+      - name: tls-certificates
+        secret:
+          secretName: tls-certificates
+      - name: static-content
+        configMap:
+          name: static-content

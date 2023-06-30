@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: tls-certificates
+type: kubernetes.io/tls
+data:
+  tls.crt: '{{repl ConfigOption "tls_certificate_file" }}'
+  tls.key: '{{repl ConfigOption "tls_private_key_file" }}'
+  ca.crt: '{{repl ConfigOption "tls_certificate_chain_file" }}'

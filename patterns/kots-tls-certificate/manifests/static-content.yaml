@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: static-content
+data:
+  index.html: |
+    <!doctype html>
+    <html>
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <title>Specifying TLS Certificates for Replicated KOTS</title>
+        <link href="styles.css" rel="stylesheet" type="text/css">
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td>Domain Name</td>
+            <td>{{repl ConfigOption "fqdn"}}</td>
+          <tr>
+          <tr>
+            <td>TLS Certificate</td>
+            <td>
+              <code>
+                {{repl ConfigOptionData "tls_certificate_file" | nindent 16}}
+              </code>
+            </td>
+          </tr>
+        </table>  
+      </body>
+    </html>
+  styles.css: |
+    body {
+      text-align: center;
+      background-color: rgb(224,224,224);
+      font-family: Verdana, Arial, Helvetica, sans-serif;
+      font-size: 100%;
+    }
