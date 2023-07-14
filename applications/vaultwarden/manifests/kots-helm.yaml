@@ -1,0 +1,29 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: vaultwarden
+spec:
+  chart:
+    name: vaultwarden
+    chartVersion: 0.1.0
+
+  values:
+    apps:
+      vaultwarden:
+        replicas: '{{repl ConfigOption `vaultwarden_replicas` }}'
+
+    ingresses:
+      vaultwarden:
+        serviceName: vaultwarden
+        ## Configure the hosts for the ingress
+        hosts:
+          - host: '{{repl ConfigOption `vaultwarden_host` }}'
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  port: 80
+        tls:
+        - hosts:
+            - '{{repl ConfigOption `vaultwarden_host` }}'
+          secretName: vaultwarden-tls-secret

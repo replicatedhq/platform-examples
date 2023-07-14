@@ -1,0 +1,12 @@
+apiVersion: v2
+appVersion: 1.27.0
+name: vaultwarden
+version: 0.1.0
+description: Vaultwarden is a Bitwarden compatable server in Rust
+dependencies:
+- name: replicated-library
+  repository: https://replicatedhq.github.io/helm-charts
+  version: 0.13.3
+home: https://github.com/replicatedhq/replicated-starter-helm/charts/tree/main/
+icon: https://sesoodan.sirv.com/bitwarden_rs.png
+kubeVersion: '>=1.16.0-0'

@@ -1,0 +1,163 @@
+{{/* Make sure all variables are set properly */}}
+{{- include "replicated-library.values.setup" . }}
+
+{{- define "debug.print_var" -}}
+{{- . | toYaml | printf "\nThe YAML output of the dumped var is: \n%s" | fail }}
+{{- end -}}
+
+{{- define "hardcodedValues" -}}
+apps:
+  determined:
+    initContainers:
+      1-postgres-wait:
+        image:
+          repository: docker.io/bitnami/postgresql
+          tag: 15.3.0-debian-11-r0
+        env:
+        {{- if .Values.determined.externalPostgres.enabled }}
+          POSTGRES_USER: {{ required "A valid .Values.determined.externalPostgres.username entry required!" .Values.determined.externalPostgres.username | quote }}
+          POSTGRES_PASSWORD: {{ required "A valid Values.determined.externalPostgres.password entry required!" .Values.determined.externalPostgres.password | quote }}
+          POSTGRES_HOST: {{ .Values.determined.externalPostgres.host }}
+          POSTGRES_PORT: {{ .Values.determined.externalPostgres.port }}
+          POSTGRES_DB: {{ .Values.determined.externalPostgres.name | quote }}
+        {{- else }}
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: {{ required "A valid Values.determined.postgresPassword entry required!" .Values.determined.postgresPassword | quote }}
+          POSTGRES_HOST: postgresql
+          POSTGRES_PORT: 5432
+          POSTGRES_DB: postgres
+        {{- end }}
+        command: ["sh", "-c", "until PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 -d $POSTGRES_DB -c 'SELECT 1'; do sleep 1; done;"]
+secrets:
+  determined:
+    data:
+      master.yaml: |
+        checkpoint_storage:
+          type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.determined.checkpointStorage.type | quote}}
+          {{- if eq .Values.determined.checkpointStorage.type "shared_fs" }}
+          host_path: {{ required "A valid Values.checkpointStorage.hostPath entry is required!" .Values.determined.checkpointStorage.hostPath | quote }}
+          {{- else if eq .Values.determined.checkpointStorage.type "gcs" }}
+          bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.determined.checkpointStorage.bucket }}
+          prefix: {{ .Values.determined.checkpointStorage.prefix | quote }}
+          {{- else if eq .Values.determined.checkpointStorage.type "s3" }}
+          bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.determined.checkpointStorage.bucket }}
+          access_key: {{ .Values.determined.checkpointStorage.accessKey | quote }}
+          secret_key: {{ .Values.determined.checkpointStorage.secretKey | quote }}
+          endpoint_url: {{ .Values.determined.checkpointStorage.endpointUrl | quote }}
+          prefix: {{ .Values.determined.checkpointStorage.prefix | quote }}
+          {{- else if eq .Values.determined.checkpointStorage.type "azure" }}
+          {{- if and .Values.determined.checkpointStorage.connection_string .Values.determined.checkpointStorage.account_url }}
+          {{ required "Exactly one of .Values.determined.checkpointStorage.connection_string or .Values.determined.checkpointStorage.account_url must be specified!" "" }}
+          {{- else if and .Values.determined.checkpointStorage.connection_string .Values.determined.checkpointStorage.credential }}
+          {{ required ".Values.determined.checkpointStorage.connection_string and .Values.determined.checkpointStorage.credential must not both be specified!" "" }}
+          {{- else }}
+          container: {{ required "A valid Values.checkpointStorage.container entry is required!" .Values.determined.checkpointStorage.container }}
+          connection_string: {{ .Values.determined.checkpointStorage.connection_string }}
+          account_url: {{ .Values.determined.checkpointStorage.account_url }}
+          credential: {{ .Values.determined.checkpointStorage.credential }}
+          {{- end }}
+          {{- end }}
+          save_experiment_best: {{ .Values.determined.checkpointStorage.saveExperimentBest | default 0 }}
+          save_trial_best: {{ .Values.determined.checkpointStorage.saveTrialBest | default 1 }}
+          save_trial_latest: {{ .Values.determined.checkpointStorage.saveTrialLatest | default 1 }}
+        db:
+        {{- if .Values.determined.externalPostgres.enabled }}
+          user: {{ required "A valid .Values.determined.externalPostgres.username entry required!" .Values.determined.externalPostgres.username | quote }}
+          password: {{ required "A valid Values.determined.externalPostgres.password entry required!" .Values.determined.externalPostgres.password | quote }}
+          host: {{ .Values.determined.externalPostgres.host }}
+          port: {{ .Values.determined.externalPostgres.port }}
+          name: {{ .Values.determined.externalPostgres.name | quote }}
+        {{- else }}
+          user: postgres
+          password: {{ required "A valid Values.determined.postgresPassword entry required!" .Values.determined.postgresPassword | quote }}
+          host: postgresql
+          port: 5432
+          name: postgres
+        {{- end }}
+        port: {{ include "determined.masterPort" . }}
+        resource_manager:
+          type: "kubernetes"
+          namespace: {{ .Release.Namespace }}
+          max_slots_per_pod: {{ required "A valid Values.maxSlotsPerPod entry is required!" .Values.determined.maxSlotsPerPod }}
+          master_service_name: determined
+          {{- if .Values.determined.defaultScheduler}}
+          {{- $schedulerType := .Values.determined.defaultScheduler | trim}}
+          {{- if or (eq $schedulerType "coscheduler") (eq $schedulerType "preemption")}}
+          default_scheduler: {{ $schedulerType }}
+          {{- end }}
+          {{- end }}
+          {{- if (ne (default "gpu" .Values.determined.slotType) "gpu") }}
+          slot_type: {{ .Values.determined.slotType }}
+          slot_resource_requests:
+            cpu: {{ .Values.determined.slotResourceRequests.cpu }}
+          {{- end }}
+          {{- if .Values.determined.fluent }}
+          fluent:
+            {{- toYaml .Values.determined.fluent | nindent 12}}
+          {{- end }}
+          default_aux_resource_pool: {{.Values.determined.defaultAuxResourcePool}}
+          default_compute_resource_pool: {{.Values.determined.defaultComputeResourcePool}}
+        {{- if .Values.determined.resourcePools}}
+        resource_pools:
+          {{- toYaml .Values.determined.resourcePools | nindent 10}}
+        {{- end }}
+        {{$cpuImage := (split "/" "determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-6eceaca")._1}}
+        {{- $gpuImage := (split "/" "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-6eceaca")._1 -}}
+        {{ if .Values.determined.taskContainerDefaults -}}
+        task_container_defaults:
+          {{- if .Values.determined.taskContainerDefaults.networkMode }}
+          network_mode: {{ .Values.determined.taskContainerDefaults.networkMode }}
+          {{- end }}
+          {{- if .Values.determined.taskContainerDefaults.dtrainNetworkInterface }}
+          dtrain_network_interface: {{ .Values.determined.taskContainerDefaults.dtrainNetworkInterface }}
+          {{- end }}
+          {{- if .Values.determined.taskContainerDefaults.cpuPodSpec }}
+          cpu_pod_spec: {{ .Values.determined.taskContainerDefaults.cpuPodSpec | toJson }}
+          {{- end }}
+          {{- if .Values.determined.taskContainerDefaults.gpuPodSpec }}
+          gpu_pod_spec: {{ .Values.determined.taskContainerDefaults.gpuPodSpec | toJson }}
+          {{- end }}
+          {{- if and .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
+          image:
+             cpu: {{ .Values.determined.taskContainerDefaults.cpuImage | quote }}
+             gpu: {{ .Values.determined.taskContainerDefaults.gpuImage | quote }}
+          {{- else if .Values.determined.imageRegistry }}
+          image:
+             cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
+             gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+          {{- if or .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
+            {{ required "A valid .Values.determined.taskContainerDefaults.cpuImage entry is required if setting .Values.determined.taskContainerDefaults.gpuImage!" .Values.determined.taskContainerDefaults.cpuImage }}
+            {{ required "A valid .Values.determined.taskContainerDefaults.gpuImage entry is required if setting .Values.determined.taskContainerDefaults.cpuImage!" .Values.determined.taskContainerDefaults.gpuImage }}
+          {{- end }}
+          {{- end }}
+          {{- if .Values.determined.taskContainerDefaults.forcePullImage }}
+          force_pull_image: {{ .Values.determined.taskContainerDefaults.forcePullImage }}
+          {{- end }}
+        {{ else if .Values.determined.imageRegistry }}
+        task_container_defaults:
+          image:
+             cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
+             gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+        {{ end }}
+        {{- if .Values.determined.telemetry }}
+        telemetry:
+          enabled: {{ .Values.determined.telemetry.enabled }}
+        {{- end }}
+        {{- if .Values.determined.observability }}
+        observability:
+          enable_prometheus: {{ required "A valid .Values.determined.observability.enable_prometheus must be provided if setting .Values.determined.observability!" .Values.determined.observability.enable_prometheus }}
+        {{- end }}
+        {{- if .Values.determined.clusterName }}
+        cluster_name: {{ .Values.determined.clusterName }}
+        {{- end }}
+        {{- if .Values.determined.tensorboardTimeout }}
+        tensorboard_timeout: {{ .Values.determined.tensorboardTimeout }}
+        {{- end }}
+        {{- if .Values.determined.notebookTimeout }}
+        notebook_timeout: {{ .Values.determined.notebookTimeout }}
+        {{- end }}
+{{- end -}}
+
+{{- $_ := mergeOverwrite .Values (include "hardcodedValues" . | fromYaml) -}}
+
+{{- include "replicated-library.all" . }}

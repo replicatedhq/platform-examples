@@ -1,0 +1,118 @@
+global:
+  labels: {}
+  annotations: {}
+  fullNameOverride: "-"
+
+apps:
+  determined:
+    enabled: true
+    type: deployment
+    replicas: 1
+    priorityClassName: determined-system-priority
+    serviceAccount:
+      create: false
+      name: determined-master
+    containers:
+      determined:
+        image:
+          repository: determinedai/determined-master
+          tag: 0.23.0
+        volumeMounts:
+        - name: master-config
+          mountPath: /etc/determined/
+          readOnly: true
+        ports:
+        - name: http
+          containerPort: 8081
+    volumes:
+      - name: master-config
+        secret:
+          secretName: determined
+
+services:
+  determined:
+    enabled: true
+    appName: ["determined"]
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8081
+        protocol: HTTP
+        targetPort: 8081
+
+ingresses:
+  determined:
+    enabled: true
+    serviceName: determined
+    hosts:
+      - host: determined.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              port: 8081
+    tls:
+    - hosts:
+        - determined.example.com
+      secretName: determined-tls
+
+secrets:
+  determined:
+    enabled: true
+    data:
+      test: hello
+
+postgresql:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/postgresql
+    tag: 15.3.0-debian-11-r0
+  fullnameOverride: postgresql
+  auth:
+    postgresPassword: determined
+
+determined:
+  postgresPassword: determined
+  externalPostgres:
+    enabled: false
+    username: postgres
+    password: determined
+    database: postgres
+    host: postgresql
+    port: 5432
+  tls:
+    enabled: true
+    genSelfSignedCert: false
+    cert: |
+      -----BEGIN CERTIFICATE-----
+      -----END CERTIFICATE-----
+    key: |
+      -----BEGIN PRIVATE KEY-----
+      -----END PRIVATE KEY-----
+  masterPort: 8081
+  useNodePortForMaster: false
+  storageSize: 30Gi
+  cpuRequest: 1
+  memRequest: 2Gi
+  useNodePortForDB: false
+  checkpointStorage:
+    saveExperimentBest: 0
+    saveTrialBest: 1
+    saveTrialLatest: 1
+    type: shared_fs
+    hostPath: /checkpoints
+  maxSlotsPerPod: 0
+  slotType: cpu
+  slotResourceRequests:
+    cpu: 1
+  masterCpuRequest: 1
+  masterMemRequest: 2Gi
+  telemetry:
+    enabled: true
+  resourcePools:
+    - pool_name: default
+
+replicated:
+  enabled: false

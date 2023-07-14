@@ -1,0 +1,14 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: vaultwarden
+spec:
+  title: App Name
+  icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
+  statusInformers:
+    - deployment/vaultwarden
+  ports:
+    - serviceName: "vaultwarden"
+      servicePort: 8080
+      localPort: 8888
+      applicationUrl: "http://vaultwarden"
