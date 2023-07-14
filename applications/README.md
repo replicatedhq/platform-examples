@@ -1,9 +1,6 @@
-# Replicated KOTS Helm Examples
+# Applications
 
-This repository contains examples for deploying Helm charts with Replicated.
-
-**NOTE**: The example charts housed in this repo are merely examples, and are not officially supported by Replicated for production use. 
-
-## Examples
-
-* [Determined AI](determined-ai/README.md)
+This directory contains complete applications distributed using the Replicated
+platform. Applications may be implemented as Helm charts or using Replicated
+KOTS. They are provide so you can experiment with the application and apply
+what you discover to your own application.
