@@ -1,0 +1,15 @@
+apiVersion: troubleshoot.replicated.com/v1beta1
+kind: SupportBundle
+metadata:
+  name: support-sample
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources: {}
+    - logs:
+        selector:
+          - app.kubernetes.io/name=vaultwarden
+        namespace: '{{repl Namespace }}'
+        limits:
+          maxAge: 720h
+          maxLines: 10000

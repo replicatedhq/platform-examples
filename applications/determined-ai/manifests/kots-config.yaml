@@ -1,0 +1,113 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  - name: ingress_settings
+    title: Ingress Settings
+    description: Configure Ingress for Determined
+    items:
+    - name: determined_ingress_type
+      title: Determined Ingress Type
+      help_text: | 
+        Select how traffic will ingress to the Determined appliction. The Ingress Controller option will create an Ingress object, 
+        and Load Balancer will configure Determined's Kubernetes service to be of type LoadBalancer.
+      type: select_one
+      items:
+      - name: ingress_controller
+        title: Ingress Controller
+      - name: load_balancer
+        title: Load Balancer
+      default: "ingress_controller"
+      required: true
+      when: 'repl{{ not IsKurl }}'
+    - name: determined_ingress_host
+      title: Determined Hostname
+      help_text: Hostname which will be used to access Determined
+      type: text
+      default: "determined.example.com"
+      required: true
+      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "determined_ingress_type" "ingress_controller") }}'
+    - name: determined_ingress_annotations
+      type: textarea
+      title: Ingress Annotations
+      help_text: See your ingress controller’s documentation for the required annotations.
+      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "determined_ingress_type" "ingress_controller") }}'
+    - name: determined_ingress_tls_type
+      title: Determined Ingress TLS Type
+      type: select_one
+      items:
+      - name: self_signed
+        title: Self Signed (Generate Self Signed Certificate)
+      - name: user_provided
+        title: User Provided (Upload a TLS Certificate and Key Pair)
+      required: true
+      default: self_signed
+      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "determined_ingress_type" "ingress_controller") }}'
+    - name: determined_ingress_tls_cert
+      title: Determined TLS Cert
+      type: file
+      when: '{{repl and (ConfigOptionEquals "determined_ingress_type" "ingress_controller") (ConfigOptionEquals "determined_ingress_tls_type" "user_provided") }}'
+      required: true
+    - name: determined_ingress_tls_key
+      title: Determined TLS Key
+      type: file
+      when: '{{repl and (ConfigOptionEquals "determined_ingress_type" "ingress_controller") (ConfigOptionEquals "determined_ingress_tls_type" "user_provided") }}'
+      required: true
+    - name: determined_load_balancer_port
+      title: Load Balancer Port
+      help_text: Port which will be used to access Determined via the Load Balancer
+      type: text
+      default: "443"
+      required: true
+      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "determined_ingress_type" "load_balancer") }}'
+    - name: determined_load_balancer_annotations
+      type: textarea
+      title: Load Balancer Annotations
+      help_text: See your cloud provider’s documentation for the required annotations.
+      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "determined_ingress_type" "load_balancer") }}'
+  - name: database_settings
+    title: Database
+    items:
+      - name: postgres_type
+        help_text: Would you like to use an embedded postgres instance, or connect to an external instance that you manage?
+        type: select_one
+        title: Postgres
+        default: embedded_postgres
+        items:
+          - name: embedded_postgres
+            title: Embedded Postgres
+          - name: external_postgres
+            title: External Postgres
+      - name: embedded_postgres_password
+        hidden: true
+        readonly: false
+        type: password
+        value: '{{repl RandomString 32}}'
+      - name: external_postgres_host
+        title: Postgres Host
+        when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+        type: text
+        default: postgres
+      - name: external_postgres_port
+        title: Postgres Port
+        when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+        type: text
+        default: "5432"
+      - name: external_postgres_username
+        title: Postgres Username
+        when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+        type: text
+        required: true
+      - name: external_postgres_password
+        title: Postgres Password
+        when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+        type: password
+        required: true
+      - name: external_postgres_db
+        title: Postgres Database
+        when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+        type: text
+        default: postgres

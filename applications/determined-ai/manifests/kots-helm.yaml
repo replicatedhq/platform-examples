@@ -1,0 +1,65 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: determined
+spec:
+  # chart identifies a matching chart from a .tgz
+  chart:
+    name: determined
+    chartVersion: 0.23.0
+
+  # values are used in the customer environment, as a pre-render step
+  # these values will be supplied to helm template
+  values:
+    services:
+      determined:
+        enabled: true
+        appName: ["determined"]
+        type: 'repl{{ if ConfigOptionEquals "determined_ingress_type" "load_balancer" }} LoadBalancer repl{{ else }}ClusterIP repl{{ end }}'
+        annotations: repl{{ ConfigOption "determined_load_balancer_annotations" | nindent 10 }}
+        ports:
+          http:
+            enabled: true
+            port: repl{{ if ConfigOptionEquals "determined_ingress_type" "load_balancer" }} repl{{ ConfigOption "determined_load_balancer_port" }} repl{{ else }} 8081 repl{{ end }}
+            protocol: HTTP
+            targetPort: 8081
+    ingresses:
+      determined:
+        enabled: repl{{ ConfigOptionEquals "determined_ingress_type" "ingress_controller" }}
+        serviceName: determined
+        annotations: repl{{ ConfigOption "determined_ingress_annotations" | nindent 10 }}
+        hosts:
+          - host: 'repl{{ ConfigOption "determined_ingress_host"}}'
+            paths:
+              - path: /
+                pathType: Prefix
+                service:
+                  port: 8081
+        tls:
+        - hosts:
+            - '{{repl ConfigOption "determined_ingress_host"}}'
+          secretName: determined-tls
+
+    postgresql:
+      enabled: 'repl{{ (ConfigOptionEquals "postgres_type" "embedded_postgres") }}'
+      auth:
+        postgresPassword: 'repl{{ConfigOption "embedded_postgres_password"}}'
+
+    determined:
+      postgresPassword: 'repl{{ConfigOption "embedded_postgres_password"}}'
+      externalPostgresql:
+        enabled: repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}
+        username: 'repl{{ ConfigOption "external_postgres_username" }}'
+        password: 'repl{{ ConfigOption "external_postgres_password" }}'
+        database: 'repl{{ ConfigOption "external_postgres_db" }}'
+        host: 'repl{{ ConfigOption "external_postgres_host" }}'
+        port: 'repl{{ ConfigOption "external_postgres_port" }}'
+      tls:
+        enabled: repl{{ ConfigOptionEquals "determined_ingress_type" "ingress_controller" }}
+        genSelfSignedCert: repl{{ ConfigOptionEquals "determined_ingress_tls_type" "self_signed" }}
+        cert: repl{{ print `|`}}repl{{ ConfigOptionData `determined_ingress_tls_cert` | nindent 10 }}
+        key: repl{{ print `|`}}repl{{ ConfigOptionData `determined_ingress_tls_key` | nindent 10 }}
+
+  # builder values provide a way to render the chart with all images
+  # and manifests. this is used in replicated to create airgap packages
+  builder: {}
