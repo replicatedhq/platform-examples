@@ -1,0 +1,17 @@
+{{- if .Values.determined.tls.enabled -}}
+  {{- $cert := dict -}}
+  {{- if .Values.determined.tls.genSelfSignedCert -}}
+    {{ $cert = genSelfSignedCert "determined.example.com" nil nil 730 }}
+  {{- else -}}
+    {{- $_ := set $cert "Cert" .Values.determined.tls.cert -}}
+    {{- $_ := set $cert "Key" .Values.determined.tls.key -}}
+  {{- end -}}
+apiVersion: v1
+data:
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}
+kind: Secret
+metadata:
+  name: determined-tls
+type: kubernetes.io/tls
+{{- end -}}

@@ -1,0 +1,21 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  - name: vaultwarden
+    title: Vaultwarden Settings
+    description: Configuration for VaultWarden
+    items:
+      - name: vaultwarden_host
+        title: VaultWarden Host
+        help_text: The DNS hostname used to connect to Vaultwarden via the browser
+        type: text
+        default: "vaultwarden.example.com"
+      - name: vaultwarden_replicas
+        title: VaultWarden Replicas
+        help_text: The number of VaultWarden pods
+        type: text
+        default: "1"

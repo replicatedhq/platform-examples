@@ -1,0 +1,4 @@
+{{/* Make sure all variables are set properly */}}
+{{- include "replicated-library.values.setup" . }}
+
+{{- include "replicated-library.all" . }}

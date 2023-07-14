@@ -1,0 +1,19 @@
+apiVersion: v2
+appVersion: 0.23.0
+description: A Helm chart for Determined
+home: https://github.com/determined-ai/determined.git
+icon: https://github.com/determined-ai/determined/blob/master/determined-logo.png?raw=true
+name: determined
+version: 0.23.0
+dependencies:
+  - name: replicated-library
+    repository: https://replicatedhq.github.io/helm-charts
+    version: 0.13.5
+  - name: postgresql
+    repository: oci://registry-1.docker.io/bitnamicharts
+    version: 12.4.3
+    condition: postgresql.enabled
+  - name: replicated
+    repository: oci://registry.replicated.com/library
+    version: 0.0.1-alpha.17
+    condition: replicated.enabled

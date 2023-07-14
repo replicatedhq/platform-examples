@@ -1,0 +1,10 @@
+# See https://github.com/helm/chart-testing#configuration
+remote: origin
+target-branch: "replicated-library-chart"
+chart-repos:
+  - replicated=https://replicatedhq.github.io/helm-charts
+chart-dirs:
+  - "."
+charts:
+  - "."
+validate-maintainers: false

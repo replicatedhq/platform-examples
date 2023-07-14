@@ -1,0 +1,83 @@
+global:
+  labels: {}
+  annotations: {}
+  fullNameOverride: "-"
+
+apps:
+  vaultwarden:
+    enabled: true
+    type: deployment
+    replicas: 1
+    initContainers:
+      copy-test:
+        image:
+          repository: busybox
+          tag: latest
+        command: ['sh', '-c', 'echo "test" > /data/test.txt']
+        volumeMounts:
+        - mountPath: /data
+          name: vaultwarden
+    containers:
+      vaultwarden:
+        image:
+          repository: vaultwarden/server
+          tag: 1.27.0-alpine
+        volumeMounts:
+        - mountPath: /data
+          name: vaultwarden
+        ports:
+        - name: http
+          containerPort: 80
+        envFrom:
+        - configMapRef:
+            name: vaultwarden
+    volumes:
+    - name: vaultwarden
+      persistentVolumeClaim:
+        claimName: vaultwarden
+
+services:
+  vaultwarden:
+    enabled: true
+    appName: ["vaultwarden"]
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8080
+        protocol: HTTP
+        targetPort: 80
+
+ingresses:
+  vaultwarden:
+    enabled: true
+    serviceName: vaultwarden
+    hosts:
+      - host: vaultwarden.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              port: 8080
+    tls:
+    - hosts:
+        - vaultwarden.example.com
+      secretName: vaultwarden-tls-secret
+
+configmaps:
+  vaultwarden:
+    enabled: true
+    data:
+      SOME_VAR: "some-value"
+
+persistence:
+  vaultwarden:
+    enabled: true
+    type: persistentVolumeClaim
+    persistentVolumeClaim:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Mi

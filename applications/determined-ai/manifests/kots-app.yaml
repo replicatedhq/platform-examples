@@ -1,0 +1,16 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: determined
+spec:
+  title: App Name
+  icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
+  statusInformers:
+    - deployment/determined
+    - statefulset/postgresql
+    - services/determined
+  ports:
+    - serviceName: "determined"
+      servicePort: 8081
+      localPort: 8888
+      applicationUrl: "http://determined"

@@ -1,0 +1,15 @@
+apiVersion: troubleshoot.replicated.com/v1beta1
+kind: SupportBundle
+metadata:
+  name: determined
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources: {}
+    - logs:
+        selector:
+          - app.kubernetes.io/name=determined
+        namespace: '{{repl Namespace }}'
+        limits:
+          maxAge: 720h
+          maxLines: 10000
