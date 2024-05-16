@@ -1,0 +1,374 @@
+---
+# Source: vaultwarden/charts/postgresql/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: postgresql
+    helm.sh/chart: postgresql-12.4.3
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  postgres-password: "ZzU2bEtYVnFydg=="
+  # We don't auto-generate LDAP password when it's not provided as we do for other passwords
+---
+# Source: vaultwarden/templates/replicated-library.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: release-name-vaultwarden-metalytics
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: vaultwarden
+    app.kubernetes.io/version: 1.27.0
+    helm.sh/chart: vaultwarden-0.1.0
+stringData:
+  API_URL: http://metalytics-api:8080
+  LOG_LEVEL: debug
+type:
+---
+# Source: vaultwarden/templates/tls.yaml
+apiVersion: v1
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUREVENDQWZXZ0F3SUJBZ0lRTXpiOHAwMGJsemFubDFLaXU3WlFGVEFOQmdrcWhraUc5dzBCQVFzRkFEQWkKTVNBd0hnWURWUVFERXhkMllYVnNkSGRoY21SbGJpNWxlR0Z0Y0d4bExtTnZiVEFlRncweU16RXlNalV3TURJNQpNamhhRncweU5URXlNalF3TURJNU1qaGFNQ0l4SURBZUJnTlZCQU1URjNaaGRXeDBkMkZ5WkdWdUxtVjRZVzF3CmJHVXVZMjl0TUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUFvejZRSGhFSDA5OG0KVU01bHFBaEswOVEra3REY1lIVlJnU2JFMDdTd2tQbGoxWHN2YitybjNuQzlOT1g3UGdteTZEbEcxTDFkbWJOdgpRcjRTVWhVTEdtekE0WHVMUU5aQUlOekFVa2tlTXBvWUxaS2RSSUZpbnc2M1NRYjg4aFU1ek15SFlKQWgwY0VPCmxUZ003VjY0TW5LaHZycXRmNkdGMVNaWkNQVVc0R2F2NEhmcTQ2eHEyODdUOUJheEtaSE9lT1I2RHB5cG5YVUIKWGNtQStWSWFyYjdyTXJINFRSN2JWRE5nTmJZRHpLV3ZuWUlwc0hOUGQ2NnQzb3UveDRZb3hMZzRnZk5jdjY4MgpKUG9BOVZOOGdDZkh4Y2liSFZwUzVLNFRYcDVucmFPa3JteVM1RVhlN21ocklJOUtwdjIyMkhkbHRtMTZXbFRrCkpPMmJMaU4yeFFJREFRQUJvejh3UFRBT0JnTlZIUThCQWY4RUJBTUNCYUF3SFFZRFZSMGxCQll3RkFZSUt3WUIKQlFVSEF3RUdDQ3NHQVFVRkJ3TUNNQXdHQTFVZEV3RUIvd1FDTUFBd0RRWUpLb1pJaHZjTkFRRUxCUUFEZ2dFQgpBRXJhNEhrT0l3N0VFblhEd2pJRVl0SHlqYnowM2puK0dhdlFCSDREeXYwaE1rYkdBL29LR1BKVWZjcURzNlUvCndvc09seEFDaFpINUZJdUFWWEZaUjRoemlZdDJZUnpQa0JnOUU1c0FoYXBhTDR3aVllZXh4WldnZUkzRDNZQTUKRFBPM1BaamIyaVplUm5FN3NZcS9zT3dtZkpwdnJBWmxZdTNBL29wbjVVVHQrd2U1QVBINjc4UldPeGpRSUVWdgp3ejRyR0tTbXVFVC9tSHRLeHY4cE9mdWQrLytOR3NDQXNvVzZRUlUxd0hWVzhLRlNSN0VRZFhMZkY0Q0V2Uyt6Ckd0V1ZhZ2hQVk9Zc21tOSszS0ZUQzNON0lTRXVnMGY4U1lPK2lJbUpXdmtjaWZzREFrQUd5KzdlelVmcmJ6YnEKZXVBdE5sVlpaTE5YRVd3VVNNN0ZxdUE9Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb3dJQkFBS0NBUUVBb3o2UUhoRUgwOThtVU01bHFBaEswOVEra3REY1lIVlJnU2JFMDdTd2tQbGoxWHN2CmIrcm4zbkM5Tk9YN1BnbXk2RGxHMUwxZG1iTnZRcjRTVWhVTEdtekE0WHVMUU5aQUlOekFVa2tlTXBvWUxaS2QKUklGaW53NjNTUWI4OGhVNXpNeUhZSkFoMGNFT2xUZ003VjY0TW5LaHZycXRmNkdGMVNaWkNQVVc0R2F2NEhmcQo0NnhxMjg3VDlCYXhLWkhPZU9SNkRweXBuWFVCWGNtQStWSWFyYjdyTXJINFRSN2JWRE5nTmJZRHpLV3ZuWUlwCnNITlBkNjZ0M291L3g0WW94TGc0Z2ZOY3Y2ODJKUG9BOVZOOGdDZkh4Y2liSFZwUzVLNFRYcDVucmFPa3JteVMKNUVYZTdtaHJJSTlLcHYyMjJIZGx0bTE2V2xUa0pPMmJMaU4yeFFJREFRQUJBb0lCQUcwUUdtY01COGZFdWF1WgpDWS9HNG44OXVRU0xxQUNGd1F0aFpIVHdybHBkVkJiSHN6eTVtMm9ndGpoR1FxSURCdFZobHZJQkJpenZGYkZvCm5ZTGJia3ljUmcwZlpqek9KNUFOREN5dGp4Qk5wVU9sUlk4RVJtaHdBNEkxdWY3ZXNYd2pWWHJ0TUxzYm1XdVcKUkFTK21KK1R1SDVkNkJaeVNxREtld2VoLzBPeUppMXo0TGxOOFlCbXJPL25ZK2FKU1R0clNNeVd1ZTBScE5kMQpUZFFVL2RreXp6dUpvdVpKREdaY3FBeWZTK3pLTnlBTUtuYXljczdMQm1HWWxBS0hxZVQ3M3RhTDhSTUxoN1gyClRPdzlpSk9pR3NCbEZleFZBQXNjeWVaYmVGUDlYVjZuQXdNZFo1YXRkWTNKcmRkMzJROXoyb0JPZ1Y1QythdVkKcEs5SHJTMENnWUVBeUQyTm9SaEEvZzZrRzVyOWRyZVArSFM4RjRjejQ2THZud0NUci8yT2x2eGs2R2lSRzc2NQpOZk5XRlpiUExjK1Y1d3VvWDZMdFo4M0ZVdUNDSWp0QSs0c1pnaG1PbW80Q3VoMWE3K3IrQ0tJc3pjZkxIRjVDCjRzcU81TG1oaWZNQTRqdXRCbnJObW9Vd291RWwwOGFkeDVWT3dzKzcvUVQrZEpCdHRPQkRnUThDZ1lFQTBMT3cKYndJVHRwTGZyTklaMnVSdXp5Rm44WklKSEpUMXFtKzRYZVRNZWxlOER2TGpCNU84UmZmOExXNmVBV3hzaFBCVwpvRWpRdzRlRm5WeHNBY0U0WmlhdkNDZVZhVjdLSkFFSnNFZUJkTkcwUFlOcmZQanlFekRPNVFENDk5c0JWQ014CjhxN0FXUU8wMGNuRXBBa3hWcm1GVjdxQTU2em9oSEFkQ29aNEl1c0NnWUVBd0xQci91SjJlWWpoaWVlSWtaMXEKSWpORmFHY25HcVVOY2JsK1o5bmVSWk8wRUszQktEQk4wWXZTaG9oUjdjWmVmckdMWWk1THhxQVNqQVdmZHc0TApKWWppRFlCRzZwcE1LWXhpblkxSzJFZ3FVZ2M2Z3B4OFJnR2xycHl1eHpGaTRsV0gyRHFLYjNCS05CWDA3Mit2CkhBbW1lSGl1YzN0QTNqQzRRMStuMXlVQ2dZQkhkTzY0NDJZcWdkbFJ5OUlNYjJBOVRUdlFxMmF4UVpObm1yN3UKYnhOUDVGQkFjZ3Nub2Y2NW1qSGV3RndiTXF0cFRQenIvbUowUUNlUWZIK0Nqa3lvTlNDQzAwTEdCQzJEN0ZNTAo1eis4NXJ3bXY2T0M4NTIyMG1SVVptUFlRVVVRTU1pK1JmVVh4VHdaQkZOdXNyTVE5WTVoUGpzNmw2bzVCa1g3ClA1Vk1wd0tCZ0RpWkpIL2hacVhTM2crNUJHWUtsK0NVNGJYSGVRa1pvQ2cwTE9uUEp4R0pCb0RvTHNtNGp1UWwKTmt3MFFkTjBxaThtNWdqdzFzZHRYdTBoTmt5K0pGalNrd0ZGVDZMSVVneVUzS1BJSDIxbVppOGtaaE1XV2ZHbgpmcVdrNzNpaE1Vd1o3NEhJc0RML3kyUkpGcmFaV2FZbWtJaE9FSEdvRVE1N2E5MU84UytNCi0tLS0tRU5EIFJTQSBQUklWQVRFIEtFWS0tLS0tCg==
+kind: Secret
+metadata:
+  name: vaultwarden-tls-secret
+type: kubernetes.io/tls
+---
+# Source: vaultwarden/charts/postgresql/templates/primary/svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-postgresql-hl
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: postgresql
+    helm.sh/chart: postgresql-12.4.3
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: primary
+    # Use this annotation in addition to the actual publishNotReadyAddresses
+    # field below because the annotation will stop being respected soon but the
+    # field is broken in some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  # We want all pods in the StatefulSet to have their addresses published for
+  # the sake of the other Postgresql pods even before they're ready, since they
+  # have to be able to talk to each other in order to become ready.
+  publishNotReadyAddresses: true
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+  selector:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/component: primary
+---
+# Source: vaultwarden/charts/postgresql/templates/primary/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: postgresql
+    helm.sh/chart: postgresql-12.4.3
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: primary
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+      nodePort: null
+  selector:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/component: primary
+---
+# Source: vaultwarden/templates/replicated-library.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: release-name-vaultwarden-metalytics-api
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: vaultwarden
+    app.kubernetes.io/version: 1.27.0
+    helm.sh/chart: vaultwarden-0.1.0
+  annotations:
+spec:
+  type: NodePort
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+    nodePort: 8080
+    
+  selector:
+    app.kubernetes.io/name: metalytics-api
+    app.kubernetes.io/instance: release-name
+---
+# Source: vaultwarden/templates/replicated-library.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-vaultwarden-metalytics-api
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: vaultwarden
+    app.kubernetes.io/version: 1.27.0
+    helm.sh/chart: vaultwarden-0.1.0
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metalytics-api
+      app.kubernetes.io/instance: release-name
+  template:
+    metadata:
+      annotations:
+        
+        checksum/secret-release-name-vaultwarden-metalytics: 6a7cbfd842c00affa5cf9991dbea088b772589d2f8f29deeeb980e563a62158a
+      labels:
+        app.kubernetes.io/name: metalytics-api
+        app.kubernetes.io/instance: release-name
+    spec:
+      automountServiceAccountToken: 
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: 
+      containers:
+        - name: api
+          image: "metalytics-api:latest"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: metalytics
+          ports:
+            - containerPort: 8080
+              name: http
+          livenessProbe:
+            failureThreshold: 5
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            terminationGracePeriodSeconds: 30
+            timeoutSeconds: 5
+          readinessProbe:
+            failureThreshold: 5
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: 8080
+            timeoutSeconds: 1
+---
+# Source: vaultwarden/templates/replicated-library.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: release-name-vaultwarden-metalytics-worker
+  labels:
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: vaultwarden
+    app.kubernetes.io/version: 1.27.0
+    helm.sh/chart: vaultwarden-0.1.0
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metalytics-worker
+      app.kubernetes.io/instance: release-name
+  template:
+    metadata:
+      annotations:
+        
+        checksum/secret-release-name-vaultwarden-metalytics: 6a7cbfd842c00affa5cf9991dbea088b772589d2f8f29deeeb980e563a62158a
+      labels:
+        app.kubernetes.io/name: metalytics-worker
+        app.kubernetes.io/instance: release-name
+    spec:
+      automountServiceAccountToken: 
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: 
+      containers:
+        - name: worker
+          image: "metalytics-worker:latest"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: metalytics
+---
+# Source: vaultwarden/charts/postgresql/templates/primary/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: release-name-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/name: postgresql
+    helm.sh/chart: postgresql-12.4.3
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: primary
+spec:
+  replicas: 1
+  serviceName: release-name-postgresql-hl
+  updateStrategy:
+    rollingUpdate: {}
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/instance: release-name
+      app.kubernetes.io/component: primary
+  template:
+    metadata:
+      name: release-name-postgresql
+      labels:
+        app.kubernetes.io/name: postgresql
+        helm.sh/chart: postgresql-12.4.3
+        app.kubernetes.io/instance: release-name
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/component: primary
+    spec:
+      serviceAccountName: default
+      
+      affinity:
+        podAffinity:
+          
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: postgresql
+                    app.kubernetes.io/instance: release-name
+                    app.kubernetes.io/component: primary
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+          
+      securityContext:
+        fsGroup: 1001
+      hostNetwork: false
+      hostIPC: false
+      containers:
+        - name: postgresql
+          image: docker.io/bitnami/postgresql:15.2.0-debian-11-r30
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            runAsUser: 1001
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: POSTGRESQL_PORT_NUMBER
+              value: "5432"
+            - name: POSTGRESQL_VOLUME_DIR
+              value: "/bitnami/postgresql"
+            - name: PGDATA
+              value: "/bitnami/postgresql/data"
+            # Authentication
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: release-name-postgresql
+                  key: postgres-password
+            # Replication
+            # Initdb
+            # Standby
+            # LDAP
+            - name: POSTGRESQL_ENABLE_LDAP
+              value: "no"
+            # TLS
+            - name: POSTGRESQL_ENABLE_TLS
+              value: "no"
+            # Audit
+            - name: POSTGRESQL_LOG_HOSTNAME
+              value: "false"
+            - name: POSTGRESQL_LOG_CONNECTIONS
+              value: "false"
+            - name: POSTGRESQL_LOG_DISCONNECTIONS
+              value: "false"
+            - name: POSTGRESQL_PGAUDIT_LOG_CATALOG
+              value: "off"
+            # Others
+            - name: POSTGRESQL_CLIENT_MIN_MESSAGES
+              value: "error"
+            - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
+              value: "pgaudit"
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+          livenessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "postgres" -h 127.0.0.1 -p 5432
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - -e
+                
+                - |
+                  exec pg_isready -U "postgres" -h 127.0.0.1 -p 5432
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
+          resources:
+            limits: {}
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+            - name: data
+              mountPath: /bitnami/postgresql
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: "8Gi"

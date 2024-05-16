@@ -40,6 +40,16 @@ services:
         port: 8081
         protocol: HTTP
         targetPort: 8081
+  fakeservice:
+    enabled: true
+    appName: ["determined"]
+    type: ClusterIP
+    ports:
+      http:
+        enabled: true
+        port: 8085
+        protocol: HTTP
+        targetPort: 8085
 
 ingresses:
   determined:

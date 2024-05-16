@@ -1,0 +1,17 @@
+{{- if .Values.mlflow.ingress.tls.enabled -}}
+  {{- $cert := dict -}}
+  {{- if .Values.mlflow.ingress.tls.genSelfSignedCert -}}
+    {{ $cert = genSelfSignedCert "mlflow.example.com" nil nil 730 }}
+  {{- else -}}
+    {{- $_ := set $cert "Cert" .Values.mlflow.ingress.tls.cert -}}
+    {{- $_ := set $cert "Key" .Values.mlflow.ingress.tls.key -}}
+  {{- end -}}
+apiVersion: v1
+data:
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}
+kind: Secret
+metadata:
+  name: {{ include "mlflow.fullname" . }}-tls
+type: kubernetes.io/tls
+{{- end -}}

@@ -1,0 +1,364 @@
+# -- String to override the default generated name
+nameOverride: ""
+
+# -- String to override the default generated fullname
+fullnameOverride: "mlflow"
+
+mlflow:
+  # -- Labels to add to the mlflow deployment
+  labels: {}
+  # -- Annotations to add to the mlflow deployment
+  annotations: {}
+  # -- Number of mlflow server replicas to deploy
+  replicas: 1
+  # -- Deployment revision history limit
+  revisionHistoryLimit:
+  # -- Strategy to use to replace existing pods with new ones
+  strategy: RollingUpdate
+  # -- Rolling update configuration
+  rollingUpdate:
+    # -- The maximum number of pods that can be unavailable during the update process
+    maxUnavailable: 1
+    # -- The maximum number of pods that can be scheduled above the desired number of pods
+    maxSurge: 1
+  # -- Image pull secrets
+  imagePullSecets: []
+  # -- Service account configuration for the mlflow deployment
+  serviceAccount:
+    # -- Specifies whether a service account should be created
+    create: true
+    # -- Name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+    # -- Annotations to add to the service account if create is true
+    annotations: {}
+  # -- Specifies whether to automount service account token
+  automountServiceAccountToken: true
+  # -- Image configuration for the mlflow deployment
+  image:
+    # -- Image registry
+    registry: docker.io
+    # -- Image repository
+    repository: bitnami/mlflow
+    # -- Image tag
+    tag: 2.12.2-debian-12-r1
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+  # -- Pod Labels for the mlflow deployment
+  podLabels: {}
+  # -- Configure the Security Context for the Pod
+  podSecurityContext: {}
+  # -- Set the resource requests / limits for the container.
+  resources: {}
+  # -- Configure the Security Context for the Container
+  containerSecurityContext: {}
+  # -- Specify probes for the container
+  # [[ref]](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+  probes:
+    # -- Specify the readiness probes for the container
+    readinessProbe: {}
+    # -- Specify the liveness probes for the container
+    livenessProbe: {}
+    # -- Specify the startup probes for the container
+    startupProbe: {}
+  # -- Extra environment variables in mlflow container
+  env:
+    # Extra environment variables sourced via ConfigMap
+    configMap: {}
+    # ENV_NAME_1: value
+    # ENV_NAME_2: value
+
+    # Extra environment variables sourced via Secret
+    secret: {}
+    # ENV_NAME_1: value
+    # ENV_NAME_2: value
+
+    # Extra environment variables in mlflow container
+    container: []
+    # - name: extra-env-name-1
+    #   value: extra-env-value-1
+    # - name: extra-env-name-2
+    #   valueFrom:
+    #     configMapKeyRef:
+    #       name: extra-env-configmap
+    #       key: extra-env-key-2
+    # - name: extra-env-name-3
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: extra-env-secret
+    #       key: extra-env-key-3
+ 
+  # -- Extra initialization containers belonging to the mlflow pod.
+  extraInitContainers: []
+ 
+  # -- Extra containers belonging to the mlflow pod.
+  extraContainers: []
+  
+  # -- Extra environment variable sources in mlflow container
+  extraEnvFrom: []
+  # - configMapRef:
+  #     name: extra-env-configmap
+  # - secretRef:
+  #     name: extra-env-secret
+  
+  # -- Extra volumes that can be mounted by containers belonging to the mlflow pod
+  extraVolumes: []
+  # - name: mlflow-volume
+  #   persistentVolumeClaim:
+  #     name: mlflow-pvc
+  # - name: mlflow-configmap-volume
+  #   configMap:
+  #     name: mlflow-configmap
+  
+  # -- Extra volume mounts to mount into the mlflow container's file system
+  extraVolumeMounts: []
+  # - name: mlflow-volume
+  #   mountPath: /opt/mlflow
+  # - name: mlflow-configmap-volume
+  #   mountPath: /etc/mlflow
+
+  # -- Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames.
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/)
+  hostAliases: []
+  # - ip: "192.168.1.100"
+  #   hostnames:
+  #   - "example.com"
+  #   - "www.example.com"
+
+  # -- Node selection constraint
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+  nodeSelector: {}
+
+  # -- Defines affinity constraint rules.
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+  affinity: {}
+
+  # -- Defines topologySpreadConstraint rules.
+  # [[ref]](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/)
+  topologySpreadConstraints: []
+  # - maxSkew: <integer>
+  #   topologyKey: <string>
+  #   whenUnsatisfiable: <string>
+  #   labelSelector: <object>
+
+  # -- Specify taint tolerations
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+  tolerations: []
+
+  # -- Custom priority class for different treatment by the scheduler
+  priorityClassName: ""
+  # -- Allow specifying a runtimeClassName other than the default one (ie: nvidia)
+  runtimeClassName: ""
+  # -- Allows specifying a custom scheduler name
+  schedulerName: ""
+  # -- When using hostNetwork make sure you set dnsPolicy to `ClusterFirstWithHostNet`
+  hostNetwork: false
+  # -- Allows specifying explicit hostname setting
+  hostname: ""
+  # -- Defaults to "ClusterFirst" if hostNetwork is false and "ClusterFirstWithHostNet" if hostNetwork is true
+  dnsPolicy: ""
+  # -- Optional DNS settings, configuring the ndots option may resolve nslookup issues on some Kubernetes setups.
+  dnsConfig: {}
+
+  # -- Enable/disable the generation of environment variables for services.
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service)
+  enableServiceLinks: true
+  
+  # -- Configure the lifecycle for the container
+  lifecycle: {}
+  termination:
+    # -- Configure the path at which the file to which the container's termination message will be written.
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+    messagePath:
+    # -- Indicate how the container's termination message should be populated.
+    # Valid options are `File` and `FallbackToLogsOnError`.
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+    messagePolicy:
+    # -- Duration in seconds the pod needs to terminate gracefully
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle)]
+    gracePeriodSeconds:
+
+  # -- Mlflow Service configuration
+  service:
+    # -- Specifies which type of service should be created
+    type: ClusterIP
+    # -- Service port number
+    port: 5000
+    # -- Service Node port
+    # Used when the service type is NodePort or LoadBalancer
+    nodePort: ""
+    # -- Service port name
+    name: http
+    # -- Annotations to add to the service
+    annotations: {}
+  
+  # -- Mlflow Ingress configuration
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/)
+  ingress:
+    # -- Specifies whether a ingress should be created
+    enabled: false
+    # -- Annotations to add to the ingress
+    annotations: {}
+    # -- Ingress class name
+    className: ""
+    # -- Ingress path type
+    pathType: ImplementationSpecific
+    # -- Ingress hostname
+    hostname: chart-example.local
+    # -- Ingress path
+    path: /
+    # -- Ingress TLS configuration
+    tls:
+      # -- Specifies whether to enable TLS
+      enabled: false
+      # -- Specifies whether to generate self-signed certificate
+      genSelfSignedCert: false
+      certs:
+        - name: mlflow-tls
+          cert: |
+            -----BEGIN CERTIFICATE-----
+            -----END CERTIFICATE-----
+          key: |
+            -----BEGIN PRIVATE KEY-----
+            -----END PRIVATE KEY-----
+    # -- Extra hosts to configure for the ingress object
+    extraHosts: []
+    # -- Extra paths to configure for the ingress object
+    extraPaths: []
+    # -- Extra tls hosts to configure for the ingress object
+    extraTls: []
+    # -- Extra rules to configure for the ingress object
+    extraRules: []
+
+  trackingServer:
+    # -- Specifies which mode mlflow tracking server run with, available options are `serve-artifacts`, `no-serve-artifacts` and `artifacts-only`
+    mode: serve-artifacts
+    # -- Specifies a default artifact location for logging, data will be logged to `mlflow-artifacts/:` if artifact serving is enabled, otherwise `./mlruns`
+    defaultArtifactRoot: ""
+    # -- Specifies the base artifact location from which to resolve artifact upload/download/list requests (e.g. `s3://my-bucket`)
+    artifactsDestination: "s3://mlflow"
+    # -- Network address to listen on
+    host: 0.0.0.0
+    # -- Port to expose the tracking server
+    port: 5000
+    # -- Number of gunicorn worker processes to handle requests
+    workers: 1
+    # -- Extra arguments passed to the `mlflow server` command
+    extraArgs:
+    # A prefix which will be prepended to the path of all static paths
+    # - --static-prefix TEXT
+    # Additional command line options forwarded to gunicorn processes
+    # - --gunicorn-opts "--timeout 900 --graceful-timeout 120"
+    # Additional command line options for waitress-serve
+    # - --waitress-opts TEXT
+    # Path to the directory where metrics will be stored
+    # - --expose-prometheus /metrics
+    # If enabled, run the server with debug logging and auto-reload
+    - --dev
+  
+    # Basic authentication configuration,
+    # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
+    basicAuth:
+      # -- Specifies whether to enable basic authentication
+      enabled: true
+      # -- Name of an existing secret which contains key `basic_auth.ini`
+      existingSecret: ""
+      # If enables BasicAuth and no existing secret is specified, creates a secret to store authentication configurations
+      createSecret:
+        # -- Default permission on all resources
+        defaultPermission: READ
+        # -- Default admin username if the admin is not already created
+        adminUsername: admin
+        # -- Default admin password if the admin is not already created
+        adminPassword: password
+        # -- Function to authenticate requests
+        authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
+
+  # For more information about how to configure backend store, please visit https://mlflow.org/docs/latest/tracking/backend-stores.html
+  backendStore:
+    # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
+    databaseUpgrade: false
+    # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
+    existingSecret: ""
+
+  # For more information about how to configure artifact store, please visit https://mlflow.org/docs/latest/tracking.html#artifact-stores
+  artifactStore:
+    s3:
+      # -- Specifies whether to enable AWS S3 as artifact store backend
+      # NOTE: Need to also ensure .mlflow.trackingServer.artifactsDestination is set to the correct S3 bucket
+      enabled: true
+      # -- Name of an existing secret containing the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to access artifact storage on AWS S3 or MINIO
+      existingSecret: ""
+      # -- AWS access key ID
+      # Used if S3 is enabled as an artifact storage backend and no existing secret is specified
+      accessKeyId: "minio"
+      # -- AWS secret access key
+      # Used if S3 is enabled as an artifact storage backend and no existing secret is specified
+      secretAccessKey: "minio1234"
+      # -- External S3 bucket details
+      # Used if S3 is enabled as artifact storage backend, external.enabled is true, and no existing secret is specified
+      external:
+        # -- Specifies whether to use an external S3 bucket
+        enabled: false
+        protocol: https
+        host: ""
+        port: 443
+      # -- Name of an existing secret containing the key `ca-bundle.crt` used to store the CA certificate for TLS connections
+      existingCaSecret: ""
+      # -- If S3 is enabled as artifact store backend and no existing CA secret is specified, create the secret used to secure connection to S3 / Minio
+      createCaSecret:
+        # -- Content of CA bundle
+        caBundle: ""
+
+replicated:
+  # -- Specifies whetherto enable the Replicated SDK
+  enabled: false
+
+minio:
+  enabled: true
+  secrets:
+    name: mlflow-artifact-store
+    accessKey: minio
+    secretKey: minio1234
+  tenant:
+    name: minio
+    buckets:
+      - name: mlflow
+
+# -- Embedded PostgreSQL configuration
+# Deploys a cluster using the CloudnativePG Operator
+# [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
+postgres:
+  # -- Specifies whether to enable the Embedded PostgreSQL cluster
+  enabled: true
+  # -- String to override the default generated fullname
+  fullnameOverride: postgres
+
+  # -- Postgres authentication configuration
+  auth:
+    # -- Mlflow Tracking Server Postgres username
+    username: mlflow
+    # -- Mlflow Tracking Server Postgres password
+    password: mlflow
+
+  cluster:
+    # -- Postgres InitDB configuration
+    initdb:
+      # -- Postgres database name to be initilized
+      database: mlflow
+      # -- Postgres username name to be initilized
+      owner: mlflow
+      # -- Basic auth secret to initialize app database user
+      secret:
+        name: mlflow-postgres-init
+
+  external:
+    # -- Specifies whether to use an external Postgres
+    # NOTE: If you enabled External PostgreSQL, you should disable the Embedded PostgreSQL (cluster.enabled: false)
+    enabled: false
+    # -- External Postgres host
+    host: ""
+    # -- External Postgres port
+    port: 5432
+    # -- External Postgres database
+    database: mlflow

@@ -1,6 +1,9 @@
 dependencies:
 - name: replicated-library
-  repository: https://replicatedhq.github.io/helm-charts
-  version: 0.13.3
-digest: sha256:349d7b023675a45be4cdc1c1aa6207febf2bd56f143c64b7bd8f5ef62c7b3bf4
-generated: "2023-05-31T09:48:12.094621-04:00"
+  repository: file://../../../helm-charts/charts/replicated-library
+  version: 0.13.10
+- name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 12.4.3
+digest: sha256:2f3525b7990e5a60d1bd1ce50b09ca57d98991062b8edb06ed6baa91b08b220f
+generated: "2023-12-24T19:25:27.497738-05:00"

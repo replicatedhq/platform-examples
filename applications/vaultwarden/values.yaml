@@ -1,83 +1,50 @@
-global:
-  labels: {}
-  annotations: {}
-  fullNameOverride: "-"
-
 apps:
-  vaultwarden:
+  metalytics-worker:
     enabled: true
     type: deployment
     replicas: 1
-    initContainers:
-      copy-test:
-        image:
-          repository: busybox
-          tag: latest
-        command: ['sh', '-c', 'echo "test" > /data/test.txt']
-        volumeMounts:
-        - mountPath: /data
-          name: vaultwarden
     containers:
-      vaultwarden:
+      worker:
         image:
-          repository: vaultwarden/server
-          tag: 1.27.0-alpine
-        volumeMounts:
-        - mountPath: /data
-          name: vaultwarden
+          repository: metalytics-worker
+          tag: latest
+        envFrom:
+          - secretRef:
+              name: metalytics
+
+  metalytics-api:
+    enabled: true
+    type: deployment
+    replicas: 1
+    containers:
+      api:
+        image:
+          repository: metalytics-api
+          tag: latest
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 8080
         envFrom:
-        - configMapRef:
-            name: vaultwarden
-    volumes:
-    - name: vaultwarden
-      persistentVolumeClaim:
-        claimName: vaultwarden
+        - secretRef:
+            name: metalytics
 
 services:
-  vaultwarden:
+  metalytics-api:
     enabled: true
-    appName: ["vaultwarden"]
-    type: ClusterIP
+    appName: ["metalytics-api"]
+    type: NodePort
     ports:
       http:
         enabled: true
         port: 8080
         protocol: HTTP
-        targetPort: 80
+        targetPort: 8080
+        nodePort: 8080
 
-ingresses:
-  vaultwarden:
-    enabled: true
-    serviceName: vaultwarden
-    hosts:
-      - host: vaultwarden.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-            service:
-              port: 8080
-    tls:
-    - hosts:
-        - vaultwarden.example.com
-      secretName: vaultwarden-tls-secret
-
-configmaps:
-  vaultwarden:
+secrets:
+  metalytics:
     enabled: true
     data:
-      SOME_VAR: "some-value"
-
-persistence:
-  vaultwarden:
-    enabled: true
-    type: persistentVolumeClaim
-    persistentVolumeClaim:
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 100Mi
+      LOG_LEVEL: "debug"
+      API_URL: "http://metalytics-api:8080"
+      # ... etc

@@ -1,0 +1,12 @@
+dependencies:
+- name: replicated
+  repository: oci://chart.slackernews.io/library
+  version: 1.0.0-beta.12
+- name: cluster
+  repository: https://cloudnative-pg.github.io/charts
+  version: 0.0.8
+- name: tenant
+  repository: https://operator.min.io/
+  version: 5.0.15
+digest: sha256:b605206f301f570d9854e5379249f2ce75e22d382739e273085d34e0edf134ea
+generated: "2024-05-15T23:54:09.123748-04:00"

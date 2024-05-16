@@ -6,7 +6,7 @@ spec:
   # chart identifies a matching chart from a .tgz
   chart:
     name: determined
-    chartVersion: 0.23.0
+    chartVersion: 0.23.3
 
   # values are used in the customer environment, as a pre-render step
   # these values will be supplied to helm template

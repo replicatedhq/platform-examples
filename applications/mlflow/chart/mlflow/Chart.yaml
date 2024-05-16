@@ -1,0 +1,24 @@
+apiVersion: v2
+name: mlflow
+description: A Helm chart for MLflow - Open source platform for the machine learning lifecycle.
+type: application
+version: "0.1.2"
+appVersion: "2.10.0"
+home: https://github.com/mlflow/mlflow/tree/master/charts/mlflow
+sources:
+  - https://github.com/mlflow/mlflow/tree/master/charts/mlflow
+dependencies:
+- name: replicated
+  version: "1.0.0-beta.12"
+  repository: "oci://chart.slackernews.io/library"
+  condition: replicated.enabled
+- name: cluster
+  version: "0.0.8"
+  repository: https://cloudnative-pg.github.io/charts
+  condition: postgres.enabled
+  alias: postgres
+- name: tenant
+  version: "5.0.15"
+  repository: https://operator.min.io/
+  condition: minio.enabled
+  alias: minio

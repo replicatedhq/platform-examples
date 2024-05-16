@@ -5,8 +5,12 @@ version: 0.1.0
 description: Vaultwarden is a Bitwarden compatable server in Rust
 dependencies:
 - name: replicated-library
-  repository: https://replicatedhq.github.io/helm-charts
-  version: 0.13.3
+  repository: file://../../../helm-charts/charts/replicated-library
+  version: "*"
+- name: postgresql
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 12.4.3
+  condition: postgresql.enabled
 home: https://github.com/replicatedhq/replicated-starter-helm/charts/tree/main/
 icon: https://sesoodan.sirv.com/bitwarden_rs.png
 kubeVersion: '>=1.16.0-0'
