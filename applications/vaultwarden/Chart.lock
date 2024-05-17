@@ -1,9 +1,0 @@
-dependencies:
-- name: replicated-library
-  repository: file://../../../helm-charts/charts/replicated-library
-  version: 0.13.10
-- name: postgresql
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 12.4.3
-digest: sha256:2f3525b7990e5a60d1bd1ce50b09ca57d98991062b8edb06ed6baa91b08b220f
-generated: "2023-12-24T19:25:27.497738-05:00"
