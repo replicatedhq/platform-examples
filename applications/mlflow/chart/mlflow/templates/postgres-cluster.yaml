@@ -1,0 +1,83 @@
+{{- if .Values.postgres.embedded.enabled -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  {{- with .Values.postgres.embedded.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+  {{- include "mlflow.labels" . | nindent 4 }}
+  {{- with .Values.postgres.embedded.additionalLabels }}
+    {{ toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  instances: {{ .Values.postgres.embedded.instances }}
+  imageName: {{ printf "%s:%s" .Values.postgres.embedded.image.repository .Values.postgres.embedded.image.tag }}
+  imagePullPolicy: {{ .Values.postgres.embedded.imagePullPolicy }}
+  {{- with .Values.postgres.embedded.imagePullSecrets}}
+  imagePullSecrets:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+  postgresUID: {{ .Values.postgres.embedded.postgresUID }}
+  postgresGID: {{ .Values.postgres.embedded.postgresGID }}
+  storage:
+    size: {{ .Values.postgres.embedded.storage.size }}
+    storageClass: {{ .Values.postgres.embedded.storage.storageClass }}
+  {{- with .Values.postgres.embedded.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{ end }}
+  {{- with .Values.postgres.embedded.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  priorityClassName: {{ .Values.postgres.embedded.priorityClassName }}
+  primaryUpdateMethod: {{ .Values.postgres.embedded.primaryUpdateMethod }}
+  primaryUpdateStrategy: {{ .Values.postgres.embedded.primaryUpdateStrategy }}
+  logLevel: {{ .Values.postgres.embedded.logLevel }}
+  {{- with .Values.postgres.embedded.certificates }}
+  certificates:
+    {{- toYaml . | nindent 4 }}
+  {{ end }}
+  enableSuperuserAccess: {{ .Values.postgres.embedded.enableSuperuserAccess }}
+  {{- with .Values.postgres.embedded.superuserSecret }}
+  superuserSecret:
+    name: {{ . }}
+  {{ end }}
+  postgresql:
+    shared_preload_libraries:
+      {{- if eq .Values.type "timescaledb" }}
+      - timescaledb
+      {{- end }}
+    {{- with .Values.postgres.embedded.postgresql }}
+    parameters:
+      {{- toYaml . | nindent 6 }}
+    {{ end }}
+  managed:
+    {{- with .Values.postgres.embedded.roles }}
+    roles:
+      {{- toYaml . | nindent 6 }}
+    {{ end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgres.embedded.initdb.database }}
+      owner: {{ .Values.postgres.embedded.initdb.owner }}
+      secret:
+        name: {{ printf "%s-postgres-auth" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
+      postInitApplicationSQL:
+        {{- if eq .Values.postgres.embedded.type "postgis" }}
+        - CREATE EXTENSION IF NOT EXISTS postgis;
+        - CREATE EXTENSION IF NOT EXISTS postgis_topology;
+        - CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;
+        - CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;
+        {{- else if eq .Values.postgres.embedded.type "timescaledb" }}
+        - CREATE EXTENSION IF NOT EXISTS timescaledb;
+        {{- end }}
+        {{- with .Values.postgres.embedded.initdb }}
+            {{- range .postInitApplicationSQL }}
+              {{- printf "- %s" . | nindent 6 }}
+            {{- end }}
+        {{- end }}
+{{- end -}}

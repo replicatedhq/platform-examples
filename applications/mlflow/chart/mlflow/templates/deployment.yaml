@@ -37,9 +37,13 @@ spec:
       {{- include "mlflow.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.mlflow.annotations }}
-      annotations: {{- toYaml . | nindent 8 }}
-      {{- end }}
+      annotations:
+        {{- if .Values.mlflow.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        checksum/mlflow-auth-secret: {{ include (print $.Template.BasePath "/mlflow-auth-secret.yaml") . | sha256sum }}
       labels:
         {{- include "mlflow.selectorLabels" . | nindent 8 }}
         {{- with .Values.mlflow.podLabels }}
@@ -97,7 +101,7 @@ spec:
         command: ["sh", "-c", "until PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 -d $POSTGRES_DB -c 'SELECT 1'; do sleep 1; done;"]
         envFrom:
         - secretRef:
-            name: mlflow-waitfor-postgres
+            name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
       {{- end }}
       {{- end }}
       {{- if .Values.mlflow.backendStore.databaseUpgrade }}

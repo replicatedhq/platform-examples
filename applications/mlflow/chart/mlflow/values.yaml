@@ -317,7 +317,7 @@ replicated:
 minio:
   enabled: true
   secrets:
-    name: mlflow-artifact-store
+    name: myminio-env-configuration
     accessKey: minio
     secretKey: minio1234
   tenant:
@@ -325,15 +325,10 @@ minio:
     buckets:
       - name: mlflow
 
-# -- Embedded PostgreSQL configuration
+# -- Embedded Postrgres configuration
 # Deploys a cluster using the CloudnativePG Operator
 # [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
 postgres:
-  # -- Specifies whether to enable the Embedded PostgreSQL cluster
-  enabled: true
-  # -- String to override the default generated fullname
-  fullnameOverride: postgres
-
   # -- Postgres authentication configuration
   auth:
     # -- Mlflow Tracking Server Postgres username
@@ -341,19 +336,73 @@ postgres:
     # -- Mlflow Tracking Server Postgres password
     password: mlflow
 
-  cluster:
+  embedded:
+    # -- Specifies whether to enable the Embedded Postrgres cluster
+    enabled: true
+    type: postgresql
+    # -- Postgres cluster annotations
+    annotations: {}
+    # -- Addtional labels for Postgres cluster
+    additionalLabels: {}
+    # -- Number of Postgres instances to deploy
+    instances: 3
+    image:
+      # -- Image registry
+      repository: ghcr.io/cloudnative-pg/postgresql
+      # -- Image tag
+      tag: 15.2
+    # -- Image pull policy
+    imagePullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecrets: []
     # -- Postgres InitDB configuration
     initdb:
       # -- Postgres database name to be initilized
       database: mlflow
       # -- Postgres username name to be initilized
       owner: mlflow
-      # -- Basic auth secret to initialize app database user
-      secret:
-        name: mlflow-postgres-init
+      # -- Postgres init application SQL
+      postInitApplicationSQL: []
+    # -- Postgres UID
+    postgresUID: 999
+    # -- Postgres GID
+    postgresGID: 999
+    # -- Postgres storage configuration
+    storage:
+      size: 10Gi
+      storageClass: standard
+    # -- Postgres resources
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # -- Postgres affinity
+    affinity: {}
+    # -- Postgres priority class name
+    priorityClassName: ""
+    # -- Postgres primary update method
+    primaryUpdateMethod: restart
+    # -- Postgres primary update strategy
+    primaryUpdateStrategy: surge
+    # -- Postgres log level
+    logLevel: INFO
+    # -- Postgres certificates
+    certificates: {}
+    # -- Enable superuser access
+    enableSuperuserAccess: true
+    # -- Superuser secret
+    superuserSecret: my-superuser-secret
+    # -- Postgres configuration
+    postgresql:
+      shared_preload_libraries: []
+      parameters: {}
+    roles: {}
 
   external:
-    # -- Specifies whether to use an external Postgres
+    # -- Specifies whether to use an external PostgresSQL cluster
     # NOTE: If you enabled External PostgreSQL, you should disable the Embedded PostgreSQL (cluster.enabled: false)
     enabled: false
     # -- External Postgres host
