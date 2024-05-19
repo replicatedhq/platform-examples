@@ -277,6 +277,7 @@ mlflow:
     # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
     databaseUpgrade: false
     # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
+    # If an existing secret is not provided, a new secret will be created to store the backend store URI using the details from .Values.postgres when Embedded PostgreSQL is enabled
     existingSecret: ""
 
   # For more information about how to configure artifact store, please visit https://mlflow.org/docs/latest/tracking.html#artifact-stores
@@ -293,20 +294,28 @@ mlflow:
       # -- AWS secret access key
       # Used if S3 is enabled as an artifact storage backend and no existing secret is specified
       secretAccessKey: "minio1234"
-      # -- External S3 bucket details
-      # Used if S3 is enabled as artifact storage backend, external.enabled is true, and no existing secret is specified
-      external:
-        # -- Specifies whether to use an external S3 bucket
-        enabled: false
-        protocol: https
-        host: ""
-        port: 443
+      # -- Specify whether to ignore TLS
+      ignoreTls: true
       # -- Name of an existing secret containing the key `ca-bundle.crt` used to store the CA certificate for TLS connections
       existingCaSecret: ""
       # -- If S3 is enabled as artifact store backend and no existing CA secret is specified, create the secret used to secure connection to S3 / Minio
       createCaSecret:
         # -- Content of CA bundle
         caBundle: ""
+      # -- External S3 compatible bucket details
+      # Used if S3 is enabled as artifact storage backend, external.enabled is true, and no existing secret is specified
+      external:
+        # -- Specifies whether to use an external S3 bucket
+        enabled: false
+        # -- S3 endpoint protocol
+        # https or http
+        protocol: https
+        # -- S3 endpoint host
+        host: ""
+        # -- S3 endpoint port
+        port: 443
+        # -- Specify whether to ignore TLS
+        ignoreTls: false
 
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
@@ -333,8 +342,7 @@ minio:
     imagePullSecret: {}
     # -- 
     scheduler: {}
-    ###
-    # The Kubernetes secret name that contains MinIO environment variable configurations.
+    # -- The Kubernetes secret name that contains MinIO environment variable configurations.
     # The secret is expected to have a key named config.env containing environment variables exports.
     configuration:
       name: myminio-env-configuration
@@ -352,10 +360,8 @@ minio:
         size: 10Gi
         # -- Specify `storageAnnotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to PVCs.
         storageAnnotations: {}
-        ###
         # -- Specify `annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to Tenant pods.
         annotations: {}
-        ###
         # -- Specify `labels <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ to associate to Tenant pods.
         labels: {}
         # -- An array of `Toleration labels <https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>`__ to associate to Tenant pods.
@@ -405,7 +411,6 @@ minio:
       # -- Specify an array of Kubernetes secrets, where each entry corresponds to a secret contains the TLS private key and public certificate pair.
       # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
       externalCertSecret: [ ]
-      ###
       # Enable automatic Kubernetes based `certificate generation and signing <https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster>`__
       requestAutoCert: true
       # -- See `Operator CRD: CertificateConfig <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#certificateconfig>`__
@@ -416,7 +421,6 @@ minio:
       bucketDNS: false
       domains: {}
       enableSFTP: false
-    ###
     # -- Array of objects describing one or more buckets to create during tenant provisioning.
     buckets:
     - name: mlflow
@@ -436,7 +440,6 @@ minio:
     startup: {}
     # -- The `Lifecycle hooks <https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/>`__ for container.
     lifecycle: { }
-    ###
     # -- Directs the Operator to deploy the MinIO S3 API and Console services as LoadBalancer objects.
     # If the Kubernetes cluster has a configured LoadBalancer, it can attempt to route traffic to those services automatically.
     # Specify ``minio: true`` to expose the MinIO S3 API.
@@ -589,7 +592,7 @@ postgres:
       # -- Image registry
       repository: ghcr.io/cloudnative-pg/postgresql
       # -- Image tag
-      tag: 15.2
+      tag: "15.2"
     # -- Image pull policy
     imagePullPolicy: IfNotPresent
     # -- Image pull secrets
@@ -603,43 +606,54 @@ postgres:
       # -- Postgres init application SQL
       postInitApplicationSQL: []
     # -- Postgres UID
-    postgresUID: 999
+    postgresUID: 26
     # -- Postgres GID
-    postgresGID: 999
+    postgresGID: 26
     # -- Postgres storage configuration
     storage:
       size: 10Gi
-      storageClass: standard
+      storageClass: ""
     # -- Postgres resources
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    # -- Postgres affinity
-    affinity: {}
+    resources: {}
     # -- Postgres priority class name
     priorityClassName: ""
     # -- Postgres primary update method
-    primaryUpdateMethod: restart
+    primaryUpdateMethod: switchover
     # -- Postgres primary update strategy
-    primaryUpdateStrategy: surge
+    primaryUpdateStrategy: unsupervised
     # -- Postgres log level
-    logLevel: INFO
-    # -- Postgres certificates
+    logLevel: "info"
+    # -- Affinity/Anti-affinity rules for Pods.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-AffinityConfiguration
+    affinity:
+      topologyKey: topology.kubernetes.io/zone
+    # -- The configuration for the CA and related certificates.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration
     certificates: {}
-    # -- Enable superuser access
+    # -- When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password.
+    # If the secret is not present, the operator will automatically create one.
+    # When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created,
+    # and then blank the password of the postgres user by setting it to NULL.
     enableSuperuserAccess: true
-    # -- Superuser secret
-    superuserSecret: my-superuser-secret
-    # -- Postgres configuration
-    postgresql:
-      shared_preload_libraries: []
-      parameters: {}
-    roles: {}
+    superuserSecret: ""
+  
+    # -- This feature enables declarative management of existing roles, as well as the creation of new roles if they are not
+    # already present in the database.
+    # See: https://cloudnative-pg.io/documentation/current/declarative_role_management/
+    roles: []
+      # - name: dante
+      #   ensure: present
+      #   comment: Dante Alighieri
+      #   login: true
+      #   superuser: false
+      #   inRoles:
+      #     - pg_monitor
+      #     - pg_signal_backend
 
+    # -- Configuration of the PostgreSQL server.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-PostgresConfiguration
+    postgresql: {}
+      # max_connections: 300
   external:
     # -- Specifies whether to use an external PostgresSQL cluster
     # NOTE: If you enabled External PostgreSQL, you should disable the Embedded PostgreSQL (cluster.enabled: false)

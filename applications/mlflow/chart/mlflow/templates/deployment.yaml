@@ -180,7 +180,7 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
         {{- /* Use S3 compatible aritifact store */}}
-        {{- if .Values.mlflow.artifactStore.s3.enabled }}
+        {{- if and .Values.mlflow.artifactStore.s3.enabled .Values.mlflow.artifactStore.s3.existingSecret }}
         {{- with .Values.mlflow.artifactStore.s3.existingSecret }}
         - secretRef:
             name: {{ . }} 

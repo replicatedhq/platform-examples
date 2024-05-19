@@ -9,6 +9,6 @@ sources:
   - https://github.com/mlflow/mlflow/tree/master/charts/mlflow
 dependencies:
 - name: replicated
-  version: "1.0.0-beta.12"
-  repository: "oci://chart.slackernews.io/library"
+  version: "1.0.0-beta.20"
+  repository: "oci://registry.replicated.com/library"
   condition: replicated.enabled

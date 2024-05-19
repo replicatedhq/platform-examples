@@ -2,7 +2,7 @@
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: {{ include "mlflow.fullname" . }}
+  name: {{ include "mlflow.fullname" . }}-postgres
   {{- with .Values.postgres.embedded.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -48,7 +48,7 @@ spec:
   {{ end }}
   postgresql:
     shared_preload_libraries:
-      {{- if eq .Values.type "timescaledb" }}
+      {{- if eq .Values.postgres.embedded.type "timescaledb" }}
       - timescaledb
       {{- end }}
     {{- with .Values.postgres.embedded.postgresql }}
