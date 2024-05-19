@@ -6,9 +6,12 @@ spec:
   chart:
     name: mlflow
     chartVersion: 0.1.2
-
+  weight: 1
   values:
     mlflow:
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
+        repository: 'repl{{HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/mlflow'
       ingress:
         enabled: true
         className: repl{{ ConfigOption "mlflow_ingress_class_name"}}

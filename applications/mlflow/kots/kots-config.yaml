@@ -30,7 +30,7 @@ spec:
       type: text
       default: "mlflow.example.com"
       required: true
-      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
+      when: 'repl{{ ConfigOptionEquals "mlflow_ingress_type" "ingress_controller" }}'
     - name: mlflow_ingress_class_name
       type: text
       title: Ingress Class Name

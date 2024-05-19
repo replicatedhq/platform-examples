@@ -1,7 +1,7 @@
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 1.28.9+ec.3
+  version: v1.2.0+k8s-1.29
   extensions:
     helm:
       repositories:
@@ -9,6 +9,8 @@ spec:
           url: https://kubernetes.github.io/ingress-nginx
         - name: cnpg
           url: https://cloudnative-pg.github.io/charts
+        - name: minio
+          url: https://operator.min.io/
       charts:
         - name: ingress-nginx
           chartname: ingress-nginx/ingress-nginx
@@ -25,6 +27,13 @@ spec:
           chartname: cnpg/cloudnative-pg
           namespace: cloudnative-pg
           version: "0.21.2"
+        - name: minio-operator
+          chartname: minio/operator
+          namespace: minio
+          version: "5.0.15"
+          values: |
+            console:
+              enabled: false
   unsupportedOverrides:
     k0s: |
       config:

@@ -1,0 +1,13 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cloudnative-pg
+spec:
+  chart:
+    name: cloudnative-pg
+    chartVersion: 0.21.2
+  exclude: 'repl{{ or (ConfigOptionEquals `postgres_type` `external_postgres`) (eq Distribution "embedded-cluster") }}'
+  weight: 0
+  values:
+    image:
+      repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "cloudnative-pg" }}/cloudnative-pg'
