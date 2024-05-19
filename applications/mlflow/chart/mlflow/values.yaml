@@ -213,14 +213,12 @@ mlflow:
       enabled: false
       # -- Specifies whether to generate self-signed certificate
       genSelfSignedCert: false
-      certs:
-        - name: mlflow-tls
-          cert: |
-            -----BEGIN CERTIFICATE-----
-            -----END CERTIFICATE-----
-          key: |
-            -----BEGIN PRIVATE KEY-----
-            -----END PRIVATE KEY-----
+      cert: |
+        -----BEGIN CERTIFICATE-----
+        -----END CERTIFICATE-----
+      key: |
+        -----BEGIN PRIVATE KEY-----
+        -----END PRIVATE KEY-----
     # -- Extra hosts to configure for the ingress object
     extraHosts: []
     # -- Extra paths to configure for the ingress object
@@ -321,9 +319,250 @@ minio:
     accessKey: minio
     secretKey: minio1234
   tenant:
+    # -- Minio Tenant name
     name: minio
+
+    image:
+      # -- Image repository
+      repository: quay.io/minio/minio
+      # -- Image tag
+      tag: RELEASE.2024-05-01T01-11-10Z
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecret: {}
+    # -- 
+    scheduler: {}
+    ###
+    # The Kubernetes secret name that contains MinIO environment variable configurations.
+    # The secret is expected to have a key named config.env containing environment variables exports.
+    configuration:
+      name: myminio-env-configuration
+    # -- See `Operator CRD: Pools <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#pool>`__ for more information on all subfields.
+    pools:
+      # -- The number of MinIO Tenant Pods / Servers in this pool.
+      # For standalone mode, supply 1. For distributed mode, supply 4 or more.
+      # Note that the operator does not support upgrading from standalone to distributed mode.
+      - servers: 4
+        # -- Custom name for the pool
+        name: pool-0
+        # -- The number of volumes attached per MinIO Tenant Pod / Server.
+        volumesPerServer: 4
+        # -- The capacity per volume requested per MinIO Tenant Pod.
+        size: 10Gi
+        # -- Specify `storageAnnotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to PVCs.
+        storageAnnotations: {}
+        ###
+        # -- Specify `annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to Tenant pods.
+        annotations: {}
+        ###
+        # -- Specify `labels <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ to associate to Tenant pods.
+        labels: {}
+        # -- An array of `Toleration labels <https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>`__ to associate to Tenant pods.
+        tolerations: []
+        # -- Any `Node Selectors <https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/>`__ to apply to Tenant pods.
+        nodeSelector: {}
+        # -- The `affinity <https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/>`__ or anti-affinity settings to apply to Tenant pods.
+        affinity: {}
+        # -- The `Requests or Limits <https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/>`__ for resources to associate to Tenant pods.
+        resources: { }
+        # -- The Kubernetes `SecurityContext <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`__ to use for deploying Tenant resources.
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: "OnRootMismatch"
+          runAsNonRoot: true
+        # -- The Kubernetes `SecurityContext <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`__ to use for deploying Tenant containers.
+        containerSecurityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        # -- An array of `Topology Spread Constraints <https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/>`__ to associate to Operator Console pods.
+        topologySpreadConstraints: [ ]
+        # -- The name of a custom `Container Runtime <https://kubernetes.io/docs/concepts/containers/runtime-class/>`__ to use for the Operator Console pods.
+        runtimeClassName: ""
+    # -- The mount path where Persistent Volumes are mounted inside Tenant container(s).
+    mountPath: /export
+    # -- The Sub path inside Mount path where MinIO stores data.
+    subPath: /data
+    # -- Configures a Prometheus-compatible scraping endpoint at the specified port.
+    metrics:
+      enabled: false
+      port: 9000
+      protocol: http
+    # -- Configures external certificate settings for the Tenant.
+    certificate:
+      # -- Specify an array of Kubernetes TLS secrets, where each entry corresponds to a secret the TLS private key and public certificate pair.
+      # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
+      externalCaCertSecret: []
+      # -- Specify an array of Kubernetes secrets, where each entry corresponds to a secret contains the TLS private key and public certificate pair.
+      # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
+      externalCertSecret: [ ]
+      ###
+      # Enable automatic Kubernetes based `certificate generation and signing <https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster>`__
+      requestAutoCert: true
+      # -- See `Operator CRD: CertificateConfig <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#certificateconfig>`__
+      certConfig: {}
+    # -- MinIO features to enable or disable in the MinIO Tenant
+    # See `Operator CRD: Features <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#features>`__.
+    features:
+      bucketDNS: false
+      domains: {}
+      enableSFTP: false
+    ###
+    # -- Array of objects describing one or more buckets to create during tenant provisioning.
     buckets:
-      - name: mlflow
+    - name: mlflow
+    # -- Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
+    # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
+    users: []
+    # -- The `PodManagement <https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#pod-management-policy>`__ policy for MinIO Tenant Pods. 
+    # Can be "OrderedReady" or "Parallel"
+    podManagementPolicy: Parallel
+    # -- The `Liveness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes>`__ for monitoring Tenant pod liveness. 
+    # Tenant pods will be restarted if the probe fails.
+    liveness: {}
+    # -- `Readiness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring Tenant container readiness.
+    # Tenant pods will be removed from service endpoints if the probe fails.
+    # -- `Startup Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring container startup. 
+    # Tenant pods will be restarted if the probe fails.
+    startup: {}
+    # -- The `Lifecycle hooks <https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/>`__ for container.
+    lifecycle: { }
+    ###
+    # -- Directs the Operator to deploy the MinIO S3 API and Console services as LoadBalancer objects.
+    # If the Kubernetes cluster has a configured LoadBalancer, it can attempt to route traffic to those services automatically.
+    # Specify ``minio: true`` to expose the MinIO S3 API.
+    # Specify ``console: true`` to expose the Console.
+    # Both fields default to ``false``.
+    exposeServices: { }
+    # -- The `Kubernetes Service Account <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`__ associated with the Tenant.
+    serviceAccountName: ""
+    # -- Directs the Operator to add the Tenant's metric scrape configuration to an existing Kubernetes Prometheus deployment managed by the Prometheus Operator.
+    prometheusOperator: false
+    # -- Configure pod logging configuration for the MinIO Tenant.
+    # Specify ``json`` for JSON-formatted logs.
+    # Specify ``anonymous`` for anonymized logs.
+    # Specify ``quiet`` to supress logging.
+    logging: { }
+    # -- serviceMetadata allows passing additional labels and annotations to MinIO and Console specific
+    # services created by the operator.
+    serviceMetadata: { }
+    # -- Add environment variables to be set in MinIO container (https://github.com/minio/minio/tree/master/docs/config)
+    env: [ ]
+    # -- PriorityClassName indicates the Pod priority and hence importance of a Pod relative to other Pods.
+    # This is applied to MinIO pods only.
+    # Refer Kubernetes documentation for details https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass/
+    priorityClassName: ""
+    # -- An array of `Volumes <https://kubernetes.io/docs/concepts/storage/volumes/>`__ which the Operator can mount to Tenant pods.
+    # The volumes must exist *and* be accessible to the Tenant pods.
+    additionalVolumes: [ ]
+    # -- An array of volume mount points associated to each Tenant container.
+    additionalVolumeMounts: [ ]
+    # Define configuration for KES (stateless and distributed key-management system)
+    # Refer https://github.com/minio/kes
+    #kes:
+    #  ## Image field:
+    #  # Image from tag (original behavior), for example:
+    #  # image:
+    #  #   repository: quay.io/minio/kes
+    #  #   tag: 2024-04-12T13-50-00Z
+    #  # Image from digest (added after original behavior), for example:
+    #  # image:
+    #  #   repository: quay.io/minio/kes@sha256
+    #  #   digest: fb15af611149892f357a8a99d1bcd8bf5dae713bd64c15e6eb27fbdb88fc208b
+    #  image:
+    #    repository: quay.io/minio/kes
+    #    tag: 2024-04-12T13-50-00Z
+    #    pullPolicy: IfNotPresent
+    #  env: [ ]
+    #  replicas: 2
+    #  configuration: |-
+    #    address: :7373
+    #    tls:
+    #      key: /tmp/kes/server.key   # Path to the TLS private key
+    #      cert: /tmp/kes/server.crt # Path to the TLS certificate
+    #      proxy:
+    #        identities: []
+    #        header:
+    #          cert: X-Tls-Client-Cert
+    #    admin:
+    #      identity: ${MINIO_KES_IDENTITY}
+    #    cache:
+    #      expiry:
+    #        any: 5m0s
+    #        unused: 20s
+    #    log:
+    #      error: on
+    #      audit: off
+    #    keystore:
+    #      # KES configured with fs (File System mode) doesn't work in Kubernetes environments and is not recommended
+    #      # use a real KMS
+    #      # fs:
+    #      #   path: "./keys" # Path to directory. Keys will be stored as files. Not Recommended for Production.
+    #      vault:
+    #        endpoint: "http://vault.default.svc.cluster.local:8200" # The Vault endpoint
+    #        namespace: "" # An optional Vault namespace. See: https://www.vaultproject.io/docs/enterprise/namespaces/index.html
+    #        prefix: "my-minio"    # An optional K/V prefix. The server will store keys under this prefix.
+    #        approle:    # AppRole credentials. See: https://www.vaultproject.io/docs/auth/approle.html
+    #          id: "<YOUR APPROLE ID HERE>"      # Your AppRole Role ID
+    #          secret: "<YOUR APPROLE SECRET ID HERE>"  # Your AppRole Secret ID
+    #          retry: 15s  # Duration until the server tries to re-authenticate after connection loss.
+    #        tls:        # The Vault client TLS configuration for mTLS authentication and certificate verification
+    #          key: ""     # Path to the TLS client private key for mTLS authentication to Vault
+    #          cert: ""    # Path to the TLS client certificate for mTLS authentication to Vault
+    #          ca: ""      # Path to one or multiple PEM root CA certificates
+    #        status:     # Vault status configuration. The server will periodically reach out to Vault to check its status.
+    #          ping: 10s   # Duration until the server checks Vault's status again.
+    #      # aws:
+    #      #   # The AWS SecretsManager key store. The server will store
+    #      #   # secret keys at the AWS SecretsManager encrypted with
+    #      #   # AWS-KMS. See: https://aws.amazon.com/secrets-manager
+    #      #   secretsmanager:
+    #      #     endpoint: ""   # The AWS SecretsManager endpoint      - e.g.: secretsmanager.us-east-2.amazonaws.com
+    #      #     region: ""     # The AWS region of the SecretsManager - e.g.: us-east-2
+    #      #     kmskey: ""     # The AWS-KMS key ID used to en/decrypt secrets at the SecretsManager. By default (if not set) the default AWS-KMS key will be used.
+    #      #     credentials:   # The AWS credentials for accessing secrets at the AWS SecretsManager.
+    #      #       accesskey: ""  # Your AWS Access Key
+    #      #       secretkey: ""  # Your AWS Secret Key
+    #      #       token: ""      # Your AWS session token (usually optional)
+    #  imagePullPolicy: "IfNotPresent"
+    #  externalCertSecret: null
+    #  clientCertSecret: null
+    #  # Key name to be created on the KMS, default is "my-minio-key"
+    #  keyName: ""
+    #  resources: { }
+    #  nodeSelector: { }
+    #  affinity:
+    #    nodeAffinity: { }
+    #    podAffinity: { }
+    #    podAntiAffinity: { }
+    #  tolerations: [ ]
+    #  annotations: { }
+    #  labels: { }
+    #  serviceAccountName: ""
+    #  securityContext:
+    #    runAsUser: 1000
+    #    runAsGroup: 1000
+    #    runAsNonRoot: true
+    #    fsGroup: 1000
+    #  containerSecurityContext:
+    #    runAsUser: 1000
+    #    runAsGroup: 1000
+    #    runAsNonRoot: true
+    #    allowPrivilegeEscalation: false
+    #    capabilities:
+    #      drop:
+    #        - ALL
+    #    seccompProfile:
+    #      type: RuntimeDefault
 
 # -- Embedded Postrgres configuration
 # Deploys a cluster using the CloudnativePG Operator

@@ -12,8 +12,3 @@ dependencies:
   version: "1.0.0-beta.12"
   repository: "oci://chart.slackernews.io/library"
   condition: replicated.enabled
-- name: tenant
-  version: "5.0.15"
-  repository: https://operator.min.io/
-  condition: minio.enabled
-  alias: minio

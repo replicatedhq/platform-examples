@@ -1,9 +1,9 @@
-{{- with .Values.tenant }}
+{{- if .Values.minio.enabled }}
+{{- with .Values.minio.tenant }}
 apiVersion: minio.min.io/v2
 kind: Tenant
 metadata:
   name: {{ .name }}
-  ## Optionally pass labels to be applied to the statefulset pods
   labels:
     app: minio
   {{- if dig "metrics" "enabled" false . }}
@@ -199,4 +199,5 @@ spec:
       {{- end }}
       {{- end }}
   {{- end }}
+{{- end }}
 {{- end }}
