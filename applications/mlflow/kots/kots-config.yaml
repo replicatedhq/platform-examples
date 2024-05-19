@@ -23,14 +23,23 @@ spec:
         title: Load Balancer
       default: "ingress_controller"
       required: true
-      when: 'repl{{ not IsKurl }}'
+      when: 'repl{{ ne Distribution "embedded-cluster" }}'
     - name: mlflow_ingress_host
       title: Mlflow Hostname
       help_text: Hostname which will be used to access Mlflow
       type: text
       default: "mlflow.example.com"
       required: true
-      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
+    - name: mlflow_ingress_class_name
+      type: text
+      title: Ingress Class Name
+      default: "nginx"
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
+    - name: mlflow_ingress_annotations
+      type: textarea
+      title: Ingress Annotations
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
     - name: mlflow_ingress_tls_type
       title: Mlflow Ingress TLS Type
       type: select_one
@@ -41,7 +50,7 @@ spec:
         title: User Provided (Upload a TLS Certificate and Key Pair)
       required: true
       default: self_signed
-      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "mlflow_ingress_type" "ingress_controller") }}'
+      when: 'repl{{ ConfigOptionEquals "mlflow_ingress_type" "ingress_controller" }}'
     - name: mlflow_ingress_tls_cert
       title: Mlflow TLS Cert
       type: file
@@ -58,12 +67,17 @@ spec:
       type: text
       default: "443"
       required: true
-      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
+    - name: mlflow_load_balancer_port
+      title: Load Balancer Node Port
+      help_text: Node Port for the Load Balancer service
+      type: text
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
     - name: mlflow_load_balancer_annotations
       type: textarea
       title: Load Balancer Annotations
       help_text: "See your cloud provider's documentation for the required annotations."
-      when: 'repl{{ and (not IsKurl) (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
+      when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
   # Database settings
   - name: database_settings
     title: Database
@@ -83,6 +97,11 @@ spec:
         readonly: false
         type: password
         value: '{{repl RandomString 32}}'
+      - name: embedded_postgres_volume_size
+        title: Postgres Volume Size
+        type: text
+        default: "10Gi"
+        when: '{{repl ConfigOptionEquals "postgres_type" "embedded_postgres"}}'
       - name: external_postgres_host
         title: Postgres Host
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
@@ -108,3 +127,74 @@ spec:
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
         default: postgres
+  # Object Store Settings
+  - name: objectstore_settings
+    title: Object Storage
+    items:
+      - name: objectstore_type
+        type: select_one
+        title: Object Storage Type
+        default: s3
+        items:
+          - name: s3
+            title: S3 Compatible
+      - name: s3_type
+        type: select_one
+        title: S3
+        help_text: Would you like to use an embedded S3, or connect to an external S3 compatible object store that you manage?
+        default: embedded_s3
+        items:
+          - name: embedded_s3
+            title: Embedded S3
+          - name: external_s3
+            title: External S3
+        when: '{{repl ConfigOptionEquals "objectstore_type" "s3"}}'
+      - name: embedded_s3_access_key
+        hidden: true
+        readonly: false
+        type: password
+        value: '{{repl RandomString 32}}'
+        when: '{{repl ConfigOptionEquals "s3_type" "embedded_s3"}}'
+      - name: embedded_s3_secret_key
+        hidden: true
+        readonly: false
+        type: password
+        value: '{{repl RandomString 32}}'
+        when: '{{repl ConfigOptionEquals "s3_type" "embedded_s3"}}'
+      - name: embedded_s3_volume_size
+        title: S3 Volume Size
+        type: text
+        default: "10Gi"
+        when: '{{repl ConfigOptionEquals "s3_type" "embedded_s3"}}'
+      - name: external_s3_protocol
+        title: External S3 Protocol
+        type: select_one
+        items:
+          - name: http
+            title: HTTP
+          - name: https
+            title: HTTPS
+        default: "https"
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'
+      - name: external_s3_host
+        title: External S3 Host
+        type: text
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'
+      - name: external_s3_port
+        title: External S3 Port
+        type: text
+        default: "443"
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'
+      - name: external_s3_ignore_tls
+        title: Ignore TLS
+        type: bool
+        default: "0"
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'
+      - name: external_s3_access_key
+        title: External S3 Access Key
+        type: password
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'
+      - name: external_s3_secret_key
+        title: External S3 Secret Key
+        type: password
+        when: '{{repl ConfigOptionEquals "s3_type" "external_s3"}}'

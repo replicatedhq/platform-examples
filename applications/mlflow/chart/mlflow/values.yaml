@@ -200,7 +200,7 @@ mlflow:
     # -- Annotations to add to the ingress
     annotations: {}
     # -- Ingress class name
-    className: ""
+    className: "nginx"
     # -- Ingress path type
     pathType: ImplementationSpecific
     # -- Ingress hostname
@@ -351,7 +351,8 @@ minio:
       # -- The number of MinIO Tenant Pods / Servers in this pool.
       # For standalone mode, supply 1. For distributed mode, supply 4 or more.
       # Note that the operator does not support upgrading from standalone to distributed mode.
-      - servers: 4
+      pool0:
+        servers: 4
         # -- Custom name for the pool
         name: pool-0
         # -- The number of volumes attached per MinIO Tenant Pod / Server.
