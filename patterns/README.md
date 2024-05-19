@@ -1,7 +1,26 @@
 # Patterns
 
-This directory contains reusable solutions to common challenges you may
-encounter when distributing your application with Replicated. They are designed
-so that you can easily leverage the pattern in your own application. Each
-pattern is shown in the context of a bare bones application that has only
-enough detail to showcase the pattern.
+## Table of Contents
+
+Welcome to the repository! Below is a list of available documents and workflows in this project.
+
+### Embedded vs External Database
+
+- [Embedded vs External Database](embedded-vs-external-database/README.md)
+
+### GitHub Workflows
+
+- [Lint and Test Workflow](github-workflows/lint-test.yaml)
+- [Release Workflow](github-workflows/release.yml)
+
+### Pass Labels and Annotations from Config
+
+- [Pass Labels and Annotations from Config](pass-labels-annotations-from-config/README.md)
+
+### Self-Signed vs User-Provided TLS
+
+- [Self-Signed vs User-Provided TLS](self-signed-vs-user-provided-tls/README.md)
+
+### Wait for Database
+
+- [Wait for Database](wait-for-database/README.md)

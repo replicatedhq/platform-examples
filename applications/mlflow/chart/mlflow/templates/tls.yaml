@@ -1,7 +1,7 @@
 {{- if .Values.mlflow.ingress.tls.enabled -}}
   {{- $cert := dict -}}
   {{- if .Values.mlflow.ingress.tls.genSelfSignedCert -}}
-    {{ $cert = genSelfSignedCert "mlflow.example.com" nil nil 730 }}
+    {{ $cert = genSelfSignedCert .Values.mlflow.ingress.hostname nil nil 730 }}
   {{- else -}}
     {{- $_ := set $cert "Cert" .Values.mlflow.ingress.tls.cert -}}
     {{- $_ := set $cert "Key" .Values.mlflow.ingress.tls.key -}}

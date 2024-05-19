@@ -16,12 +16,12 @@ spec:
         enabled: true
         className: repl{{ ConfigOption "mlflow_ingress_class_name"}}
         hostname: repl{{ ConfigOption "mlflow_ingress_host"}}
-        annotations: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_annotations` | nindent 8 }}
+        annotations: repl{{ ConfigOptionData `mlflow_ingress_annotations` | nindent 10 }}
         tls:
           enabled: true
           genSelfSignedCert: repl{{ ConfigOptionEquals "mlflow_ingress_tls_type" "self_signed" }}
-          cert: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_cert` | nindent 10 }}
-          key: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_key` | nindent 10 }}
+          cert: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_cert` | nindent 12 }}
+          key: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_key` | nindent 12 }}
       artifactStore:
         s3:
           accessKeyId: repl{{ ConfigOption "embedded_s3_access_key" }}
@@ -52,7 +52,7 @@ spec:
             type: LoadBalancer
             port: repl{{ ConfigOption "mlflow_load_balancer_port"}}
             nodePort: repl{{ ConfigOption "mlflow_load_balancer_node_port"}}
-            annotations: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_load_balancer_annotations` | nindent 10 }}
+            annotations: repl{{ ConfigOption `mlflow_load_balancer_annotations` | nindent 14 }}
     - when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
       recursiveMerge: true
       values:
