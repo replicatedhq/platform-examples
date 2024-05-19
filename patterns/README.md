@@ -4,14 +4,14 @@
 
 Welcome to the repository! Below is a list of available documents and workflows in this project.
 
-### Embedded vs External Database
-
-- [Embedded vs External Database](embedded-vs-external-database/README.md)
-
 ### GitHub Workflows
 
 - [Lint and Test Workflow](github-workflows/lint-test.yaml)
 - [Release Workflow](github-workflows/release.yml)
+
+### Embedded vs External Database
+
+- [Embedded vs External Database](embedded-vs-external-database/README.md)
 
 ### Pass Labels and Annotations from Config
 
