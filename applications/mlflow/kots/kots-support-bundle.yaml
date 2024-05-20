@@ -3,6 +3,7 @@ kind: SupportBundle
 metadata:
   name: mlflow
 spec:
+  uri: https://raw.githubusercontent.com/replicatedhq/platform-examples/main/applications/mlflow/kots/kots-support-bundle.yaml
   collectors:
     - clusterInfo: {}
     - clusterResources: {}

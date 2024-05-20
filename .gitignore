@@ -4,9 +4,6 @@
 # Ignore Helm dependency directories
 **/charts/*.lock
 
-# Ignore saved Helm values files
-**/helm/values-*.yaml
-
 # General files to ignore
 *.log
 *.gz

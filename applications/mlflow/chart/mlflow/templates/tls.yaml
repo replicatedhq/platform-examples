@@ -13,5 +13,7 @@ data:
 kind: Secret
 metadata:
   name: {{ include "mlflow.fullname" . }}-tls
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
 type: kubernetes.io/tls
 {{- end -}}

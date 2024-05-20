@@ -6,6 +6,7 @@ metadata:
   name: {{ .name }}
   labels:
     app: minio
+    {{- include "mlflow.labels" . | nindent 4 }}
   {{- if dig "metrics" "enabled" false . }}
   ## Annotations for MinIO Tenant Pods
   annotations:
