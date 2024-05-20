@@ -16,4 +16,6 @@ initContainers:
   envFrom:
   - secretRef:
       name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
+{{- end }}
+{{- end }}
 ```
