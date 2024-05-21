@@ -62,8 +62,8 @@ spec:
     {{ end }}
   bootstrap:
     initdb:
-      database: {{ .Values.postgres.embedded.initdb.database }}
-      owner: {{ .Values.postgres.embedded.initdb.owner }}
+      database: {{ .Values.postgres.embedded.initdb.database | quote }}
+      owner: {{ .Values.postgres.embedded.initdb.owner | quote }}
       secret:
         name: {{ printf "%s-postgres-auth" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
       postInitApplicationSQL:
