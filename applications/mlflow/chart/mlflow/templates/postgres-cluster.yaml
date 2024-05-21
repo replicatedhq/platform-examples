@@ -75,9 +75,9 @@ spec:
         {{- else if eq .Values.postgres.embedded.type "timescaledb" }}
         - CREATE EXTENSION IF NOT EXISTS timescaledb;
         {{- end }}
-        {{- with .Values.postgres.embedded.initdb }}
-            {{- range .postInitApplicationSQL }}
-              {{- printf "- %s" . | nindent 6 }}
-            {{- end }}
+        {{- with .Values.postgres.embedded.initdb.postInitApplicationSQL }}
+        {{- range . }}
+        - {{ . }}
+        {{- end }}
         {{- end }}
 {{- end -}}
