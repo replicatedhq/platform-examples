@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/app-template-3.1.0/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+
+configMap:
+  pdns-auth:
+    99-pdns.conf: |
+      launch=gmysql
+      gmysql-host=powerdns-postgresql
+      gmysql-user=powerdns
+      local-address=0.0.0.0
+      local-port=5353
+  pdns-recursor:
+    99-recursor.conf: |
+      allow-from=
+      local-address=0.0.0.0
+      local-port=5353
+controllers:
+  auth:
+    containers:
+      pdns:
+        image:
+          repository: powerdns/pdns-auth-49
+          tag: 4.9.0
+        env:
+          - name: DEBUG_CONFIG
+            value: 'yes'
+
+  recursor:
+    pod:
+      securityContext:
+        capabilities:
+          add:
+            - NET_BIND_SERVICE
+    containers:
+      pdns:
+        image:
+          repository: powerdns/pdns-recursor-50
+          tag: 5.0.5
+        env:
+          - name: DEBUG_CONFIG
+            value: 'yes'
+
+  admin:
+    containers:
+      pdnsadmin:
+        image:
+          repository: powerdnsadmin/pda-legacy
+          tag: v0.4.2
+        env:
+          - name: SQLALCHEMY_DATABASE_URI
+            value: postgresql://powerdns:powerdns@powerdns-postgresql:5432/powerdns
+
+service:
+  pdns-auth:
+    controller: pdns-auth
+    ports:
+      udp:
+        type: ClusterIP
+        port: 53
+        targetPort: 5353
+        protocol: UDP
+      tcp:
+        type: ClusterIP
+        port: 53
+        targetPort: 5353
+        protocol: TCP
+
+  pdns-recursor:
+    controller: pdns-recursor
+    ports:
+      udp:
+        type: NodePort
+        port: 53
+        targetPort: 5353
+        protocol: UDP
+      tcp:
+        type: NodePort
+        port: 53
+        targetPort: 5353
+        protocol: TCP
+  pdns-admin:
+    controller: pdns-admin
+    ports:
+      http:
+        type: ClusterIP
+        port: 80
+        protocol: HTTP
+      https:
+        type: ClusterIP
+        port: 443
+        protocol: HTTP
+
+ingress:
+  pdns-admin:
+    enabled: true
+    hosts:
+      - host: powerdns-admin.local
+        paths:
+          - path: /
+            backend:
+              serviceName: pdns-admin
+              servicePort: 80
