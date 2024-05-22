@@ -1,0 +1,16 @@
+---
+apiVersion: v2
+description: A Helm chart for PowerDNS and PowerDNS-Admin with PostgreSQL backend, using the Helm "library chart" pattern from https://bjw-s.github.io/helm-charts and cloudnative-pg Postgres operator.
+name: powerdns
+version: 0.0.1
+kubeVersion: '>=1.26.0-0'
+maintainers:
+  - name: adamancini
+    email: ada@annarchy.net
+dependencies:
+  - name: common
+    repository: https://bjw-s.github.io/helm-charts
+    version: 3.1.0
+  - name: cloudnative-pg
+    repository: https://cloudnative-pg.github.io/charts
+    version: 0.21.2

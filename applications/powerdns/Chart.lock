@@ -1,0 +1,9 @@
+dependencies:
+- name: common
+  repository: https://bjw-s.github.io/helm-charts
+  version: 3.1.0
+- name: cloudnative-pg
+  repository: https://cloudnative-pg.github.io/charts
+  version: 0.21.2
+digest: sha256:b7c16de65e45591468e2cfcca62715479d276169f55d86d7cf36a874d79dac78
+generated: "2024-05-22T14:56:36.442129-04:00"
