@@ -1,0 +1,69 @@
+{{- if .Values.mlflow.ingress.enabled -}}
+{{- if and .Values.mlflow.ingress.className (not (semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey .Values.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set .Values.mlflow.ingress.annotations "kubernetes.io/ingress.class" .Values.mlflow.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+  {{- with .Values.mlflow.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.mlflow.ingress.className }}
+  ingressClassName: {{ .Values.mlflow.ingress.className | quote }}
+  {{- end }}
+  rules:
+    {{- if .Values.mlflow.ingress.hostname }}
+    - host: {{ .Values.mlflow.ingress.hostname }}
+      http:
+        paths:
+          {{- if .Values.mlflow.ingress.extraPaths }}
+          {{- toYaml .Values.mlflow.ingress.extraPaths | nindent 10 }}
+          {{- end }}
+          - path: {{ .Values.mlflow.ingress.path }}
+            pathType: {{ .Values.mlflow.ingress.pathType }}
+            backend:
+              service:
+                name: {{ include "mlflow.fullname" . }}
+                port:
+                  number: {{ .Values.mlflow.service.port }}
+    {{- end }}
+    {{- range .Values.mlflow.ingress.extraHosts }}
+    - host: {{ .name | quote }}
+      http:
+        paths:
+          - path: {{ default "/" .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "mlflow.fullname" $ }}
+                port:
+                  number: {{ $.Values.mlflow.service.port }}
+    {{- end }}
+    {{- if .Values.mlflow.ingress.extraRules }}
+    {{- toYaml .Values.mlflow.ingress.extraRules | nindent 4 }}
+    {{- end }}
+  {{- if or .Values.mlflow.ingress.tls.enabled .Values.mlflow.ingress.extraTls }}
+  tls:
+    {{- if and .Values.mlflow.ingress.tls.enabled .Values.mlflow.ingress.tls.genSelfSignedCert }}
+    - hosts:
+        - {{ .Values.mlflow.ingress.hostname | quote }}
+      secretName: {{ printf "%s-tls" (include "mlflow.fullname" .) }}
+    {{- end }}
+    {{- if .Values.mlflow.ingress.extraTls }}
+    {{- toYaml .Values.mlflow.ingress.extraTls | nindent 4 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

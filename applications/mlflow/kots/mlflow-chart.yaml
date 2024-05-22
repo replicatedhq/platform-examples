@@ -1,0 +1,87 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: mlflow
+spec:
+  chart:
+    name: mlflow
+    chartVersion: 0.1.3
+  weight: 1
+  values:
+    mlflow:
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
+        repository: 'repl{{HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/mlflow'
+      ingress:
+        enabled: true
+        className: repl{{ ConfigOption "mlflow_ingress_class_name"}}
+        hostname: repl{{ ConfigOption "mlflow_ingress_host"}}
+        annotations: repl{{ ConfigOptionData `mlflow_ingress_annotations` | nindent 10 }}
+        tls:
+          enabled: true
+          genSelfSignedCert: repl{{ ConfigOptionEquals "mlflow_ingress_tls_type" "self_signed" }}
+          cert: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_cert` | nindent 12 }}
+          key: repl{{ print `|`}}repl{{ ConfigOptionData `mlflow_ingress_tls_key` | nindent 12 }}
+      artifactStore:
+        s3:
+          accessKeyId: repl{{ ConfigOption "embedded_s3_access_key" }}
+          secretAccessKey: repl{{ ConfigOption "embedded_s3_secret_key" }}
+    postgres:
+      auth:
+        password: repl{{ ConfigOption "embedded_postgres_password"}}
+      embedded:
+        enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded_postgres" }}
+        storage:
+          size: repl{{ ConfigOption "embedded_postgres_volume_size"}}
+    minio:
+      enabled: repl{{ ConfigOptionEquals "s3_type" "embedded_s3" }}
+      secrets:
+        accessKey: repl{{ ConfigOption "embedded_s3_access_key" }}
+        secretKey: repl{{ ConfigOption "embedded_s3_secret_key" }}
+      pools:
+        pool0:
+          size: repl{{ ConfigOption "embedded_s3_volume_size"}}
+  optionalValues:
+    - when: 'repl{{ ConfigOptionEquals "mlflow_ingress_type" "load_balancer" }}'
+      recursiveMerge: true
+      values:
+        mlflow:
+          ingress:
+            enabled: false
+          service:
+            type: LoadBalancer
+            port: repl{{ ConfigOption "mlflow_load_balancer_port"}}
+            nodePort: repl{{ ConfigOption "mlflow_load_balancer_node_port"}}
+            annotations: repl{{ ConfigOption `mlflow_load_balancer_annotations` | nindent 14 }}
+    - when: 'repl{{ ConfigOptionEquals "postgres_type" "external_postgres" }}'
+      recursiveMerge: true
+      values:
+        postgres:
+          auth:
+            username: repl{{ ConfigOption "external_postgres_username"}}
+            password: repl{{ ConfigOption "external_postgres_password"}}
+          embedded:
+            enabled: false
+          external:
+            enabled: true
+            host: repl{{ ConfigOption "external_postgres_host"}}
+            port: repl{{ ConfigOption "external_postgres_port"}}
+            database: repl{{ ConfigOption "external_postgres_db"}}
+    - when: 'repl{{ ConfigOptionEquals "s3_type" "external_s3" }}'
+      recursiveMerge: true
+      values:
+        mlflow:
+          artifactStore:
+            s3:
+              enabled: true
+              accessKeyId: repl{{ ConfigOption "external_s3_access_key"}}
+              secretAccessKey: repl{{ ConfigOption "external_s3_secret_key"}}              
+              external:
+                enabled: true
+                host: repl{{ ConfigOption "external_s3_host"}}
+                port: repl{{ ConfigOption "external_s3_port"}}
+                protocol: repl{{ ConfigOption "external_s3_protocol"}}
+                ignoreTls: repl{{ ConfigOption "external_s3_ignore_tls"}}
+        minio:
+          enabled: false
+  builder: {}

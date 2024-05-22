@@ -1,0 +1,667 @@
+# -- String to override the default generated name
+nameOverride: ""
+
+# -- String to override the default generated fullname
+fullnameOverride: "mlflow"
+
+mlflow:
+  # -- Labels to add to the mlflow deployment
+  labels: {}
+  # -- Annotations to add to the mlflow deployment
+  annotations: {}
+  # -- Number of mlflow server replicas to deploy
+  replicas: 1
+  # -- Deployment revision history limit
+  revisionHistoryLimit:
+  # -- Strategy to use to replace existing pods with new ones
+  strategy: RollingUpdate
+  # -- Rolling update configuration
+  rollingUpdate:
+    # -- The maximum number of pods that can be unavailable during the update process
+    maxUnavailable: 1
+    # -- The maximum number of pods that can be scheduled above the desired number of pods
+    maxSurge: 1
+  # -- Image pull secrets
+  imagePullSecets: []
+  # -- Service account configuration for the mlflow deployment
+  serviceAccount:
+    # -- Specifies whether a service account should be created
+    create: true
+    # -- Name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+    # -- Annotations to add to the service account if create is true
+    annotations: {}
+  # -- Specifies whether to automount service account token
+  automountServiceAccountToken: true
+  # -- Image configuration for the mlflow deployment
+  image:
+    # -- Image registry
+    registry: docker.io
+    # -- Image repository
+    repository: bitnami/mlflow
+    # -- Image tag
+    tag: 2.12.2-debian-12-r1
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+  # -- Pod Labels for the mlflow deployment
+  podLabels: {}
+  # -- Configure the Security Context for the Pod
+  podSecurityContext: {}
+  # -- Set the resource requests / limits for the container.
+  resources: {}
+  # -- Configure the Security Context for the Container
+  containerSecurityContext: {}
+  # -- Specify probes for the container
+  # [[ref]](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+  probes:
+    # -- Specify the readiness probes for the container
+    readinessProbe: {}
+    # -- Specify the liveness probes for the container
+    livenessProbe: {}
+    # -- Specify the startup probes for the container
+    startupProbe: {}
+  # -- Extra environment variables in mlflow container
+  env:
+    # Extra environment variables sourced via ConfigMap
+    configMap: {}
+    # ENV_NAME_1: value
+    # ENV_NAME_2: value
+
+    # Extra environment variables sourced via Secret
+    secret: {}
+    # ENV_NAME_1: value
+    # ENV_NAME_2: value
+
+    # Extra environment variables in mlflow container
+    container: []
+    # - name: extra-env-name-1
+    #   value: extra-env-value-1
+    # - name: extra-env-name-2
+    #   valueFrom:
+    #     configMapKeyRef:
+    #       name: extra-env-configmap
+    #       key: extra-env-key-2
+    # - name: extra-env-name-3
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: extra-env-secret
+    #       key: extra-env-key-3
+ 
+  # -- Extra initialization containers belonging to the mlflow pod.
+  extraInitContainers: []
+ 
+  # -- Extra containers belonging to the mlflow pod.
+  extraContainers: []
+  
+  # -- Extra environment variable sources in mlflow container
+  extraEnvFrom: []
+  # - configMapRef:
+  #     name: extra-env-configmap
+  # - secretRef:
+  #     name: extra-env-secret
+  
+  # -- Extra volumes that can be mounted by containers belonging to the mlflow pod
+  extraVolumes: []
+  # - name: mlflow-volume
+  #   persistentVolumeClaim:
+  #     name: mlflow-pvc
+  # - name: mlflow-configmap-volume
+  #   configMap:
+  #     name: mlflow-configmap
+  
+  # -- Extra volume mounts to mount into the mlflow container's file system
+  extraVolumeMounts: []
+  # - name: mlflow-volume
+  #   mountPath: /opt/mlflow
+  # - name: mlflow-configmap-volume
+  #   mountPath: /etc/mlflow
+
+  # -- Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames.
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/)
+  hostAliases: []
+  # - ip: "192.168.1.100"
+  #   hostnames:
+  #   - "example.com"
+  #   - "www.example.com"
+
+  # -- Node selection constraint
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+  nodeSelector: {}
+
+  # -- Defines affinity constraint rules.
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+  affinity: {}
+
+  # -- Defines topologySpreadConstraint rules.
+  # [[ref]](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/)
+  topologySpreadConstraints: []
+  # - maxSkew: <integer>
+  #   topologyKey: <string>
+  #   whenUnsatisfiable: <string>
+  #   labelSelector: <object>
+
+  # -- Specify taint tolerations
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+  tolerations: []
+
+  # -- Custom priority class for different treatment by the scheduler
+  priorityClassName: ""
+  # -- Allow specifying a runtimeClassName other than the default one (ie: nvidia)
+  runtimeClassName: ""
+  # -- Allows specifying a custom scheduler name
+  schedulerName: ""
+  # -- When using hostNetwork make sure you set dnsPolicy to `ClusterFirstWithHostNet`
+  hostNetwork: false
+  # -- Allows specifying explicit hostname setting
+  hostname: ""
+  # -- Defaults to "ClusterFirst" if hostNetwork is false and "ClusterFirstWithHostNet" if hostNetwork is true
+  dnsPolicy: ""
+  # -- Optional DNS settings, configuring the ndots option may resolve nslookup issues on some Kubernetes setups.
+  dnsConfig: {}
+
+  # -- Enable/disable the generation of environment variables for services.
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service)
+  enableServiceLinks: true
+  
+  # -- Configure the lifecycle for the container
+  lifecycle: {}
+  termination:
+    # -- Configure the path at which the file to which the container's termination message will be written.
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+    messagePath:
+    # -- Indicate how the container's termination message should be populated.
+    # Valid options are `File` and `FallbackToLogsOnError`.
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+    messagePolicy:
+    # -- Duration in seconds the pod needs to terminate gracefully
+    # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle)]
+    gracePeriodSeconds:
+
+  # -- Mlflow Service configuration
+  service:
+    # -- Specifies which type of service should be created
+    type: ClusterIP
+    # -- Service port number
+    port: 5000
+    # -- Service Node port
+    # Used when the service type is NodePort or LoadBalancer
+    nodePort: ""
+    # -- Service port name
+    name: http
+    # -- Annotations to add to the service
+    annotations: {}
+  
+  # -- Mlflow Ingress configuration
+  # [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/)
+  ingress:
+    # -- Specifies whether a ingress should be created
+    enabled: false
+    # -- Annotations to add to the ingress
+    annotations: {}
+    # -- Ingress class name
+    className: "nginx"
+    # -- Ingress path type
+    pathType: ImplementationSpecific
+    # -- Ingress hostname
+    hostname: chart-example.local
+    # -- Ingress path
+    path: /
+    # -- Ingress TLS configuration
+    tls:
+      # -- Specifies whether to enable TLS
+      enabled: false
+      # -- Specifies whether to generate self-signed certificate
+      genSelfSignedCert: false
+      cert: |
+        -----BEGIN CERTIFICATE-----
+        -----END CERTIFICATE-----
+      key: |
+        -----BEGIN PRIVATE KEY-----
+        -----END PRIVATE KEY-----
+    # -- Extra hosts to configure for the ingress object
+    extraHosts: []
+    # -- Extra paths to configure for the ingress object
+    extraPaths: []
+    # -- Extra tls hosts to configure for the ingress object
+    extraTls: []
+    # -- Extra rules to configure for the ingress object
+    extraRules: []
+
+  trackingServer:
+    # -- Specifies which mode mlflow tracking server run with, available options are `serve-artifacts`, `no-serve-artifacts` and `artifacts-only`
+    mode: serve-artifacts
+    # -- Specifies a default artifact location for logging, data will be logged to `mlflow-artifacts/:` if artifact serving is enabled, otherwise `./mlruns`
+    defaultArtifactRoot: ""
+    # -- Specifies the base artifact location from which to resolve artifact upload/download/list requests (e.g. `s3://my-bucket`)
+    artifactsDestination: "s3://mlflow"
+    # -- Network address to listen on
+    host: 0.0.0.0
+    # -- Port to expose the tracking server
+    port: 5000
+    # -- Number of gunicorn worker processes to handle requests
+    workers: 1
+    # -- Extra arguments passed to the `mlflow server` command
+    extraArgs:
+    # A prefix which will be prepended to the path of all static paths
+    # - --static-prefix TEXT
+    # Additional command line options forwarded to gunicorn processes
+    # - --gunicorn-opts "--timeout 900 --graceful-timeout 120"
+    # Additional command line options for waitress-serve
+    # - --waitress-opts TEXT
+    # Path to the directory where metrics will be stored
+    # - --expose-prometheus /metrics
+    # If enabled, run the server with debug logging and auto-reload
+    - --dev
+  
+    # Basic authentication configuration,
+    # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
+    basicAuth:
+      # -- Specifies whether to enable basic authentication
+      enabled: true
+      # -- Name of an existing secret which contains key `basic_auth.ini`
+      existingSecret: ""
+      # If enables BasicAuth and no existing secret is specified, creates a secret to store authentication configurations
+      createSecret:
+        # -- Default permission on all resources
+        defaultPermission: READ
+        # -- Default admin username if the admin is not already created
+        adminUsername: admin
+        # -- Default admin password if the admin is not already created
+        adminPassword: password
+        # -- Function to authenticate requests
+        authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
+
+  # For more information about how to configure backend store, please visit https://mlflow.org/docs/latest/tracking/backend-stores.html
+  backendStore:
+    # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
+    databaseUpgrade: false
+    # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
+    # If an existing secret is not provided, a new secret will be created to store the backend store URI using the details from .Values.postgres when Embedded PostgreSQL is enabled
+    existingSecret: ""
+
+  # For more information about how to configure artifact store, please visit https://mlflow.org/docs/latest/tracking.html#artifact-stores
+  artifactStore:
+    s3:
+      # -- Specifies whether to enable AWS S3 as artifact store backend
+      # NOTE: Need to also ensure .mlflow.trackingServer.artifactsDestination is set to the correct S3 bucket
+      enabled: true
+      # -- Name of an existing secret containing the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to access artifact storage on AWS S3 or MINIO
+      existingSecret: ""
+      # -- AWS access key ID
+      # Used if S3 is enabled as an artifact storage backend and no existing secret is specified
+      accessKeyId: "minio"
+      # -- AWS secret access key
+      # Used if S3 is enabled as an artifact storage backend and no existing secret is specified
+      secretAccessKey: "minio1234"
+      # -- Specify whether to ignore TLS
+      ignoreTls: true
+      # -- Name of an existing secret containing the key `ca-bundle.crt` used to store the CA certificate for TLS connections
+      existingCaSecret: ""
+      # -- If S3 is enabled as artifact store backend and no existing CA secret is specified, create the secret used to secure connection to S3 / Minio
+      createCaSecret:
+        # -- Content of CA bundle
+        caBundle: ""
+      # -- External S3 compatible bucket details
+      # Used if S3 is enabled as artifact storage backend, external.enabled is true, and no existing secret is specified
+      external:
+        # -- Specifies whether to use an external S3 bucket
+        enabled: false
+        # -- S3 endpoint protocol
+        # https or http
+        protocol: https
+        # -- S3 endpoint host
+        host: ""
+        # -- S3 endpoint port
+        port: 443
+        # -- Specify whether to ignore TLS
+        ignoreTls: false
+
+replicated:
+  # -- Specifies whetherto enable the Replicated SDK
+  enabled: false
+
+minio:
+  enabled: true
+  secrets:
+    name: myminio-env-configuration
+    accessKey: minio
+    secretKey: minio1234
+  tenant:
+    # -- Minio Tenant name
+    name: minio
+
+    image:
+      # -- Image repository
+      repository: quay.io/minio/minio
+      # -- Image tag
+      tag: RELEASE.2024-05-01T01-11-10Z
+      # -- Image pull policy
+      pullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecret: {}
+    # -- 
+    scheduler: {}
+    # -- The Kubernetes secret name that contains MinIO environment variable configurations.
+    # The secret is expected to have a key named config.env containing environment variables exports.
+    configuration:
+      name: myminio-env-configuration
+    # -- See `Operator CRD: Pools <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#pool>`__ for more information on all subfields.
+    pools:
+      # -- The number of MinIO Tenant Pods / Servers in this pool.
+      # For standalone mode, supply 1. For distributed mode, supply 4 or more.
+      # Note that the operator does not support upgrading from standalone to distributed mode.
+      pool0:
+        servers: 4
+        # -- Custom name for the pool
+        name: pool-0
+        # -- The number of volumes attached per MinIO Tenant Pod / Server.
+        volumesPerServer: 4
+        # -- The capacity per volume requested per MinIO Tenant Pod.
+        size: 10Gi
+        # -- Specify `storageAnnotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to PVCs.
+        storageAnnotations: {}
+        # -- Specify `annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to Tenant pods.
+        annotations: {}
+        # -- Specify `labels <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ to associate to Tenant pods.
+        labels: {}
+        # -- An array of `Toleration labels <https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>`__ to associate to Tenant pods.
+        tolerations: []
+        # -- Any `Node Selectors <https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/>`__ to apply to Tenant pods.
+        nodeSelector: {}
+        # -- The `affinity <https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes-using-node-affinity/>`__ or anti-affinity settings to apply to Tenant pods.
+        affinity: {}
+        # -- The `Requests or Limits <https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/>`__ for resources to associate to Tenant pods.
+        resources: { }
+        # -- The Kubernetes `SecurityContext <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`__ to use for deploying Tenant resources.
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: "OnRootMismatch"
+          runAsNonRoot: true
+        # -- The Kubernetes `SecurityContext <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`__ to use for deploying Tenant containers.
+        containerSecurityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        # -- An array of `Topology Spread Constraints <https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/>`__ to associate to Operator Console pods.
+        topologySpreadConstraints: [ ]
+        # -- The name of a custom `Container Runtime <https://kubernetes.io/docs/concepts/containers/runtime-class/>`__ to use for the Operator Console pods.
+        runtimeClassName: ""
+    # -- The mount path where Persistent Volumes are mounted inside Tenant container(s).
+    mountPath: /export
+    # -- The Sub path inside Mount path where MinIO stores data.
+    subPath: /data
+    # -- Configures a Prometheus-compatible scraping endpoint at the specified port.
+    metrics:
+      enabled: false
+      port: 9000
+      protocol: http
+    # -- Configures external certificate settings for the Tenant.
+    certificate:
+      # -- Specify an array of Kubernetes TLS secrets, where each entry corresponds to a secret the TLS private key and public certificate pair.
+      # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
+      externalCaCertSecret: []
+      # -- Specify an array of Kubernetes secrets, where each entry corresponds to a secret contains the TLS private key and public certificate pair.
+      # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
+      externalCertSecret: [ ]
+      # Enable automatic Kubernetes based `certificate generation and signing <https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster>`__
+      requestAutoCert: true
+      # -- See `Operator CRD: CertificateConfig <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#certificateconfig>`__
+      certConfig: {}
+    # -- MinIO features to enable or disable in the MinIO Tenant
+    # See `Operator CRD: Features <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#features>`__.
+    features:
+      bucketDNS: false
+      domains: {}
+      enableSFTP: false
+    # -- Array of objects describing one or more buckets to create during tenant provisioning.
+    buckets:
+    - name: mlflow
+    # -- Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
+    # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
+    users: []
+    # -- The `PodManagement <https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#pod-management-policy>`__ policy for MinIO Tenant Pods. 
+    # Can be "OrderedReady" or "Parallel"
+    podManagementPolicy: Parallel
+    # -- The `Liveness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes>`__ for monitoring Tenant pod liveness. 
+    # Tenant pods will be restarted if the probe fails.
+    liveness: {}
+    # -- `Readiness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring Tenant container readiness.
+    # Tenant pods will be removed from service endpoints if the probe fails.
+    # -- `Startup Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring container startup. 
+    # Tenant pods will be restarted if the probe fails.
+    startup: {}
+    # -- The `Lifecycle hooks <https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/>`__ for container.
+    lifecycle: { }
+    # -- Directs the Operator to deploy the MinIO S3 API and Console services as LoadBalancer objects.
+    # If the Kubernetes cluster has a configured LoadBalancer, it can attempt to route traffic to those services automatically.
+    # Specify ``minio: true`` to expose the MinIO S3 API.
+    # Specify ``console: true`` to expose the Console.
+    # Both fields default to ``false``.
+    exposeServices: { }
+    # -- The `Kubernetes Service Account <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`__ associated with the Tenant.
+    serviceAccountName: ""
+    # -- Directs the Operator to add the Tenant's metric scrape configuration to an existing Kubernetes Prometheus deployment managed by the Prometheus Operator.
+    prometheusOperator: false
+    # -- Configure pod logging configuration for the MinIO Tenant.
+    # Specify ``json`` for JSON-formatted logs.
+    # Specify ``anonymous`` for anonymized logs.
+    # Specify ``quiet`` to supress logging.
+    logging: { }
+    # -- serviceMetadata allows passing additional labels and annotations to MinIO and Console specific
+    # services created by the operator.
+    serviceMetadata: { }
+    # -- Add environment variables to be set in MinIO container (https://github.com/minio/minio/tree/master/docs/config)
+    env: [ ]
+    # -- PriorityClassName indicates the Pod priority and hence importance of a Pod relative to other Pods.
+    # This is applied to MinIO pods only.
+    # Refer Kubernetes documentation for details https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass/
+    priorityClassName: ""
+    # -- An array of `Volumes <https://kubernetes.io/docs/concepts/storage/volumes/>`__ which the Operator can mount to Tenant pods.
+    # The volumes must exist *and* be accessible to the Tenant pods.
+    additionalVolumes: [ ]
+    # -- An array of volume mount points associated to each Tenant container.
+    additionalVolumeMounts: [ ]
+    # Define configuration for KES (stateless and distributed key-management system)
+    # Refer https://github.com/minio/kes
+    #kes:
+    #  ## Image field:
+    #  # Image from tag (original behavior), for example:
+    #  # image:
+    #  #   repository: quay.io/minio/kes
+    #  #   tag: 2024-04-12T13-50-00Z
+    #  # Image from digest (added after original behavior), for example:
+    #  # image:
+    #  #   repository: quay.io/minio/kes@sha256
+    #  #   digest: fb15af611149892f357a8a99d1bcd8bf5dae713bd64c15e6eb27fbdb88fc208b
+    #  image:
+    #    repository: quay.io/minio/kes
+    #    tag: 2024-04-12T13-50-00Z
+    #    pullPolicy: IfNotPresent
+    #  env: [ ]
+    #  replicas: 2
+    #  configuration: |-
+    #    address: :7373
+    #    tls:
+    #      key: /tmp/kes/server.key   # Path to the TLS private key
+    #      cert: /tmp/kes/server.crt # Path to the TLS certificate
+    #      proxy:
+    #        identities: []
+    #        header:
+    #          cert: X-Tls-Client-Cert
+    #    admin:
+    #      identity: ${MINIO_KES_IDENTITY}
+    #    cache:
+    #      expiry:
+    #        any: 5m0s
+    #        unused: 20s
+    #    log:
+    #      error: on
+    #      audit: off
+    #    keystore:
+    #      # KES configured with fs (File System mode) doesn't work in Kubernetes environments and is not recommended
+    #      # use a real KMS
+    #      # fs:
+    #      #   path: "./keys" # Path to directory. Keys will be stored as files. Not Recommended for Production.
+    #      vault:
+    #        endpoint: "http://vault.default.svc.cluster.local:8200" # The Vault endpoint
+    #        namespace: "" # An optional Vault namespace. See: https://www.vaultproject.io/docs/enterprise/namespaces/index.html
+    #        prefix: "my-minio"    # An optional K/V prefix. The server will store keys under this prefix.
+    #        approle:    # AppRole credentials. See: https://www.vaultproject.io/docs/auth/approle.html
+    #          id: "<YOUR APPROLE ID HERE>"      # Your AppRole Role ID
+    #          secret: "<YOUR APPROLE SECRET ID HERE>"  # Your AppRole Secret ID
+    #          retry: 15s  # Duration until the server tries to re-authenticate after connection loss.
+    #        tls:        # The Vault client TLS configuration for mTLS authentication and certificate verification
+    #          key: ""     # Path to the TLS client private key for mTLS authentication to Vault
+    #          cert: ""    # Path to the TLS client certificate for mTLS authentication to Vault
+    #          ca: ""      # Path to one or multiple PEM root CA certificates
+    #        status:     # Vault status configuration. The server will periodically reach out to Vault to check its status.
+    #          ping: 10s   # Duration until the server checks Vault's status again.
+    #      # aws:
+    #      #   # The AWS SecretsManager key store. The server will store
+    #      #   # secret keys at the AWS SecretsManager encrypted with
+    #      #   # AWS-KMS. See: https://aws.amazon.com/secrets-manager
+    #      #   secretsmanager:
+    #      #     endpoint: ""   # The AWS SecretsManager endpoint      - e.g.: secretsmanager.us-east-2.amazonaws.com
+    #      #     region: ""     # The AWS region of the SecretsManager - e.g.: us-east-2
+    #      #     kmskey: ""     # The AWS-KMS key ID used to en/decrypt secrets at the SecretsManager. By default (if not set) the default AWS-KMS key will be used.
+    #      #     credentials:   # The AWS credentials for accessing secrets at the AWS SecretsManager.
+    #      #       accesskey: ""  # Your AWS Access Key
+    #      #       secretkey: ""  # Your AWS Secret Key
+    #      #       token: ""      # Your AWS session token (usually optional)
+    #  imagePullPolicy: "IfNotPresent"
+    #  externalCertSecret: null
+    #  clientCertSecret: null
+    #  # Key name to be created on the KMS, default is "my-minio-key"
+    #  keyName: ""
+    #  resources: { }
+    #  nodeSelector: { }
+    #  affinity:
+    #    nodeAffinity: { }
+    #    podAffinity: { }
+    #    podAntiAffinity: { }
+    #  tolerations: [ ]
+    #  annotations: { }
+    #  labels: { }
+    #  serviceAccountName: ""
+    #  securityContext:
+    #    runAsUser: 1000
+    #    runAsGroup: 1000
+    #    runAsNonRoot: true
+    #    fsGroup: 1000
+    #  containerSecurityContext:
+    #    runAsUser: 1000
+    #    runAsGroup: 1000
+    #    runAsNonRoot: true
+    #    allowPrivilegeEscalation: false
+    #    capabilities:
+    #      drop:
+    #        - ALL
+    #    seccompProfile:
+    #      type: RuntimeDefault
+
+# -- Embedded Postrgres configuration
+# Deploys a cluster using the CloudnativePG Operator
+# [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
+postgres:
+  # -- Postgres authentication configuration
+  auth:
+    # -- Mlflow Tracking Server Postgres username
+    username: mlflow
+    # -- Mlflow Tracking Server Postgres password
+    password: mlflow
+
+  embedded:
+    # -- Specifies whether to enable the Embedded Postrgres cluster
+    enabled: true
+    type: postgresql
+    # -- Postgres cluster annotations
+    annotations: {}
+    # -- Addtional labels for Postgres cluster
+    additionalLabels: {}
+    # -- Number of Postgres instances to deploy
+    instances: 3
+    image:
+      # -- Image registry
+      repository: ghcr.io/cloudnative-pg/postgresql
+      # -- Image tag
+      tag: "15.2"
+    # -- Image pull policy
+    imagePullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # -- Postgres InitDB configuration
+    initdb:
+      # -- Postgres database name to be initilized
+      database: mlflow
+      # -- Postgres username name to be initilized
+      owner: mlflow
+      # -- Postgres init application SQL
+      postInitApplicationSQL: []
+    # -- Postgres UID
+    postgresUID: 26
+    # -- Postgres GID
+    postgresGID: 26
+    # -- Postgres storage configuration
+    storage:
+      size: 10Gi
+      storageClass: ""
+    # -- Postgres resources
+    resources: {}
+    # -- Postgres priority class name
+    priorityClassName: ""
+    # -- Postgres primary update method
+    primaryUpdateMethod: switchover
+    # -- Postgres primary update strategy
+    primaryUpdateStrategy: unsupervised
+    # -- Postgres log level
+    logLevel: "info"
+    # -- Affinity/Anti-affinity rules for Pods.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-AffinityConfiguration
+    affinity:
+      topologyKey: topology.kubernetes.io/zone
+    # -- The configuration for the CA and related certificates.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration
+    certificates: {}
+    # -- When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password.
+    # If the secret is not present, the operator will automatically create one.
+    # When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created,
+    # and then blank the password of the postgres user by setting it to NULL.
+    enableSuperuserAccess: true
+    superuserSecret: ""
+  
+    # -- This feature enables declarative management of existing roles, as well as the creation of new roles if they are not
+    # already present in the database.
+    # See: https://cloudnative-pg.io/documentation/current/declarative_role_management/
+    roles: []
+      # - name: dante
+      #   ensure: present
+      #   comment: Dante Alighieri
+      #   login: true
+      #   superuser: false
+      #   inRoles:
+      #     - pg_monitor
+      #     - pg_signal_backend
+
+    # -- Configuration of the PostgreSQL server.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-PostgresConfiguration
+    postgresql: {}
+      # max_connections: 300
+  external:
+    # -- Specifies whether to use an external PostgresSQL cluster
+    # NOTE: If you enabled External PostgreSQL, you should disable the Embedded PostgreSQL (cluster.enabled: false)
+    enabled: false
+    # -- External Postgres host
+    host: ""
+    # -- External Postgres port
+    port: 5432
+    # -- External Postgres database
+    database: mlflow
