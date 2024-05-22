@@ -5,12 +5,125 @@ metadata:
   name: config
 spec:
   groups:
-    - name: PowerDNS
-      title: PowerDNS Settings
-      description: Configuration for PowerDNS
+    # Ingress settings
+    - name: ingress_settings
+      title: Ingress Settings
+      description: Configure Ingress for Mlflow
       items:
-        - name: powerdns_host
-          title: PowerDNS Host
-          help_text: The DNS hostname used to connect to PowerDNS via the browser
+        - name: pdnsadmin_ingress_type
+          title: pdnsadmin Ingress Type
+          help_text: |
+            Select how traffic will ingress to the PowerDNS Admin (pdnsadmin) appliction. The Ingress Controller option will create an Ingress object,
+            and Load Balancer will configure pdnsadmin's Kubernetes service to be of type LoadBalancer.
+          type: select_one
+          items:
+            - name: ingress_controller
+              title: Ingress Controller
+            - name: load_balancer
+              title: Load Balancer
+          default: 'ingress_controller'
+          required: true
+          when: 'repl{{ ne Distribution "embedded-cluster" }}'
+        - name: pdnsadmin_ingress_host
+          title: pdnsadmin Hostname
+          help_text: Hostname which will be used to access pdnsadmin
           type: text
-          default: 'powerdns.example.com'
+          default: 'pdnsadmin.example.com'
+          required: true
+          when: 'repl{{ ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller" }}'
+        - name: pdnsadmin_ingress_class_name
+          type: text
+          title: Ingress Class Name
+          default: 'nginx'
+          when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller") }}'
+        - name: pdnsadmin_ingress_annotations
+          type: textarea
+          title: Ingress Annotations
+          when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller") }}'
+        - name: pdnsadmin_ingress_tls_type
+          title: pdnsadmin Ingress TLS Type
+          type: select_one
+          items:
+            - name: self_signed
+              title: Self Signed (Generate Self Signed Certificate)
+            - name: user_provided
+              title: User Provided (Upload a TLS Certificate and Key Pair)
+          required: true
+          default: self_signed
+          when: 'repl{{ ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller" }}'
+        - name: pdnsadmin_ingress_tls_cert
+          title: pdnsadmin TLS Cert
+          type: file
+          when: '{{repl and (ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller") (ConfigOptionEquals "pdnsadmin_ingress_tls_type" "user_provided") }}'
+          required: true
+        - name: pdnsadmin_ingress_tls_key
+          title: pdnsadmin TLS Key
+          type: file
+          when: '{{repl and (ConfigOptionEquals "pdnsadmin_ingress_type" "ingress_controller") (ConfigOptionEquals "pdnsadmin_ingress_tls_type" "user_provided") }}'
+          required: true
+        - name: pdnsadmin_load_balancer_port
+          title: Load Balancer Port
+          help_text: Port which will be used to access pdnsadmin via the Load Balancer
+          type: text
+          default: '443'
+          required: true
+          when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "pdnsadmin_ingress_type" "load_balancer") }}'
+        - name: pdnsadmin_load_balancer_port
+          title: Load Balancer Node Port
+          help_text: Node Port for the Load Balancer service
+          type: text
+          when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "pdnsadmin_ingress_type" "load_balancer") }}'
+        - name: pdnsadmin_load_balancer_annotations
+          type: textarea
+          title: Load Balancer Annotations
+          help_text: "See your cloud provider's documentation for the required annotations."
+          when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "pdnsadmin_ingress_type" "load_balancer") }}'
+    # Database settings
+    - name: database_settings
+      title: Database
+      items:
+        - name: postgres_type
+          help_text: Would you like to use an embedded postgres instance, or connect to an external instance that you manage?
+          type: select_one
+          title: Postgres
+          default: embedded_postgres
+          items:
+            - name: embedded_postgres
+              title: Embedded Postgres
+            - name: external_postgres
+              title: External Postgres
+        - name: embedded_postgres_password
+          hidden: true
+          readonly: false
+          type: password
+          value: '{{repl RandomString 32}}'
+        - name: embedded_postgres_volume_size
+          title: Postgres Volume Size
+          type: text
+          default: '10Gi'
+          when: '{{repl ConfigOptionEquals "postgres_type" "embedded_postgres"}}'
+        - name: external_postgres_host
+          title: Postgres Host
+          when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+          type: text
+          default: postgres
+        - name: external_postgres_port
+          title: Postgres Port
+          when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+          type: text
+          default: '5432'
+        - name: external_postgres_username
+          title: Postgres Username
+          when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+          type: text
+          required: true
+        - name: external_postgres_password
+          title: Postgres Password
+          when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+          type: password
+          required: true
+        - name: external_postgres_db
+          title: Postgres Database
+          when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
+          type: text
+          default: postgres

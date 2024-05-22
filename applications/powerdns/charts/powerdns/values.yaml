@@ -1,29 +1,20 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/app-template-3.1.0/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+#### PowerDNS User-Facing Application Configuration
+powerdns:
 
-configMap:
-  pdns-auth:
-    99-pdns.conf: |
-      launch=gmysql
-      gmysql-host=powerdns-postgresql
-      gmysql-user=powerdns
-      local-address=0.0.0.0
-      local-port=5353
-  pdns-recursor:
-    99-recursor.conf: |
-      allow-from=0.0.0.0
-      local-address=0.0.0.0
-      local-port=5353
+#### PowerDNS Workload Definitions
 controllers:
   auth:
     containers:
-      pdns:
+      main:
         image:
           repository: powerdns/pdns-auth-49
           tag: 4.9.0
         env:
           - name: DEBUG_CONFIG
             value: 'yes'
-
+          - name: PDNS_AUTH_API_KEY
+            value: 'changeme'
   recursor:
     pod:
       securityContext:
@@ -31,17 +22,16 @@ controllers:
           add:
             - NET_BIND_SERVICE
     containers:
-      pdns:
+      main:
         image:
           repository: powerdns/pdns-recursor-50
           tag: 5.0.5
         env:
           - name: DEBUG_CONFIG
             value: 'yes'
-
   admin:
     containers:
-      pdnsadmin:
+      main:
         image:
           repository: powerdnsadmin/pda-legacy
           tag: v0.4.2
@@ -49,9 +39,41 @@ controllers:
           - name: SQLALCHEMY_DATABASE_URI
             value: postgresql://powerdns:powerdns@powerdns-postgresql:5432/powerdns
 
+configMap:
+  auth:
+    99-pdns.conf: |
+      launch=gmysql
+      gmysql-host=powerdns-postgresql
+      gmysql-user=powerdns
+      local-address=0.0.0.0
+      local-port=5353
+  recursor:
+    99-recursor.conf: |
+      allow-from=0.0.0.0
+      local-address=0.0.0.0
+      local-port=5353
+
+persistence:
+  auth:
+    type: configMap
+    advancedMounts:
+      auth:
+        main:
+          - path: /etc/powerdns/pdns.d/99-pdns.conf
+            configMap: auth
+            subpath: 99-pdns.conf
+  recursor:
+    type: configMap
+    advancedMounts:
+      recursor:
+        main:
+          - path: /etc/powerdns/recursor.d/99-recursor.conf
+            configMap: recursor
+            subpath: 99-recursor.conf
+
 service:
   auth:
-    controller: pdns-auth
+    controller: auth
     ports:
       udp:
         type: ClusterIP
@@ -63,9 +85,8 @@ service:
         port: 53
         targetPort: 5353
         protocol: TCP
-
   recursor:
-    controller: pdns-recursor
+    controller: recursor
     ports:
       udp:
         type: NodePort
@@ -77,9 +98,8 @@ service:
         port: 53
         targetPort: 5353
         protocol: TCP
-
   admin:
-    controller: pdns-admin
+    controller: admin
     ports:
       http:
         type: ClusterIP
@@ -92,7 +112,7 @@ service:
 
 ingress:
   admin:
-    enabled: true
+    enabled: false
     hosts:
       - host: '*'
         paths:
@@ -100,3 +120,103 @@ ingress:
             backend:
               serviceName: pdns-admin
               servicePort: 80
+
+# -- Embedded Postrgres configuration
+# Deploys a cluster using the CloudnativePG Operator
+# [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
+postgres:
+  # -- Postgres authentication configuration
+  auth:
+    # -- Mlflow Tracking Server Postgres username
+    username: mlflow
+    # -- Mlflow Tracking Server Postgres password
+    password: mlflow
+
+  embedded:
+    # -- Specifies whether to enable the Embedded Postgres cluster
+    enabled: true
+    type: postgresql
+    # -- Postgres cluster annotations
+    annotations: {}
+    # -- Addtional labels for Postgres cluster
+    additionalLabels: {}
+    # -- Number of Postgres instances to deploy
+    instances: 1
+    image:
+      # -- Image registry
+      repository: ghcr.io/cloudnative-pg/postgresql
+      # -- Image tag
+      tag: '15.2'
+    # -- Image pull policy
+    imagePullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # -- Postgres InitDB configuration
+    initdb:
+      # -- Postgres database name to be initilized
+      database: pdns
+      # -- Postgres username name to be initilized
+      owner: pdns
+      # -- Postgres init application SQL
+      postInitApplicationSQL: []
+    # -- Postgres UID
+    postgresUID: 26
+    # -- Postgres GID
+    postgresGID: 26
+    # -- Postgres storage configuration
+    storage:
+      size: 10Gi
+      storageClass: ''
+    # -- Postgres resources
+    resources: {}
+    # -- Postgres priority class name
+    priorityClassName: ''
+    # -- Postgres primary update method
+    primaryUpdateMethod: switchover
+    # -- Postgres primary update strategy
+    primaryUpdateStrategy: unsupervised
+    # -- Postgres log level
+    logLevel: 'info'
+    # -- Affinity/Anti-affinity rules for Pods.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-AffinityConfiguration
+    affinity:
+      topologyKey: topology.kubernetes.io/zone
+    # -- The configuration for the CA and related certificates.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration
+    certificates: {}
+    # -- When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password.
+    # If the secret is not present, the operator will automatically create one.
+    # When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created,
+    # and then blank the password of the postgres user by setting it to NULL.
+    enableSuperuserAccess: true
+    superuserSecret: ''
+
+    # -- This feature enables declarative management of existing roles, as well as the creation of new roles if they are not
+    # already present in the database.
+    # See: https://cloudnative-pg.io/documentation/current/declarative_role_management/
+    roles:
+      []
+      # - name: dante
+      #   ensure: present
+      #   comment: Dante Alighieri
+      #   login: true
+      #   superuser: false
+      #   inRoles:
+      #     - pg_monitor
+      #     - pg_signal_backend
+
+    # -- Configuration of the PostgreSQL server.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-PostgresConfiguration
+    postgresql:
+      {}
+      # max_connections: 300
+  external:
+    # -- Specifies whether to use an external PostgresSQL cluster
+    # NOTE: If you enabled External PostgreSQL, you should disable the Embedded PostgreSQL (cluster.enabled: false)
+    enabled: false
+    # -- External Postgres host
+    host: ''
+    # -- External Postgres port
+    port: 5432
+    # -- External Postgres database
+    database: pdns

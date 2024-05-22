@@ -2,7 +2,9 @@
 apiVersion: v2
 description: A Helm chart for PowerDNS and PowerDNS-Admin with PostgreSQL backend, using the Helm "library chart" pattern from https://bjw-s.github.io/helm-charts and cloudnative-pg Postgres operator.
 name: powerdns
+type: application
 version: 0.0.1
+appVersion: 4.9.0
 kubeVersion: '>=1.26.0-0'
 maintainers:
   - name: adamancini
@@ -14,3 +16,8 @@ dependencies:
   - name: cloudnative-pg
     repository: https://cloudnative-pg.github.io/charts
     version: 0.21.2
+    condition: postgres.embedded.enabled
+  - name: replicated
+    version: '^1.0.0-beta.20'
+    repository: 'oci://registry.replicated.com/library'
+    condition: replicated.enabled

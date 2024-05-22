@@ -1,0 +1,9 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pdns
+spec:
+  instances: {{ .Values.postgres.embedded.instances }}
+
+  storage:
+    size: 1Gi

@@ -5,5 +5,8 @@ dependencies:
 - name: cloudnative-pg
   repository: https://cloudnative-pg.github.io/charts
   version: 0.21.2
-digest: sha256:b7c16de65e45591468e2cfcca62715479d276169f55d86d7cf36a874d79dac78
-generated: "2024-05-22T14:56:36.442129-04:00"
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.0.0-beta.20
+digest: sha256:a56e30f50b170a6fcc934640d57efcb2e7b7bdccc8ba56c72f4425f2cb4f62a1
+generated: "2024-05-22T16:50:12.228331-04:00"
