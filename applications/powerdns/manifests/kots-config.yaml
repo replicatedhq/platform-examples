@@ -1,0 +1,16 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+    - name: PowerDNS
+      title: PowerDNS Settings
+      description: Configuration for PowerDNS
+      items:
+        - name: powerdns_host
+          title: PowerDNS Host
+          help_text: The DNS hostname used to connect to PowerDNS via the browser
+          type: text
+          default: 'powerdns.example.com'

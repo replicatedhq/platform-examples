@@ -10,7 +10,7 @@ configMap:
       local-port=5353
   pdns-recursor:
     99-recursor.conf: |
-      allow-from=
+      allow-from=0.0.0.0
       local-address=0.0.0.0
       local-port=5353
 controllers:
@@ -50,7 +50,7 @@ controllers:
             value: postgresql://powerdns:powerdns@powerdns-postgresql:5432/powerdns
 
 service:
-  pdns-auth:
+  auth:
     controller: pdns-auth
     ports:
       udp:
@@ -64,7 +64,7 @@ service:
         targetPort: 5353
         protocol: TCP
 
-  pdns-recursor:
+  recursor:
     controller: pdns-recursor
     ports:
       udp:
@@ -77,7 +77,8 @@ service:
         port: 53
         targetPort: 5353
         protocol: TCP
-  pdns-admin:
+
+  admin:
     controller: pdns-admin
     ports:
       http:
@@ -90,10 +91,10 @@ service:
         protocol: HTTP
 
 ingress:
-  pdns-admin:
+  admin:
     enabled: true
     hosts:
-      - host: powerdns-admin.local
+      - host: '*'
         paths:
           - path: /
             backend:
