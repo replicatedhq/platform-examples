@@ -29,9 +29,25 @@ spec:
   resources:
     {{- toYaml . | nindent 4 }}
   {{ end }}
-  {{- with .Values.postgres.embedded.affinity }}
   affinity:
-    {{- toYaml . | nindent 4 }}
+  {{- if .Values.postgres.embedded.affinity }}
+    {{- toYaml .Values.postgres.embedded.affinity | nindent 8 }}
+  {{- else if .Values.postgres.embedded.podAntiAffinityTopologyKey }}
+    podAntiAffinity:
+    {{- if eq .Values.postgres.embedded.podAntiAffinityMode "hard" }}
+      requiredDuringSchedulingIgnoredDuringExecution:
+    {{- else if eq .Values.postgres.embedded.podAntiAffinityMode "soft"}}
+      preferredDuringSchedulingIgnoredDuringExecution:
+    {{- else }}
+      {{- fail (printf "(%s) is not a valid pod antiAffinity mode" .Values.postgres.embedded.podAntiAffinityMode) }}
+    {{- end }}
+        - topologyKey: "{{ .Values.postgres.embedded.podAntiAffinityTopologyKey }}"
+          labelSelector:
+            matchExpressions:
+              - key: "app.kubernetes.io/name"
+                operator: In
+                values: 
+                - {{ include "mlflow.name" . }}
   {{- end }}
   priorityClassName: {{ .Values.postgres.embedded.priorityClassName }}
   primaryUpdateMethod: {{ .Values.postgres.embedded.primaryUpdateMethod }}

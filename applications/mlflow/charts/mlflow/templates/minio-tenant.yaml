@@ -31,7 +31,7 @@ spec:
     name: {{ .configuration.name }}
   pools:
     {{- range $name, $poolValues := .pools }}
-    - servers: {{ dig "servers" 4 $poolValues }}
+    - servers: {{ dig "servers" 3 $poolValues }}
       name: {{ $name }}
       volumesPerServer: {{ dig "volumesPerServer" 4 $poolValues }}
       {{- if dig "runtimeClassName" "" $poolValues }}
@@ -64,8 +64,25 @@ spec:
       {{- with (dig "nodeSelector" (dict) $poolValues) }}
       nodeSelector: {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with (dig "affinity" (dict) $poolValues) }}
-      affinity: {{- toYaml . | nindent 8 }}
+      affinity:
+      {{- if $poolValues.affinity }}
+        {{- toYaml $poolValues.affinity | nindent 8 }}
+      {{- else if $poolValues.podAntiAffinityTopologyKey }}
+        podAntiAffinity:
+        {{- if eq $poolValues.podAntiAffinityMode "hard" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+        {{- else if eq $poolValues.podAntiAffinityMode "soft"}}
+          preferredDuringSchedulingIgnoredDuringExecution:
+        {{- else }}
+          {{- fail (printf "(%s) is not a valid pod antiAffinity mode" $poolValues.podAntiAffinityMode) }}
+        {{- end }}
+            - topologyKey: "{{ $poolValues.podAntiAffinityTopologyKey }}"
+              labelSelector:
+                matchExpressions:
+                  - key: "app.kubernetes.io/name"
+                    operator: In
+                    values: 
+                    - {{ include "mlflow.name" . }}
       {{- end }}
       {{- with (dig "resources" (dict) $poolValues) }}
       resources: {{- toYaml . | nindent 8 }}

@@ -8,6 +8,8 @@ spec:
     chartVersion: 0.21.2
   exclude: 'repl{{ or (ConfigOptionEquals `postgres_type` `external_postgres`) (eq Distribution "embedded-cluster") }}'
   weight: 0
+  helmUpgradeFlags:
+    - --wait
   values:
     image:
       repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "cloudnative-pg" }}/cloudnative-pg'
