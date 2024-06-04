@@ -9,6 +9,8 @@ spec:
   weight: 1
   helmUpgradeFlags:
     - --wait
+    - --timeout
+    - 600s
   values:
     mlflow:
       image:

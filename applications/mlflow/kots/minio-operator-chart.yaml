@@ -15,3 +15,5 @@ spec:
       repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "minio" }}/operator'
   helmUpgradeFlags:
     - --wait
+    - --timeout
+    - 600s
