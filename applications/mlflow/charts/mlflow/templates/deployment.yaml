@@ -245,9 +245,25 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.mlflow.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+      {{- if .Values.mlflow.affinity }}
+        {{- toYaml .Values.mlflow.affinity | nindent 8 }}
+      {{- else if .Values.mlflow.podAntiAffinityTopologyKey }}
+        podAntiAffinity:
+        {{- if eq .Values.mlflow.podAntiAffinityMode "hard" }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+        {{- else if eq .Values.mlflow.podAntiAffinityMode "soft"}}
+          preferredDuringSchedulingIgnoredDuringExecution:
+        {{- else }}
+          {{- fail (printf "(%s) is not a valid pod antiAffinity mode" .Values.mlflow.podAntiAffinityMode) }}
+        {{- end }}
+            - topologyKey: "{{ .Values.mlflow.podAntiAffinityTopologyKey }}"
+              labelSelector:
+                matchExpressions:
+                  - key: "app.kubernetes.io/name"
+                    operator: In
+                    values: 
+                    - {{ include "mlflow.name" . }}
       {{- end }}
       {{- with .Values.mlflow.topologySpreadConstraints }}
       topologySpreadConstraints:
