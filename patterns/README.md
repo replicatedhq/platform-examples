@@ -24,3 +24,7 @@ Welcome to the repository! Below is a list of available documents and workflows 
 ### Wait for Database
 
 - [Wait for Database](wait-for-database/README.md)
+
+### Advanced Options
+
+- [Advanced Options](advanced-options/README.md)
