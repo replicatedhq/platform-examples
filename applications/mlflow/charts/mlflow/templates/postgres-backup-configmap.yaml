@@ -7,9 +7,9 @@ data:
     #!/bin/sh
     set -e
     export BACKUP_FILE=/backup/db.sql
-    pg_dump -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 $POSTGRES_DB > $BACKUP_FILE
+    PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 $POSTGRES_DB > $BACKUP_FILE
     echo "Database backed up successfully"
-    
+
   db-restore.sh: |
     #!/bin/sh
     set -e
@@ -18,7 +18,7 @@ data:
         echo "Backup file not found"
         exit 0
     fi
-    pg_restore -U $POSTGRES_USER -h $POSTGRES host -p 5432 -d $POSTGRES_DB $BACKUP_FILE
+    PGPASSWORD=$POSTGRES_PASSWORD pg_restore -U $POSTGRES_USER -h $POSTGRES host -p 5432 -d $POSTGRES_DB $BACKUP_FILE
     rm -f $BACKUP_FILE
     echo "Database restored successfully"
     
