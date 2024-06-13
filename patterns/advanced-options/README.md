@@ -21,7 +21,7 @@ useful for these scenarios.
       help_text: |
         This option allows you to override application defaults by directly
         specifying configurations that are not exposed in this interface.
-        It is for advaned users. If you're not certain, you probably do not
+        It is for advanced users. If you're not certain, you probably do not
         need this checked.
       type: bool
       title: Specify Advanced Options
@@ -33,7 +33,7 @@ useful for these scenarios.
         Specify your advanced configuration options here. These will be
         passed directly to the Helm install and upgrade commands. You must
         specify valid YAML or the install/upgrade will fail.
-      when: repl{{ ConfigOptionEquals "advanced_options" 1 }}
+      when: repl{{ ConfigOptionEquals "advanced_options" "1" }}
 ```
 
 2. Update the appropriate `HelmChart` option with `optionalValues` that will
