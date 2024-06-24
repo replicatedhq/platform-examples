@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlflow.fullname" . }}-backup-scripts
+data:
+  db-backup.sh: |
+    #!/bin/sh
+    set -e
+    export BACKUP_FILE=/backup/db.sql
+    PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 $POSTGRES_DB > $BACKUP_FILE
+    echo "Database backed up successfully"
+
+  db-restore.sh: |
+    #!/bin/sh
+    set -e
+    export BACKUP_FILE=/backup/db.sql
+    if [ ! -f $BACKUP_FILE ]; then
+        echo "Backup file not found"
+        exit 0
+    fi
+    PGPASSWORD=$POSTGRES_PASSWORD pg_restore -U $POSTGRES_USER -h $POSTGRES host -p 5432 -d $POSTGRES_DB $BACKUP_FILE
+    rm -f $BACKUP_FILE
+    echo "Database restored successfully"
+    
