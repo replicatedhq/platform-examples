@@ -27,3 +27,10 @@ spec:
               message: The cluster must contain at least 4 cores
           - pass:
               message: There are at least 2 cores in the cluster
+    - storageClass:
+        checkName: Check for default storage class
+        outcomes:
+          - fail:
+              message: No default storage class found
+          - pass:
+              message: Default storage class found
