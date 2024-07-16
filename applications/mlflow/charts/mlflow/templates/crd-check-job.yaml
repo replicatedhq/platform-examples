@@ -25,14 +25,13 @@ spec:
         - /bin/bash
         - -c
         - |
-          TIMEOUT=60
+          TIMEOUT={{ .Values.mlflow.crdCheck.timeout }}
           START_TIME=$(date +%s)
           CRDS=({{ range .Values.mlflow.crdCheck.crds }} "{{ .name }}" {{ end }})
           for CRD_NAME in "${CRDS[@]}"; do
             while true; do
               if kubectl get crd $CRD_NAME -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' | grep -q "True"; then
                 echo "CRD $CRD_NAME is established."
-                sleep 30
                 break
               fi
               if [ $(($(date +%s) - $START_TIME)) -ge $TIMEOUT ]; then

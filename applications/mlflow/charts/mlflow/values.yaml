@@ -342,6 +342,7 @@ mlflow:
     crds:
       - name: tenants.minio.min.io
       - name: clusters.postgresql.cnpg.io
+    timeout: 60
 
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
