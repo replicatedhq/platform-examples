@@ -1,0 +1,12 @@
+{{- if .Values.mlflow.crdCheck.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "mlflow.fullname" . }}-crd-check-sa
+  labels:
+    app: {{ include "mlflow.fullname" . }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+{{- end }}

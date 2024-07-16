@@ -1,0 +1,48 @@
+{{- if .Values.mlflow.crdCheck.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "mlflow.fullname" . }}-crd-check
+  {{- with (merge (.Values.mlflow.labels | default dict) (include "mlflow.labels" . | fromYaml)) }}
+  labels: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-4"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: {{ include "mlflow.fullname" . }}-crd-check-sa
+      {{- with .Values.mlflow.imagePullSecets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: crd-check
+        image: "{{ .Values.mlflow.crdCheck.image.registry | default "docker.io" }}/{{ .Values.mlflow.crdCheck.image.repository }}:{{ .Values.mlflow.crdCheck.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+        command:
+        - /bin/bash
+        - -c
+        - |
+          TIMEOUT=60
+          START_TIME=$(date +%s)
+          CRDS=({{ range .Values.mlflow.crdCheck.crds }} "{{ .name }}" {{ end }})
+          for CRD_NAME in "${CRDS[@]}"; do
+            while true; do
+              if kubectl get crd $CRD_NAME -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' | grep -q "True"; then
+                echo "CRD $CRD_NAME is established."
+                sleep 30
+                break
+              fi
+              if [ $(($(date +%s) - $START_TIME)) -ge $TIMEOUT ]; then
+                echo "Timeout: CRD $CRD_NAME was not established within $TIMEOUT seconds."
+                exit 1
+              fi
+              echo "Waiting for CRD $CRD_NAME to be created and established...";
+              sleep 5;
+            done
+          done
+          exit 0
+      restartPolicy: OnFailure
+{{- end }}
