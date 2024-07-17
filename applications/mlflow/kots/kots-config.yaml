@@ -68,7 +68,7 @@ spec:
       default: "443"
       required: true
       when: 'repl{{ and (ne Distribution "embedded-cluster") (ConfigOptionEquals "mlflow_ingress_type" "load_balancer") }}'
-    - name: mlflow_load_balancer_port
+    - name: mlflow_load_balancer_node_port
       title: Load Balancer Node Port
       help_text: Node Port for the Load Balancer service
       type: text
