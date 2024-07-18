@@ -1,30 +1,30 @@
-{{- if .Values.enabled }}
+{{- if .Values.crdCheck.enabled }}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ include "crdCheck.fullname" . }}
   annotations:
-    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "-5"
     "helm.sh/hook-delete-policy": hook-succeeded
 spec:
   template:
     spec:
       serviceAccountName: {{ include "crdCheck.fullname" . }}
-      {{- with .Values.imagePullSecrets }}
+      {{- with .Values.crdCheck.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
       - name: crd-check
-        image: "{{ .Values.image.registry | default "docker.io" }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+        image: "{{ .Values.crdCheck.image.registry | default "docker.io" }}/{{ .Values.crdCheck.image.repository }}:{{ .Values.crdCheck.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
         command:
         - /bin/bash
         - -c
         - |
-          TIMEOUT={{ .Values.timeout }}
+          TIMEOUT={{ .Values.crdCheck.timeout }}
           START_TIME=$(date +%s)
-          CRDS=({{ range .Values.crds }} "{{ .name }}" {{ end }})
+          CRDS=({{ range .Values.crdCheck.crds }} "{{ .name }}" {{ end }})
           for CRD_NAME in "${CRDS[@]}"; do
             while true; do
               if kubectl get crd $CRD_NAME -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' | grep -q "True"; then
