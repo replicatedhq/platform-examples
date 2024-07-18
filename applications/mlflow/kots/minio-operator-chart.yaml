@@ -7,7 +7,7 @@ spec:
     name: operator
     chartVersion: 5.0.15
   exclude: 'repl{{ or (ConfigOptionEquals `s3_type` `external_s3`) (eq Distribution "embedded-cluster") }}'
-  weight: 0
+  weight: -10
   value:
     console:
       enabled: false

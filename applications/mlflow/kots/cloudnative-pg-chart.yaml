@@ -7,7 +7,7 @@ spec:
     name: cloudnative-pg
     chartVersion: 0.21.2
   exclude: 'repl{{ or (ConfigOptionEquals `postgres_type` `external_postgres`) (eq Distribution "embedded-cluster") }}'
-  weight: 0
+  weight: -10
   helmUpgradeFlags:
     - --wait
     - --timeout

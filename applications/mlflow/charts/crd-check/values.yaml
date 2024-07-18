@@ -1,0 +1,19 @@
+# -- Specifies whether to enable the CRD check job
+enabled: true
+# -- Image details for the CRD check job
+image:
+  # -- Image registry
+  registry: docker.io
+  # -- Image repository
+  repository: bitnami/kubectl
+  # -- Image tag
+  tag: latest
+# -- CRDs to check
+crds:
+  - name: tenants.minio.min.io
+  - name: clusters.postgresql.cnpg.io
+# -- Timeout in seconds for the CRD check job
+timeout: 60
+
+# -- Image pull secrets for the CRD check job
+imagePullSecrets: []

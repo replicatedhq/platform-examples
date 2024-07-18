@@ -326,24 +326,6 @@ mlflow:
         # -- Specify whether to ignore TLS
         ignoreTls: false
 
-  # -- Job to check if the CRDs are established
-  crdCheck:
-    # -- Specifies whether to enable the CRD check job
-    enabled: true
-    # -- Image details for the CRD check job
-    image:
-      # -- Image registry
-      registry: docker.io
-      # -- Image repository
-      repository: bitnami/kubectl
-      # -- Image tag
-      tag: latest
-    # -- CRDs to check
-    crds:
-      - name: tenants.minio.min.io
-      - name: clusters.postgresql.cnpg.io
-    timeout: 60
-
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
   enabled: false
