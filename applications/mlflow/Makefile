@@ -29,7 +29,7 @@ endef
 package-and-update: add-helm-repositories
 	@for chart in $(HELM_CHARTS_DIR)/*; do \
 	    echo "Packaging $$chart"; \
-	    helm package $$chart -d $(KOTS_DIR); \
+	    helm package $$chart -u -d $(KOTS_DIR); \
 	    version=$$(eval $(call get_helm_chart_version,$$chart)); \
 		chart_name=$$(basename $$chart); \
 	    echo "Updating version to $$version in $(KOTS_DIR)/*-chart.yaml"; \
