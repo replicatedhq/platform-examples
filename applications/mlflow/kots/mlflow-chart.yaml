@@ -47,7 +47,6 @@ spec:
       pools:
         pool0:
           size: repl{{ ConfigOption "embedded_s3_volume_size"}}
-    crdCheck:
 
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "mlflow_ingress_type" "load_balancer" }}'
