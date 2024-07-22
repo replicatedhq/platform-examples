@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/app-template-3.1.0/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
+
 #### PowerDNS User-Facing Application Configuration
-powerdns:
+# powerdns:
 
 #### PowerDNS Workload Definitions
 controllers:
@@ -125,17 +126,14 @@ ingress:
 # Deploys a cluster using the CloudnativePG Operator
 # [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
 postgres:
-  # -- Postgres authentication configuration
+  # -- Postgres credentials secret configuration
   auth:
-    # -- Mlflow Tracking Server Postgres username
     username: mlflow
-    # -- Mlflow Tracking Server Postgres password
     password: mlflow
 
   embedded:
     # -- Specifies whether to enable the Embedded Postgres cluster
     enabled: true
-    type: postgresql
     # -- Postgres cluster annotations
     annotations: {}
     # -- Addtional labels for Postgres cluster
