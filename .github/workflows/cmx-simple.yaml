@@ -75,9 +75,6 @@ jobs:
         env:
           KUBECONFIG: /tmp/kubeconfig
 
-      - name: Cleanup kubeconfig
-        run: /tmp/kubeconfig
-
       - name: remove cluster
         id: remove-cluster
         if: always()
