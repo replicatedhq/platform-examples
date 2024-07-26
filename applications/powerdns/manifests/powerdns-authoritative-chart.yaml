@@ -5,15 +5,4 @@ metadata:
 spec:
   chart:
     name: powerdns-authoritative
-    chartVersion: 0.0.3
-
-  values:
-    ingress:
-      admin:
-        hosts:
-          - host: repl{{ ConfigOption "pdnsadmin_ingress_host" }}
-            paths:
-              - path: /
-                backend:
-                  serviceName: pdns-admin
-                  servicePort: 80
+    chartVersion: 0.1.0
