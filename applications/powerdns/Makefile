@@ -29,7 +29,7 @@ endef
 update-chart-dependencies:
 	@for chart in $(HELM_CHARTS_DIR)/*; do \
 		echo "Updating dependencies for $$chart"; \
-		helm dependency update $$chart; \
+		helm dependency update --skip-refresh $$chart; \
 	done
 
 .PHONY: pull-chart-dependencies
