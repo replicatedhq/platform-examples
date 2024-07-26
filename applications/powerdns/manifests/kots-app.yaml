@@ -3,7 +3,9 @@ kind: Application
 metadata:
   name: powerdns
 spec:
-  title: App Name
+  title: PowerDNS
   icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
   statusInformers:
-    - deployment/powerdns
+    - deployment/powerdns-authoritative
+    - deployment/powerdns-recursor
+    - deployment/powerdns-admin
