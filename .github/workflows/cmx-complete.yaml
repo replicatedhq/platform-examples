@@ -54,9 +54,10 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           timeout-minutes: 5
       
-      - name: Setup kubeconfig
-        run: |
-          echo "${{ steps.create-cluster.outputs.cluster-kubeconfig }}" > /tmp/kubeconfig
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
 
       - name: Install Dependency Helm Charts
         id: install-dependency-charts
@@ -71,8 +72,6 @@ jobs:
               --namespace minio-operator \
               --create-namespace \
               minio-operator/operator
-        env:
-          KUBECONFIG: /tmp/kubeconfig
           
       - name: Create Compatibility Testing
         id: helm-install-chart
@@ -106,11 +105,6 @@ jobs:
               exit 1
             fi
           done
-        env:
-          KUBECONFIG: /tmp/kubeconfig
-
-      - name: Cleanup kubeconfig
-        run: rm /tmp/kubeconfig
       
       - name: remove cluster
         id: remove-cluster

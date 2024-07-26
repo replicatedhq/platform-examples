@@ -29,7 +29,7 @@ jobs:
           
       - name: Create Compatibility Testing
         id: create-compatibility-testing
-        uses: replicated-collab-dev/replicated-actions/create-compatibility-testing@main
+        uses: replicated-collab/replicated-actions/prepare-cluster@v1
         with:
           app-slug: ${{ secrets.REPLICATED_APP }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
@@ -48,10 +48,6 @@ jobs:
               url: "https://operator.min.io"
               namespace: "minio-operator"
               chart_name: "operator"
-      
-      - name: Setup kubeconfig
-        run: |
-          echo "${{ steps.create-compatibility-testing.outputs.cluster-kubeconfig }}" > /tmp/kubeconfig
 
       - name: Run Compatibility Testing
         run: |
@@ -72,13 +68,11 @@ jobs:
               exit 1
             fi
           done
-        env:
-          KUBECONFIG: /tmp/kubeconfig
 
       - name: remove cluster
         id: remove-cluster
         if: always()
-        uses: replicated-collab-dev/replicated-actions/remove-cluster@main
+        uses: replicated-collab/replicated-actions/remove-cluster@v1
         continue-on-error: true # It could be that the cluster is already removed
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
