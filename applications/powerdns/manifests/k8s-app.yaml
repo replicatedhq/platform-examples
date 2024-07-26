@@ -6,4 +6,4 @@ spec:
   descriptor:
     links:
       - description: Open App
-        url: 'http://{{repl ConfigOption "powerdns_host" }}'
+        url: 'http://{{repl ConfigOption "pdnsadmin_ingress_host" }}'

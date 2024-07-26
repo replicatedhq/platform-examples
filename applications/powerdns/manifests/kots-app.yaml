@@ -7,8 +7,3 @@ spec:
   icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
   statusInformers:
     - deployment/powerdns
-  ports:
-    - serviceName: 'powerdns'
-      servicePort: 8080
-      localPort: 8888
-      applicationUrl: 'http://pdns-admin'

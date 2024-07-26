@@ -5,8 +5,8 @@ metadata:
 spec:
   chart:
     name: cloudnative-pg
-    chartVersion: 0.21.2
-  exclude: 'repl{{ or (ConfigOptionEquals `postgres_type` `external_postgres`) (eq Distribution "embedded-cluster") }}'
+    chartVersion: 0.21.5
+  exclude: 'repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}'
   weight: 0
   values:
     image:

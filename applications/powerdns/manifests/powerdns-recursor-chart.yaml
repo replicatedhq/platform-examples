@@ -1,0 +1,8 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: powerdns-recursor
+spec:
+  chart:
+    name: powerdns-recursor
+    chartVersion: 0.1.0

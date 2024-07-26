@@ -8,7 +8,7 @@ spec:
     # Ingress settings
     - name: ingress_settings
       title: Ingress Settings
-      description: Configure Ingress for Mlflow
+      description: Configure Ingress for PowerDNS Admin
       items:
         - name: pdnsadmin_ingress_type
           title: pdnsadmin Ingress Type

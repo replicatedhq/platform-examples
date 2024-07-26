@@ -1,11 +1,11 @@
 apiVersion: kots.io/v1beta2
 kind: HelmChart
 metadata:
-  name: powerdns
+  name: powerdns-authoritative
 spec:
   chart:
-    name: powerdns
-    chartVersion: 0.0.1
+    name: powerdns-authoritative
+    chartVersion: 0.0.3
 
   values:
     ingress:

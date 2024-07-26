@@ -3,11 +3,19 @@ apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
   name: powerdns-postgres
+  {{- with .Values.postgres.embedded.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+  {{- with .Values.postgres.embedded.additionalLabels }}
+    {{ toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   bootstrap:
     initdb:
-      database: {{ .Values.postgres.embedded.initdb.database }}
-      owner: {{ .Values.postgres.embedded.initdb.owner }}
+      database: {{ .Values.postgres.embedded.initdb.database | quote }}
+      owner: {{ .Values.postgres.embedded.initdb.owner | quote }}
       secret:
         name: {{ .Values.postgres.embedded.initdb.secret.name }}
   instances: 1
@@ -22,6 +30,7 @@ spec:
   storage:
     size: {{ .Values.postgres.embedded.storage.size }}
     storageClass: {{ .Values.postgres.embedded.storage.storageClass }}
+  {{- with .Values.postgres.embedded.resources }}
   resources:
     {{- toYaml . | nindent 4 }}
   {{ end }}
@@ -43,10 +52,6 @@ spec:
     name: {{ . }}
   {{ end }}
   postgresql:
-    shared_preload_libraries:
-      {{- if eq .Values.postgres.embedded.type "timescaledb" }}
-      - timescaledb
-      {{- end }}
     {{- with .Values.postgres.embedded.postgresql }}
     parameters:
       {{- toYaml . | nindent 6 }}
