@@ -59,17 +59,17 @@ jobs:
           retries=10
           sleep_time=6
           for ((i=0; i<retries; i++)); do
-            status=$(helm status ${{env.chart_name}} -n test-${{env.chart_name}} -o json | jq -r .info.status)
+            status=$(helm status ${{ secrets.REPLICATED_APP }} -n test-${{env.chart_name}} -o json | jq -r .info.status)
             if [[ "$status" == "deployed" ]]; then
-              echo "Helm release ${{env.chart_name}} is successfully deployed."
+              echo "Helm release ${{ secrets.REPLICATED_APP }} is successfully deployed."
               break
             else
-              echo "Waiting for Helm release ${{env.chart_name}} to be deployed..."
+              echo "Waiting for Helm release ${{ secrets.REPLICATED_APP }} to be deployed..."
               sleep $sleep_time
             fi
 
             if [[ $i -eq $((retries-1)) ]]; then
-              echo "Helm release ${{env.chart_name}} failed to deploy after $((retries*sleep_time)) seconds."
+              echo "Helm release ${{ secrets.REPLICATED_APP }} failed to deploy after $((retries*sleep_time)) seconds."
               exit 1
             fi
           done

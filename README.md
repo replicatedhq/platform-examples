@@ -86,6 +86,4 @@ it is equivalent to the following steps in `cmx-complete.yaml`
               --namespace minio-operator \
               --create-namespace \
               minio-operator/operator
-        env:
-          KUBECONFIG: /tmp/kubeconfig
 ```
