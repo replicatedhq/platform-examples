@@ -3,7 +3,7 @@ apiVersion: v2
 description: A Helm chart for PowerDNS and PowerDNS-Admin with PostgreSQL backend, using the Helm "library chart" pattern from https://bjw-s.github.io/helm-charts and cloudnative-pg Postgres operator.
 name: powerdns-authoritative
 type: application
-version: 0.0.3
+version: 0.1.0
 appVersion: 4.9.0
 kubeVersion: '>=1.26.0-0'
 maintainers:
