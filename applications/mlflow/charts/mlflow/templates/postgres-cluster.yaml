@@ -36,11 +36,6 @@ spec:
     podAntiAffinity:
     {{- if eq .Values.postgres.embedded.podAntiAffinityMode "hard" }}
       requiredDuringSchedulingIgnoredDuringExecution:
-    {{- else if eq .Values.postgres.embedded.podAntiAffinityMode "soft"}}
-      preferredDuringSchedulingIgnoredDuringExecution:
-    {{- else }}
-      {{- fail (printf "(%s) is not a valid pod antiAffinity mode" .Values.postgres.embedded.podAntiAffinityMode) }}
-    {{- end }}
         - topologyKey: "{{ .Values.postgres.embedded.podAntiAffinityTopologyKey }}"
           labelSelector:
             matchExpressions:
@@ -48,6 +43,20 @@ spec:
                 operator: In
                 values: 
                 - {{ include "mlflow.name" . }}
+    {{- else if eq .Values.postgres.embedded.podAntiAffinityMode "soft"}}
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          podAffinityTerm:
+            topologyKey: "{{ .Values.postgres.embedded.podAntiAffinityTopologyKey }}"
+            labelSelector:
+              matchExpressions:
+                - key: "app.kubernetes.io/name"
+                  operator: In
+                  values: 
+                  - {{ include "mlflow.name" . }}
+    {{- else }}
+      {{- fail (printf "(%s) is not a valid pod antiAffinity mode" .Values.postgres.embedded.podAntiAffinityMode) }}
+    {{- end }}
   {{- end }}
   priorityClassName: {{ .Values.postgres.embedded.priorityClassName }}
   primaryUpdateMethod: {{ .Values.postgres.embedded.primaryUpdateMethod }}

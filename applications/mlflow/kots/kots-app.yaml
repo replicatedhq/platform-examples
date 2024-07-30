@@ -9,9 +9,9 @@ spec:
     # MLflow
     MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.
   allowRollback: false
-  statusInformers:
-    - deployment/mlflow
-    - services/mlflow
+  #statusInformers:
+  #  - deployment/mlflow
+  #  - services/mlflow
   ports:
     - serviceName: "mlflow"
       servicePort: 5000

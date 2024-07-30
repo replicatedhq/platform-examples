@@ -1,6 +1,6 @@
 crdCheck:
   # -- Specifies whether to enable the CRD check job
-  enabled: true
+  enabled: false
   # -- Image details for the CRD check job
   image:
     # -- Image registry
@@ -21,6 +21,17 @@ crdCheck:
 cloudnative-pg:
   enabled: true
   fullnameOverride: "cloudnative-pg"
+  config:
+    create: true
+    name: cnpg-controller-manager-config
+    secret: false
+    data: 
+      INHERITED_LABELS: kots.io/app-slug,kots.io/backup,replicated.com/disaster-recovery
 
-minio-operator:
+operator:
   enabled: true
+  operator:
+    additionalLabels:
+      kots.io/app-slug: diamon-mlflow
+      kots.io/backup: velero
+      replicated.com/disaster-recovery: app
