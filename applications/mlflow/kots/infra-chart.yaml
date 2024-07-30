@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: infra
-    chartVersion: 0.1.0
+    chartVersion: 0.3.0
   exclude: 'repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}'
   weight: -10
   helmUpgradeFlags:

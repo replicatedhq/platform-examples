@@ -1,7 +1,10 @@
+{{- if .Values.mlflow.backup.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "mlflow.fullname" . }}-postgres-backup
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
@@ -63,3 +66,4 @@ spec:
       securityContext:
         fsGroup: 1001
         runAsUser: 1001
+{{- end }}

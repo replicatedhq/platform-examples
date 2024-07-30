@@ -1,7 +1,10 @@
+{{- if .Values.mlflow.backup.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ include "mlflow.fullname" . }}-backup-scripts
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
 data:
   db-backup.sh: |
     #!/bin/sh
@@ -21,4 +24,4 @@ data:
     PGPASSWORD=$POSTGRES_PASSWORD pg_restore -U $POSTGRES_USER -h $POSTGRES host -p 5432 -d $POSTGRES_DB $BACKUP_FILE
     rm -f $BACKUP_FILE
     echo "Database restored successfully"
-    
+{{- end }}

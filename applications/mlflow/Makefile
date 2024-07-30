@@ -39,7 +39,6 @@ package-and-update: add-helm-repositories
 # Target to add Helm repositories
 .PHONY: add-helm-repositories
 add-helm-repositories:
-	@helm repo add cnpg https://cloudnative-pg.github.io/charts
 	@helm repo add minio https://operator.min.io/
 
 # Example target to check versions (optional)

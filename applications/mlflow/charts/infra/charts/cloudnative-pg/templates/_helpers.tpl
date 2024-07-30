@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "mlflow.name" -}}
+{{- define "cloudnative-pg.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "mlflow.fullname" -}}
+{{- define "cloudnative-pg.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,62 +26,40 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "mlflow.chart" -}}
+{{- define "cloudnative-pg.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "mlflow.labels" -}}
-helm.sh/chart: {{ include "mlflow.chart" . }}
-{{ include "mlflow.selectorLabels" . }}
+{{- define "cloudnative-pg.labels" -}}
+helm.sh/chart: {{ include "cloudnative-pg.chart" . }}
+{{ include "cloudnative-pg.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-replicated.com/disaster-recovery: app
 kots.io/app-slug: diamon-mlflow
 kots.io/backup: velero
+replicated.com/disaster-recovery: app
 {{- end }}
-
 
 {{/*
 Selector labels
 */}}
-{{- define "mlflow.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "mlflow.name" . }}
+{{- define "cloudnative-pg.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "cloudnative-pg.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "mlflow.serviceAccountName" -}}
-{{- if .Values.mlflow.serviceAccount.create }}
-{{- default (include "mlflow.fullname" .) .Values.mlflow.serviceAccount.name }}
+{{- define "cloudnative-pg.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "cloudnative-pg.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
-{{- default "default" .Values.mlflow.serviceAccount.name }}
+{{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
-
-{{/* 
-Create the name of secret used to store environment variables.
-*/}}
-{{- define "mlflow.envSecretName" -}}
-{{ include "mlflow.fullname" . }}-env-secret
-{{- end -}}
-
-{{/*
-Create the name of secret used to store BasicAuth configurations.
-*/}}
-{{- define "mlflow.basicAuthSecretName" -}}
-{{ include "mlflow.fullname" . }}-basic-auth-secret
-{{- end -}}
-
-{{/*
-Create the name of configmap used to store environment variables.
-*/}}
-{{- define "mlflow.envConfigMapName" -}}
-{{ include "mlflow.fullname" . }}-env-configmap
-{{- end -}}

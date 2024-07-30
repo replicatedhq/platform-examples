@@ -200,7 +200,6 @@ mlflow:
     name: http
     # -- Annotations to add to the service
     annotations: {}
-  
   # -- Mlflow Ingress configuration
   # [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/)
   ingress:
@@ -325,13 +324,15 @@ mlflow:
         port: 443
         # -- Specify whether to ignore TLS
         ignoreTls: false
+  backup:
+    enabled: false
 
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
   enabled: false
 
 minio:
-  enabled: true
+  enabled: false
   secrets:
     name: myminio-env-configuration
     accessKey: minio
@@ -373,7 +374,10 @@ minio:
         # -- Specify `annotations <https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/>`__ to associate to Tenant pods.
         annotations: {}
         # -- Specify `labels <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/>`__ to associate to Tenant pods.
-        labels: {}
+        labels:
+          kots.io/app-slug: diamon-mlflow
+          kots.io/backup: velero
+          replicated.com/disaster-recovery: app
         # -- An array of `Toleration labels <https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/>`__ to associate to Tenant pods.
         tolerations: []
         # -- Any `Node Selectors <https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/>`__ to apply to Tenant pods.
