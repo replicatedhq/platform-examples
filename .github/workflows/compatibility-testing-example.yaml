@@ -1,5 +1,4 @@
-name: Compatibilty Test with CMX in simple mode
-
+name: Compatibilty Test with CMX
 on:
   workflow_dispatch:
     inputs:
@@ -54,25 +53,21 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ steps.create-compatibility-testing.outputs.cluster-kubeconfig }}
 
+      - name: Wait for helm to be ready
+        env:
+          sleep_time: 30
+        run: |
+          sleep $sleep_time
+          
       - name: Run Compatibility Testing
         run: |
-          retries=10
-          sleep_time=6
-          for ((i=0; i<retries; i++)); do
-            status=$(helm status ${{ secrets.REPLICATED_APP }} -n test-${{env.chart_name}} -o json | jq -r .info.status)
-            if [[ "$status" == "deployed" ]]; then
-              echo "Helm release ${{ secrets.REPLICATED_APP }} is successfully deployed."
-              break
-            else
-              echo "Waiting for Helm release ${{ secrets.REPLICATED_APP }} to be deployed..."
-              sleep $sleep_time
-            fi
-
-            if [[ $i -eq $((retries-1)) ]]; then
-              echo "Helm release ${{ secrets.REPLICATED_APP }} failed to deploy after $((retries*sleep_time)) seconds."
-              exit 1
-            fi
-          done
+          status=$(helm status ${{ secrets.REPLICATED_APP }} -n test-${{env.chart_name}} -o json | jq -r .info.status)
+          if [[ "$status" == "deployed" ]]; then
+            echo "Helm release ${{ secrets.REPLICATED_APP }} is successfully deployed."
+          else
+            echo "Helm release ${{ secrets.REPLICATED_APP }} has not to be deployed..."
+            exit 1
+          fi
 
       - name: remove cluster
         id: remove-cluster
