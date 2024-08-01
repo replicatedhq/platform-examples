@@ -53,20 +53,39 @@ jobs:
           method: kubeconfig
           kubeconfig: ${{ steps.create-compatibility-testing.outputs.cluster-kubeconfig }}
 
-      - name: Wait for helm to be ready
+      - name: Wait for helm to be ready and pods to be running
         env:
-          sleep_time: 30
+          sleep_time: 180
         run: |
           sleep $sleep_time
-          
-      - name: Run Compatibility Testing
-        run: |
           status=$(helm status ${{ secrets.REPLICATED_APP }} -n test-${{env.chart_name}} -o json | jq -r .info.status)
           if [[ "$status" == "deployed" ]]; then
             echo "Helm release ${{ secrets.REPLICATED_APP }} is successfully deployed."
           else
             echo "Helm release ${{ secrets.REPLICATED_APP }} has not to be deployed..."
             exit 1
+          fi
+        
+      - name: Run Compatibility Testing
+        env:
+          wait_time: 5
+          app_port: 5000
+        run: |
+          kubectl port-forward svc/${{env.chart_name}} -n test-${{env.chart_name}} $app_port:$app_port &
+          KUBECTL_PID=$!
+
+          # Wait for the port-forwarding to be established
+          sleep $wait_time
+
+          # Check the health endpoint
+          RESPONSE=$(curl -s http://localhost:$app_port/health)
+
+          # Check if the response contains "ok"
+          if [[ $RESPONSE == "OK" ]]; then
+              echo "Health check passed: $RESPONSE"
+          else
+              echo "Health check failed: $RESPONSE"
+              exit 1
           fi
 
       - name: remove cluster

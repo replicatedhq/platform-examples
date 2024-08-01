@@ -22,7 +22,7 @@ Before you begin, you will need to have the following:
 
 Here is the step-by-step guide to setting up compatibility testing in GitHub Actions:
 
-1. Create a new GitHub Actions workflow file in your repository. You can do this by creating a new file in the `.github/workflows` directory of your repository. For example, you can create a file named `compatibility-testing.yaml in the `.github/workflows` directory.
+1. Create a new GitHub Actions workflow file in your repository. You can do this by creating a new file in the `.github/workflows` directory of your repository. For example, you can create a file named `compatibility-testing.yaml` in the `.github/workflows` directory.
 2. In the current workflows, you have two options to run the compatibility testing:
     - Copy [Compatibility Testing Workflow](github-workflows/compatibility-testing-example.yaml) and run the compatibility testing with simple configurations.
 3. setup github actions secrets
