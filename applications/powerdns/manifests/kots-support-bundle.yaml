@@ -9,16 +9,15 @@ spec:
     - logs:
         - name: powerdns-authoritative
           selector:
-            matchLabels:
-              app.kubernetes.io/instance: powerdns-authoritative
+            - app.kubernetes.io/instance=powerdns-authoritative
+    - logs:
         - name: powerdns-recursor
           selector:
-            matchLabels:
-              app.kubernetes.io/instance: powerdns-recursor
+            - app.kubernetes.io/instance=powerdns-recursor
+    - logs:
         - name: powerdns-admin
           selector:
-            matchLabels:
-              app.kubernetes.io/instance: powerdns-admin
+            - app.kubernetes.io/instance=powerdns-admin
     - ceph:
     - longhorn:
   analyzers:
