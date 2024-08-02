@@ -7,17 +7,14 @@ spec:
     - clusterInfo: {}
     - clusterResources: {}
     - logs:
-        - name: powerdns-authoritative
-          selector:
-            - app.kubernetes.io/instance=powerdns-authoritative
+        selector:
+          - app.kubernetes.io/instance=powerdns-authoritative
     - logs:
-        - name: powerdns-recursor
-          selector:
-            - app.kubernetes.io/instance=powerdns-recursor
+        selector:
+          - app.kubernetes.io/instance=powerdns-recursor
     - logs:
-        - name: powerdns-admin
-          selector:
-            - app.kubernetes.io/instance=powerdns-admin
+        selector:
+          - app.kubernetes.io/instance=powerdns-admin
     - ceph:
     - longhorn:
   analyzers:
