@@ -12,7 +12,7 @@ Welcome to the repository! Below is a list of available documents and workflows 
 
 #### How to setup Compatibility Testing in GitHub Actions
 
-This tutorial will guide you through setting up compatibility testing in GitHub Actions for your application. It will use the Replicated Replicated Compatibility Matrix to test your application against different versions of Kubernetes and different operating systems.
+This tutorial will guide you through setting up compatibility testing in GitHub Actions for your application. It will use the Replicated Compatibility Matrix to test your application against different versions of Kubernetes and different operating systems.
 
 Replicated Compatibility Matrix quickly provisions ephemeral clusters of different Kubernetes distributions and versions, such as OpenShift, EKS, and Replicated kURL.
 
