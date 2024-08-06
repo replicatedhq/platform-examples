@@ -1,0 +1,98 @@
+name: Compatibilty Test with CMX
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the chart to test'
+        required: true
+        default: '0.2.0'
+
+env:
+  chart_name: mlflow
+
+jobs:
+  compatibility-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster: [ {distribution: kind, version: v1.25.3}, {distribution: k3s, version: v1.26} ]
+
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package Helm Chart for Replicated
+        id: package-helm-chart
+        run: |
+          helm package applications/mlflow/charts/mlflow -u --version ${{ github.event.inputs.version }}
+          
+      - name: Create Compatibility Testing
+        id: create-compatibility-testing
+        uses: replicatedhq/replicated-actions/prepare-cluster@v1
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          chart: ${{env.chart_name}}-${{ github.event.inputs.version }}.tgz
+          kubernetes-distribution: ${{ matrix.cluster.distribution }}
+          kubernetes-version: ${{ matrix.cluster.version }}
+          helm-chart-name: ${{env.chart_name}}
+          namespace: test-${{env.chart_name}}
+          helm-run-preflights: false
+          helm-extra-repos: |
+            - repo_name: "cnpg"
+              url: "https://cloudnative-pg.github.io/charts"
+              namespace: "cnpg-system"
+              chart_name: "cloudnative-pg"
+            - repo_name: "minio-operator"
+              url: "https://operator.min.io"
+              namespace: "minio-operator"
+              chart_name: "operator"
+
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ steps.create-compatibility-testing.outputs.cluster-kubeconfig }}
+
+      - name: Wait for helm to be ready and pods to be running
+        env:
+          sleep_time: 180
+        run: |
+          sleep $sleep_time
+          status=$(helm status ${{ secrets.REPLICATED_APP }} -n test-${{env.chart_name}} -o json | jq -r .info.status)
+          if [[ "$status" == "deployed" ]]; then
+            echo "Helm release ${{ secrets.REPLICATED_APP }} is successfully deployed."
+          else
+            echo "Helm release ${{ secrets.REPLICATED_APP }} has not to be deployed..."
+            exit 1
+          fi
+        
+      - name: Run Compatibility Testing
+        env:
+          wait_time: 5
+          app_port: 5000
+        run: |
+          kubectl port-forward svc/${{env.chart_name}} -n test-${{env.chart_name}} $app_port:$app_port &
+          KUBECTL_PID=$!
+
+          # Wait for the port-forwarding to be established
+          sleep $wait_time
+
+          # Check the health endpoint
+          RESPONSE=$(curl -s http://localhost:$app_port/health)
+
+          # Check if the response contains "ok"
+          if [[ $RESPONSE == "OK" ]]; then
+              echo "Health check passed: $RESPONSE"
+          else
+              echo "Health check failed: $RESPONSE"
+              exit 1
+          fi
+
+      - name: remove cluster
+        id: remove-cluster
+        if: always()
+        uses: replicatedhq/replicated-actions/remove-cluster@v1
+        continue-on-error: true # It could be that the cluster is already removed
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ steps.create-compatibility-testing.outputs.cluster-id }}
