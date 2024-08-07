@@ -57,6 +57,7 @@ In this example, we're also using `helmUpgradeFlags` to specify additional flags
 To see more info on resource orchestration in KOTS as well as the reference for `kind: HelmChart`, visit the following two articles:
 
 https://docs.replicated.com/vendor/orchestrating-resource-deployment
+
 https://docs.replicated.com/reference/custom-resource-helmchart-v2
 
 ## Validate existence of CRDs with Helm Hooks
