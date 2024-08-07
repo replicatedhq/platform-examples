@@ -64,7 +64,7 @@ https://docs.replicated.com/reference/custom-resource-helmchart-v2
 
 Helm hooks allow you to execute custom actions at specific points in a chart's lifecycle. For example, you can use hooks to perform actions before or after installation, upgrade, or deletion.
 
-The `infra` chart includes a `post-install` and `post-upgrade` hook that checks for Custom Resource Definitions (CRDs). Combined with the `--wait` flag used in the `helmUpgradeFlags`, and the fact that we always install the `infra` chart first, ensures that the CRDs are registered before the installation of the application chart begins.
+The `infra` chart includes a `post-install` and `post-upgrade` hook that checks for Custom Resource Definitions (CRDs). Combined with the `--wait` flag used in the `helmUpgradeFlags`, and the fact that we always install the `infra` chart first, this ensures that the CRDs are registered before the installation of the application chart begins.
 
 [Infra Chart CRD Check Job](https://github.com/replicatedhq/platform-examples/blob/main/applications/mlflow/chart/infra/templates/crd-check-job.yaml)
 ```yaml
