@@ -1,0 +1,44 @@
+{{- if .Values.crdCheck.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "crdCheck.fullname" . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      serviceAccountName: {{ include "crdCheck.fullname" . }}
+      {{- with .Values.crdCheck.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: crd-check
+        image: "{{ .Values.crdCheck.image.registry | default "docker.io" }}/{{ .Values.crdCheck.image.repository }}:{{ .Values.crdCheck.image.tag | default (printf "v%s" .Chart.AppVersion) }}"
+        command:
+        - /bin/bash
+        - -c
+        - |
+          TIMEOUT={{ .Values.crdCheck.timeout }}
+          START_TIME=$(date +%s)
+          CRDS=({{ range .Values.crdCheck.crds }} "{{ .name }}" {{ end }})
+          for CRD_NAME in "${CRDS[@]}"; do
+            while true; do
+              if kubectl get crd $CRD_NAME -o jsonpath='{.status.conditions[?(@.type=="Established")].status}' | grep -q "True"; then
+                echo "CRD $CRD_NAME is established."
+                break
+              fi
+              if [ $(($(date +%s) - $START_TIME)) -ge $TIMEOUT ]; then
+                echo "Timeout: CRD $CRD_NAME was not established within $TIMEOUT seconds."
+                exit 1
+              fi
+              echo "Waiting for CRD $CRD_NAME to be created and established...";
+              sleep 5;
+            done
+          done
+          exit 0
+      restartPolicy: OnFailure
+{{- end }}

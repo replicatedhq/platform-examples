@@ -4,7 +4,7 @@ metadata:
   name: "mlflow"
 spec:
   descriptor:
-    version: "0.1.1"
+    version: "0.3.0"
     description: "MLflow"
     icon: https://mlflow.org/img/mlflow-black.svg
     links:

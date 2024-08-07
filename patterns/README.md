@@ -58,3 +58,7 @@ By trigger the github actions, you can integrate the compatibility testing into 
 ### Advanced Options
 
 - [Advanced Options](advanced-options/README.md)
+
+### Multiple Chart Orchestration
+
+- [Multiple Chart Orchestration](multi-chart-orchestration/README.md)

@@ -1,0 +1,10 @@
+{{- if .Values.crdCheck.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "crdCheck.fullname" . }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
+{{- end }}

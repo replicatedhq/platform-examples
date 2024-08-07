@@ -5,8 +5,8 @@ metadata:
 spec:
   chart:
     name: mlflow
-    chartVersion: 0.2.0
-  weight: 1
+    chartVersion: 0.3.0
+  weight: 10
   helmUpgradeFlags:
     - --wait
     - --timeout
@@ -47,6 +47,7 @@ spec:
       pools:
         pool0:
           size: repl{{ ConfigOption "embedded_s3_volume_size"}}
+
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "mlflow_ingress_type" "load_balancer" }}'
       recursiveMerge: true

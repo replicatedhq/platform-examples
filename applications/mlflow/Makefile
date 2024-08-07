@@ -26,24 +26,15 @@ endef
 
 # Target to package charts and update versions
 .PHONY: package-and-update
-package-and-update: add-helm-repositories package-chart-dependencies
+package-and-update: add-helm-repositories
 	@for chart in $(HELM_CHARTS_DIR)/*; do \
 	    echo "Packaging $$chart"; \
-	    helm package $$chart -d $(KOTS_DIR); \
+	    helm package $$chart -u -d $(KOTS_DIR); \
 	    version=$$(eval $(call get_helm_chart_version,$$chart)); \
 		chart_name=$$(basename $$chart); \
 	    echo "Updating version to $$version in $(KOTS_DIR)/*-chart.yaml"; \
 	    sed -i '' 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: '$$version'|g' $(KOTS_DIR)/$$chart_name-chart.yaml; \
 	done
-
-# Target to package dependent charts
-.PHONY: package-chart-dependencies
-package-chart-dependencies:
-	@chart_version=$$(eval $(call get_kots_chart_version,$(KOTS_DIR)/cloudnative-pg-chart.yaml)); \
-	helm pull cnpg/cloudnative-pg -d kots --version $$chart_version; \
-	\
-	chart_version=$$(eval $(call get_kots_chart_version,$(KOTS_DIR)/minio-operator-chart.yaml)); \
-	helm pull minio/operator -d kots --version $$chart_version
 
 # Target to add Helm repositories
 .PHONY: add-helm-repositories
