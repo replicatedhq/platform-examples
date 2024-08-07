@@ -28,3 +28,7 @@ Welcome to the repository! Below is a list of available documents and workflows 
 ### Advanced Options
 
 - [Advanced Options](advanced-options/README.md)
+
+### Multiple Chart Orchestration
+
+- [Multiple Chart Orchestration](multi-chart-orchestration/README.md)
