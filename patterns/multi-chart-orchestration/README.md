@@ -6,7 +6,7 @@ Source Application: [Mlflow](https://github.com/replicatedhq/platform-examples/b
 
 ## Why the Mlflow application needs orchestration
 
-Mlflow requires dependencies on PostgreSQL and S3-compatible object storage. To meet this requirement and allow users to install the application without setting up these dependencies separately, Mlflow bundles PostgreSQL and Minio along with the application. This is achieved using the [Cloudnative-PG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL and the [Minio Operator](https://github.com/minio/operator/tree/master) for Minio.
+Mlflow has dependencies on PostgreSQL and S3-compatible object storage. To meet this requirement and allow users to install the application without setting up these dependencies separately, Mlflow bundles PostgreSQL and Minio along with the application. This is achieved using the [Cloudnative-PG](https://github.com/cloudnative-pg/cloudnative-pg) for PostgreSQL and the [Minio Operator](https://github.com/minio/operator/tree/master) for Minio.
 
 When distributing operators that install Custom Resource Definitions (CRDs) alongside applications that create custom resources from those CRDs, orchestration is generally required. This ensures that all components are installed in the correct order and that the necessary dependencies are present for the application to function correctly.
 
