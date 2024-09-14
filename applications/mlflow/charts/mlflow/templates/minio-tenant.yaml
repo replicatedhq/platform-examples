@@ -71,18 +71,27 @@ spec:
         podAntiAffinity:
         {{- if eq $poolValues.podAntiAffinityMode "hard" }}
           requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: "app.kubernetes.io/name"
+                operator: In
+                values: 
+                - {{ include "mlflow.name" $ }} 
+            topologyKey: "{{ $poolValues.podAntiAffinityTopologyKey }}"
         {{- else if eq $poolValues.podAntiAffinityMode "soft"}}
           preferredDuringSchedulingIgnoredDuringExecution:
-        {{- else }}
-          {{- fail (printf "(%s) is not a valid pod antiAffinity mode" $poolValues.podAntiAffinityMode) }}
-        {{- end }}
-            - topologyKey: "{{ $poolValues.podAntiAffinityTopologyKey }}"
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "{{ $poolValues.podAntiAffinityTopologyKey }}"
               labelSelector:
                 matchExpressions:
                   - key: "app.kubernetes.io/name"
                     operator: In
                     values: 
-                    - {{ include "mlflow.name" . }}
+                    - {{ include "mlflow.name" $ }}
+        {{- else }}
+          {{- fail (printf "(%s) is not a valid pod antiAffinity mode" $poolValues.podAntiAffinityMode) }}
+        {{- end }}
       {{- end }}
       {{- with (dig "resources" (dict) $poolValues) }}
       resources: {{- toYaml . | nindent 8 }}
