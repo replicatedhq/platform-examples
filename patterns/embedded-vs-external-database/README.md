@@ -61,7 +61,7 @@ spec:
   - name: database_settings
     title: Database
     items:
-        - name: postgres_type
+      - name: postgres_type
         help_text: Would you like to use an embedded postgres instance, or connect to an external instance that you manage?
         type: select_one
         title: Postgres
@@ -71,37 +71,37 @@ spec:
             title: Embedded Postgres
             - name: external_postgres
             title: External Postgres
-        - name: embedded_postgres_password
+      - name: embedded_postgres_password
         hidden: true
         readonly: false
         type: password
         value: '{{repl RandomString 32}}'
-        - name: embedded_postgres_volume_size
+      - name: embedded_postgres_volume_size
         title: Postgres Volume Size
         type: text
         default: "10Gi"
         when: '{{repl ConfigOptionEquals "postgres_type" "embedded_postgres"}}'
-        - name: external_postgres_host
+      - name: external_postgres_host
         title: Postgres Host
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
         default: postgres
-        - name: external_postgres_port
+      - name: external_postgres_port
         title: Postgres Port
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
         default: "5432"
-        - name: external_postgres_username
+      - name: external_postgres_username
         title: Postgres Username
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
         required: true
-        - name: external_postgres_password
+      - name: external_postgres_password
         title: Postgres Password
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: password
         required: true
-        - name: external_postgres_db
+      - name: external_postgres_db
         title: Postgres Database
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
