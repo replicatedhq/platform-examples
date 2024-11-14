@@ -1,0 +1,3 @@
+cloudnative-pg:
+  enabled: true
+  fullnameOverride: "cloudnative-pg"
