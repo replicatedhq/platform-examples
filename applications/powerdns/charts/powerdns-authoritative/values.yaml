@@ -1,24 +1,27 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/app-template-3.1.0/charts/other/app-template/schemas/helmrelease-helm-v2beta2.schema.json
-
-#### PowerDNS User-Facing Application Configuration
-# powerdns:
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s/helm-charts/app-template-3.5.1/charts/other/app-template/values.schema.json
 
 #### PowerDNS Workload Definitions
 controllers:
-  authoritative:
+  main:
+    strategy: Recreate
+    type: deployment
     containers:
       main:
+        enabled: true
         image:
           repository: powerdns/pdns-auth-49
-          tag: 4.9.0
+          tag: 4.9.2
         env:
           - name: DEBUG_CONFIG
             value: 'yes'
           - name: PDNS_AUTH_API_KEY
             value: 'changeme'
   admin:
+    strategy: Recreate
+    type: deployment
     containers:
       main:
+        enabled: true
         image:
           repository: powerdnsadmin/pda-legacy
           tag: v0.4.2
@@ -26,48 +29,51 @@ controllers:
           - name: SQLALCHEMY_DATABASE_URI
             value: postgresql://powerdns:powerdns@powerdns-postgresql:5432/powerdns
 
-configMap:
-  authoritative-config:
-    99-pdns.conf: |
-      launch=gmysql
-      gmysql-host=powerdns-postgresql
-      gmysql-user=powerdns
-      local-address=0.0.0.0
-      local-port=5353
+configMaps:
+  config:
+    enabled: true
+    data:
+      99-pdns.conf: |
+        launch=gmysql
+        gmysql-host=powerdns-postgresql
+        gmysql-user=powerdns
+        local-address=0.0.0.0
+        local-port=5353
 
 persistence:
-  authoritative:
+  config:
+    enabled: true
     type: configMap
+    name: powerdns-authoritative-config
     advancedMounts:
-      authoritative:
+      main:
         main:
           - path: /etc/powerdns/pdns.d/99-pdns.conf
-            configMap: authoritative-config
-            subpath: 99-pdns.conf
+            subPath: 99-pdns.conf
 
 service:
-  authoritative:
-    controller: authoritative
+  main:
+    enabled: true
+    controller: main
+    type: ClusterIP
     ports:
       udp:
-        type: ClusterIP
         port: 53
         targetPort: 5353
         protocol: UDP
       tcp:
-        type: ClusterIP
         port: 53
         targetPort: 5353
         protocol: TCP
   admin:
+    enabled: true
     controller: admin
+    type: ClusterIP
     ports:
       http:
-        type: ClusterIP
         port: 80
         protocol: HTTP
       https:
-        type: ClusterIP
         port: 443
         protocol: HTTP
 
@@ -78,9 +84,13 @@ ingress:
       - host: '*'
         paths:
           - path: /
-            backend:
-              serviceName: pdns-admin
-              servicePort: 80
+            pathType: Prefix
+            service:
+              identifier: main
+              port: http
+
+#### PowerDNS User-Facing Application Configuration
+# powerdns:
 
 # -- Embedded Postgres configuration
 # Deploys a cluster using the CloudnativePG Operator
@@ -182,5 +192,6 @@ postgres:
     # -- External Postgres database
     database: pdns
 
+#### Replicated SDK Configuration
 replicated:
   enabled: true

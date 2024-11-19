@@ -6,6 +6,9 @@ metadata:
   {{- with .Values.postgres.embedded.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded
   {{- end }}
   labels:
   {{- with .Values.postgres.embedded.additionalLabels }}

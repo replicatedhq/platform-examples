@@ -1,9 +1,9 @@
 dependencies:
-- name: common
+- name: app-template
   repository: https://bjw-s.github.io/helm-charts
-  version: 3.1.0
+  version: 3.5.1
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.0.0-beta.26
-digest: sha256:36d1e27a511a0564be6e3129fec995bb806aa259c230748d33bd71269bd7e6e5
-generated: "2024-08-02T13:48:55.137396-04:00"
+  version: 1.0.0-beta.31
+digest: sha256:6758c5a27f86725500bc565471fd7dc4c7159fad9a4fcf945e7f440014f07d18
+generated: "2024-11-19T16:27:50.539077-05:00"
