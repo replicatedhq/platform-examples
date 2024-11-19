@@ -4,6 +4,8 @@ metadata:
   name: default
 spec:
   collectors:
+    - newCollector: {}
+    - otherNewCollector: {}
     - clusterInfo: {}
     - clusterResources: {}
     - logs:
@@ -18,6 +20,8 @@ spec:
     - ceph:
     - longhorn:
   analyzers:
+    - newAnalyzer: {}
+    - otherNewAnalyzer: {}
     - deploymentStatus:
         namespace: default
         name: powerdns-authoritative

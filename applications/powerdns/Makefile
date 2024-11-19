@@ -64,10 +64,13 @@ check-versions:
 			fi \
 	done
 
+.PHONY: clean
+clean: clean-charts
+
 .PHONY: clean-charts
 clean-charts:
-	rm -f $(KOTS_DIR)/*.tgz
+	rm -f $(KOTS_DIR)/*.tgz $(HELM_CHARTS_DIR)/*/charts/*.tgz
 
 .PHONY: release
 release: clean-charts package-and-update
-	replicated release create --auto -y
+	replicated release create --auto -y --promote Unstable

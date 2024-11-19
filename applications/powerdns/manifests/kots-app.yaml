@@ -6,6 +6,7 @@ spec:
   title: PowerDNS
   icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
   statusInformers:
-    - deployment/powerdns-authoritative
-    - deployment/powerdns-recursor
-    - deployment/powerdns-admin
+    - deployment/powerdns-authoritative-main
+    # - deployment/powerdns-recursor
+    # - deployment/powerdns-admin
+  proxyPublicImages: true
