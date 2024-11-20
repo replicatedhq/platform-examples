@@ -15,8 +15,7 @@ controllers:
           repository: powerdns/pdns-recursor-50
           tag: 5.0.5
         env:
-          - name: DEBUG_CONFIG
-            value: 'yes'
+          DEBUG_CONFIG: 'yes'
     # pod:
     #   securityContext:
     #     capabilities:
