@@ -10,7 +10,7 @@ maintainers:
   - name: adamancini
     email: ada@annarchy.net
 dependencies:
-  - name: app-template
+  - name: common
     repository: https://bjw-s.github.io/helm-charts
     version: 3.5.1
   - name: replicated
