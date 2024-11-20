@@ -5,5 +5,5 @@ metadata:
 spec:
   chart:
     name: powerdns-recursor
-    chartVersion: 0.1.0
+    chartVersion: 0.2.0
     weight: 100
