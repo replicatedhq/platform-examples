@@ -1,27 +1,22 @@
 apiVersion: troubleshoot.sh/v1beta2
 kind: SupportBundle
 metadata:
-  name: default
+  name: powerdns
 spec:
   collectors:
-    - newCollector: {}
-    - otherNewCollector: {}
     - clusterInfo: {}
     - clusterResources: {}
     - logs:
         selector:
-          - app.kubernetes.io/instance=powerdns-authoritative
+          - app.kubernetes.io/name=powerdns-authoritative
     - logs:
         selector:
-          - app.kubernetes.io/instance=powerdns-recursor
+          - app.kubernetes.io/name=powerdns-recursor
     - logs:
         selector:
-          - app.kubernetes.io/instance=powerdns-admin
-    - ceph:
-    - longhorn:
+          - cnpg.io/cluster=powerdns-postgres
+    - goldpinger:
   analyzers:
-    - newAnalyzer: {}
-    - otherNewAnalyzer: {}
     - deploymentStatus:
         namespace: default
         name: powerdns-authoritative
