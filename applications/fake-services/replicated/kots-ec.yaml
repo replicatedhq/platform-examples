@@ -1,0 +1,13 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: 1.19.0+k8s-1.30
+  roles:
+    controller:
+      name: management
+      labels:
+        management: "true"
+    custom:
+      - name: app
+        labels:
+          app: "true"

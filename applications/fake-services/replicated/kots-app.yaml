@@ -1,0 +1,10 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: fake-service
+spec:
+  title: Fake Services
+  icon: https://www.shareicon.net/data/256x256/2016/05/16/766096_zoo_512x512.png
+  statusInformers:
+    - deployment/frontend
+    - deployment/backend

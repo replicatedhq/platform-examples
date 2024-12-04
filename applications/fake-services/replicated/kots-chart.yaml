@@ -1,0 +1,38 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: fake-service
+spec:
+  chart:
+    name: fake-service
+    chartVersion: 0.5.0
+  helmUpgradeFlags:
+    - --debug
+  values:
+    image:
+      registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+      repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/fake-service'
+      imagePullSecrets:
+        - name: "{{repl ImagePullSecretName }}"
+    frontend:
+      name: repl{{ ConfigOption "frontend_name" }}
+      message: repl{{ ConfigOption "frontend_message" }}
+      logLevel: repl{{ ConfigOption "frontend_log_level" }}
+    backend:
+      name: repl{{ ConfigOption "backend_name" }}
+      message: repl{{ ConfigOption "backend_message" }}
+      logLevel: repl{{ ConfigOption "backend_log_level" }}
+      errorRate: repl{{ ConfigOption "backend_error_rate" }}
+      origin: repl{{ ConfigOption "backend_origin" }}
+    ingress-nginx:
+      imagePullSecrets:
+        - name: "{{repl ImagePullSecretName }}"
+      controller:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+          image: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/controller'
+        admissionWebhooks:
+          patch:
+            image:
+              registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+              image: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/kube-webhook-certgen'

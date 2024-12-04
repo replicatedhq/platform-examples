@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fake-service.frontend.name" . }}
+  labels: {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: frontend
+      protocol: TCP
+      name: frontend
+  selector:
+    {{- include "fake-service.frontend.selectorLabels" . | nindent 4 }}
+

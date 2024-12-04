@@ -1,0 +1,82 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: fake-service
+spec:
+  groups:
+    - name: Global settings
+      title: Global settings
+      description: Global settings
+      items:
+        - name: hostname
+          title: Hostname
+          type: text
+          required: false
+    - name: Frontend settings
+      title: Frontend settings
+      description: Frontend settings
+      items:
+        - name: frontend_name
+          title: Service Name
+          type: text
+          required: true
+        - name: frontend_message
+          title: Message
+          type: text
+          required: true
+          default: Hello from frontend!
+        - name: frontend_log_level
+          title: Log level
+          type: radio
+          default: debug
+          items:
+            - name: debug
+              title: Debug
+            - name: info
+              title: Info
+            - name: warn
+              title: Warn
+            - name: error
+              title: Error
+            - name: trace
+              title: Trace
+    - name: Backend settings
+      title: Backend settings
+      description: Backend settings
+      items:
+        - name: backend_name
+          title: Service Name
+          type: text
+          required: true
+        - name: backend_message
+          title: Message
+          type: text
+          required: true
+          default: Hello from backend!
+        - name: backend_log_level
+          title: Log level
+          type: radio
+          default: debug
+          items:
+            - name: debug
+              title: Debug
+            - name: info
+              title: Info
+            - name: warn
+              title: Warn
+            - name: error
+              title: Error
+            - name: trace
+              title: Trace
+        - name: backend_error_rate
+          title: Error rate
+          type: text
+          default: "0"
+          validation:
+            regex:
+              pattern: "^(0|1(\\.0)?|0\\.\\d{1,3})$"
+              message: "Decimal percentage of request where handler will report an error. e.g. 0.1 = 10% of all requests will result in an error"
+        - name: backend_origin
+          title: Allowed origins
+          type: text
+          default: "\\*" 

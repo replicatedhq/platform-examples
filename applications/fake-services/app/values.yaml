@@ -1,0 +1,45 @@
+image:
+  registry: docker.io
+  repository: nicholasjackson/fake-service
+  tag: v0.26.2
+  pullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+frontend:
+  name: "frontend"
+  message: "Hello from frontend!"
+  serverType: "http"
+  logLevel: "debug"
+  port: 9090
+
+backend:
+  name: "backend"
+  message: "Hello from backend!"
+  serverType: "http"
+  logLevel: "debug"
+  port: 9091
+  errorRate: 0
+  origin: "*"
+
+ingress-nginx:
+  enabled: true
+  imagePullSecrets: []
+  controller:
+    image:
+      registry: registry.k8s.io
+      image: ingress-nginx/controller
+      tag: v1.11.3
+      digest: ""
+    admissionWebhooks:
+      patch:
+        image:
+          registry: registry.k8s.io
+          image: ingress-nginx/kube-webhook-certgen
+          tag: v1.4.4
+          digest: ""
+    service:
+      type: NodePort
+      nodePorts:
+        http: 30080
+  ingressClassResource:
+    default: true

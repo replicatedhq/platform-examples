@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "fake-service.frontend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fake-service.frontend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - name: frontend
+              containerPort: {{ .Values.frontend.port }}
+              protocol: TCP
+          env:
+            - name: NAME
+              value: {{ .Values.frontend.name }}
+            - name: MESSAGE
+              value: "{{ .Values.frontend.message }}"
+            - name: LISTEN_ADDR
+              value: "0.0.0.0:{{ .Values.frontend.port }}"
+            - name: SERVER_TYPE
+              value: "{{ .Values.frontend.serverType }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.frontend.logLevel }}"
+            - name: UPSTREAM_URIS
+              value: "http://{{ include "fake-service.backend.name" . }}.{{ .Release.Namespace }}"

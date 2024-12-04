@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "fake-service.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fake-service.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports:
+            - name: backend
+              containerPort: {{ .Values.backend.port }}
+              protocol: TCP
+          env:
+            - name: NAME
+              value: {{ .Values.backend.name }}
+            - name: MESSAGE
+              value: "{{ .Values.backend.message }}"
+            - name: LISTEN_ADDR
+              value: "0.0.0.0:{{ .Values.backend.port }}"
+            - name: SERVER_TYPE
+              value: "{{ .Values.backend.serverType }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.backend.logLevel }}"
+            - name: ERROR_RATE
+              value: "{{ .Values.backend.errorRate }}"
