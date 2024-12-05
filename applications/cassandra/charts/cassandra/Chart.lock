@@ -1,0 +1,9 @@
+dependencies:
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.0.0-beta.31
+- name: cassandra
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.0.5
+digest: sha256:05c13cd0be2c36b195729e503156289e8c42f6db0ba93ed93b56e8a1adc3ff42
+generated: "2024-12-05T16:47:43.154615-05:00"
