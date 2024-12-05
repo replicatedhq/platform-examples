@@ -12,6 +12,10 @@ spec:
           title: Hostname
           type: text
           required: false
+        - name: password
+          title: Password
+          type: password
+          required: false
     - name: Frontend settings
       title: Frontend settings
       description: Frontend settings

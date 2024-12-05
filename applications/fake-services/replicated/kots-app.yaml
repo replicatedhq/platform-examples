@@ -8,3 +8,5 @@ spec:
   statusInformers:
     - deployment/frontend
     - deployment/backend
+  additionalImages:
+    - curlimages/curl:latest

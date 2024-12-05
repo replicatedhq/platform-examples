@@ -69,3 +69,30 @@ Backend service name
 {{- define "fake-service.backend.name" -}}
 backend-service
 {{- end }}
+
+
+{{/*
+Image Pull Secrets
+*/}}
+{{- define "helpers.imagePullSecrets" -}}
+{{- $pullSecrets := list -}}
+
+{{/* Add existing imagePullSecrets if defined */}}
+{{- if .Values.image.imagePullSecrets -}}
+{{- $pullSecrets = concat $pullSecrets .Values.image.imagePullSecrets -}}
+{{- end -}}
+
+{{/* Add replicated pull secret if global dockerconfigjson is defined for Helm CLI install*/}}
+{{- if .Values.global.replicated.dockerconfigjson -}}
+{{- $replicatedSecret := dict "name" "replicated-pull-secret" -}}
+{{- $pullSecrets = append $pullSecrets $replicatedSecret -}}
+{{- end -}}
+
+{{/* Output the imagePullSecrets block only if we have any secrets */}}
+{{- if $pullSecrets -}}
+imagePullSecrets:
+{{- range $pullSecrets }}
+  - name: {{ .name }}
+{{- end -}}
+{{- end -}}
+{{- end -}}

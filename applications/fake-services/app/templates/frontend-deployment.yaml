@@ -13,10 +13,7 @@ spec:
       labels:
         {{- include "fake-service.frontend.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.image.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- include "helpers.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
