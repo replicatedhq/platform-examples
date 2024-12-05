@@ -1,0 +1,35 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  # cassandra settings
+  - name: cassandra_settings
+    title: Cassandra Settings
+    items:
+    - name: cassandra_user
+      title: Cassandra User
+      type: string
+      default: cassandra
+      required: true
+      description: The username to use for the Cassandra user
+    - name: cassandra_password
+      title: Cassandra Password
+      type: string
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra user
+    # - name: cassandra_tls_cert
+    #   title: Cassandra TLS Certificate
+    #   type: string
+    #   default: ""
+    #   required: true
+    #   description: The TLS certificate to use for the Cassandra user
+    # - name: cassandra_tls_key
+    #   title: Cassandra TLS Key
+    #   type: string
+    #   default: ""
+    #   required: true
+    #   description: The TLS key to use for the Cassandra user

@@ -1,0 +1,37 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: 1.19.0+k8s-1.29
+  extensions:
+    helm:
+      repositories:
+        - name: ingress-nginx
+          url: https://kubernetes.github.io/ingress-nginx
+        - name: cnpg
+          url: https://cloudnative-pg.github.io/charts
+      charts:
+        - name: cloudnative-pg
+          chartname: cnpg/cloudnative-pg
+          namespace: cnpg
+          version: "0.22.1"
+          values: |
+            cloudnative-pg:
+              enabled: true
+        - name: ingress-nginx
+          chartname: ingress-nginx/ingress-nginx
+          namespace: ingress-nginx
+          version: "4.11.3"
+          values: |
+            controller:
+              service:
+                type: NodePort
+                nodePorts:
+                  http: "80"
+                  https: "443"
+  unsupportedOverrides:
+    k0s: |
+      config:
+        spec:
+          api:
+            extraArgs:
+              service-node-port-range: 80-32767
