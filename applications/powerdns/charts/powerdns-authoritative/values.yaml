@@ -211,8 +211,8 @@ postgres:
       # -- Postgres username name to be initilized
       owner: pdns
       # -- Postgres secret name
-      secret:
-        name: powerdns-postgres-auth
+      # secret:
+      #   name: powerdns-postgres-auth
       # -- Postgres init application SQL
       postInitApplicationSQL:
         - configMapRefs:
