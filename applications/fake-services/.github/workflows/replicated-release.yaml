@@ -1,0 +1,169 @@
+name: replicated-release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  push-to-replicated:
+    runs-on: ubuntu-22.04
+    outputs:
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+      release-sequence: ${{ steps.create-release.outputs.release-sequence }}
+      app-version: ${{ steps.set-release-version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set release version
+        id: set-release-version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Package Helm chart
+        id: package-helm-chart
+        run: |
+          helm package ./app --debug -u -d ./replicated \
+            --version ${{ env.VERSION }} \
+            --app-version ${{ env.VERSION }}
+      
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq &&\
+          chmod +x /usr/local/bin/yq
+
+      - name: Update HelmChart kind
+        run: |
+          yq -i '.spec.chart.chartVersion = "${{ env.VERSION }}"' replicated/kots-chart.yaml
+      
+      - name: Define Channel name
+        run: echo "CHANNEL_NAME=${{ env.VERSION }}-${GITHUB_RUN_ID}${GITHUB_RUN_ATTEMPT}" >> $GITHUB_ENV
+
+      - name: Create Replicated release
+        id: create-release
+        uses: replicatedhq/compatibility-actions/create-release@v1
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          yaml-dir: ./replicated
+          promote-channel: ${{ env.CHANNEL_NAME }}
+          version: ${{ env.VERSION }}
+
+  compatibility-matrix:
+    needs: push-to-replicated
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster: [{distribution: kind, version: v1.31.2}]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set release version
+        id: set-release-version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+      - name: Create Customer 
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@v1
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-name: ${{ env.VERSION }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          channel-slug: ${{ needs.push-to-replicated.outputs.channel-slug }}
+          customer-email: ${{ env.VERSION }}@example.com
+          expires-in: 14
+          license-type: dev
+
+      - name: Create Cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          kubernetes-distribution: ${{ matrix.cluster.distribution }}
+          kubernetes-version: ${{ matrix.cluster.version }}
+          cluster-name: ${{ env.VERSION }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          timeout-minutes: 5
+          ttl: 10m
+
+      - name: Deploy the app
+        uses: replicatedhq/replicated-actions/kots-install@v1
+        with:
+          kubeconfig: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+          app-slug: ${{ secrets.REPLICATED_APP }}/${{ needs.push-to-replicated.outputs.channel-slug }}
+          license-file: ${{ steps.create-customer.outputs.license-file }}
+          app-version-label: ${{ env.VERSION }}
+          config-values: ./replicated/kots-sample-config-values.yaml
+
+      - name: Run a test
+        # mask the kubeconfig so it doesn't show up in the logs
+        run: |
+          echo "Running connectivity test..."
+          echo "${{ steps.create-cluster.outputs.cluster-kubeconfig }}" > kubeconfig.yaml
+          sleep 60
+          kubectl wait --for=condition=ready pods -l app.kubernetes.io/name=fake-service-frontend --timeout=60s --kubeconfig='./kubeconfig.yaml'
+          kubectl port-forward svc/frontend-service --pod-running-timeout=2m --kubeconfig='./kubeconfig.yaml' 8080:80 &
+          sleep 60
+          curl -f http://localhost:8080
+          echo "Test complete"
+
+      - name: Remove Cluster
+        id: remove-cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1
+        continue-on-error: true # It could be that the cluster is already removed
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+
+      - name: Archive Customer
+        id: archive-customer
+        if: always()
+        uses: replicatedhq/replicated-actions/archive-customer@v1
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-id:  ${{ steps.create-customer.outputs.customer-id }}
+
+  promote-to-stable:
+    needs: 
+      - compatibility-matrix
+      - push-to-replicated
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Promote to Stable channel
+        uses: replicatedhq/replicated-actions/promote-release@v1
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          channel-to: stable
+          release-sequence: ${{ needs.push-to-replicated.outputs.release-sequence }}
+          release-version: ${{ needs.push-to-replicated.outputs.app-version }}
+
+  cleanup-channel:
+    needs: 
+      - compatibility-matrix
+      - push-to-replicated
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Archive Replicated Channel
+        uses: replicatedhq/replicated-actions/archive-channel@v1
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          channel-slug: ${{ needs.push-to-replicated.outputs.channel-slug }}  

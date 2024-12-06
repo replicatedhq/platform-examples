@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: fake-service
-    chartVersion: 0.7.0
+    chartVersion: 0.8.0
   helmUpgradeFlags:
     - --debug
   values:
