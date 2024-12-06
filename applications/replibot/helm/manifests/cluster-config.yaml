@@ -1,0 +1,40 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: 1.19.0+k8s-1.30
+  roles:
+    controller:
+      name: management
+      labels:
+        management: "true"
+    custom:
+    - name: app
+      labels:
+       app: "true"
+  extensions:
+    helm:
+      repositories:
+        - name: ingress-nginx
+          url: https://kubernetes.github.io/ingress-nginx
+      charts:
+        - name: ingress-nginx
+          chartname: ingress-nginx/ingress-nginx
+          namespace: ingress-nginx
+          version: "4.8.3"
+          values: |
+            controller:
+              service:
+                type: NodePort
+                nodePorts:
+                  http: "80"
+                  https: "443"
+              # Known issue: Only use image tags for multi-architecture images.
+              # Set digest to empty string to ensure the air gap builder uses
+              # single-architecture images.
+              image:
+                digest: ""
+                digestChroot: ""
+              admissionWebhooks:
+                patch:
+                  image:
+                    digest: ""

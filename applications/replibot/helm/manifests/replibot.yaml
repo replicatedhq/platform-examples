@@ -1,0 +1,35 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: replibot
+spec:
+  # chart identifies a matching chart from a .tgz
+  chart:
+    name: replibot
+    chartVersion: 0.1.0
+
+  values:
+    image:
+      repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "wti2000" }}/replibot-testing'
+      tag: 0.1.2
+    env:
+      - name: BUGSNAG_ENV
+        value: dev
+      - name: LOG_LEVEL
+        value: debug
+      - name: ENVIRONMENT
+        value: dev
+      - name: RELEASE_VERSION
+        value: "dev"
+      - name: INTERNAL_AUTH_TOKEN
+        value: "thisistheway"
+      - name: ALLOWED_CHANNELS
+        value: "test,general"
+      - name: INSTALLED_INSTANCE_ID
+        value: '{{repl RandomString 64}}'
+       
+
+  # builder values provide a way to render the chart with all images
+  # and manifests. this is used in replicated to create airgap packages
+
+  builder: {}

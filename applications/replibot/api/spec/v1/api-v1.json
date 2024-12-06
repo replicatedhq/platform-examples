@@ -1,0 +1,51 @@
+{
+  "swagger": "2.0",
+  "paths": {
+    "/echo": {
+      "post": {
+        "security": [
+          {
+            "api_key": []
+          }
+        ],
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "Echo back the request.",
+        "operationId": "Echo",
+        "parameters": [
+          {
+            "name": "Body",
+            "in": "body",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/EchoResponse"
+          },
+          "400": {
+            "$ref": "#/responses/responseErrBadRequest"
+          },
+          "401": {
+            "$ref": "#/responses/responseErrUnauthorized"
+          },
+          "403": {
+            "$ref": "#/responses/responseErrForbidden"
+          }
+        }
+      }
+    }
+  },
+  "responses": {
+    "EchoResponse": {
+      "description": "EchoResponse is the response for the echo route."
+    }
+  }
+}

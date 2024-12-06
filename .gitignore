@@ -27,3 +27,10 @@ Thumbs.db
 *.pyo
 *.pyd
 __pycache__/
+
+# Terraform ignores
+.terraform
+.terraform.lock.hcl
+terraform.tfvars
+.terraform.tfstate*
+backend.tf
