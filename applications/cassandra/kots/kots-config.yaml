@@ -11,25 +11,31 @@ spec:
     items:
     - name: cassandra_user
       title: Cassandra User
-      type: string
+      type: text
       default: cassandra
       required: true
       description: The username to use for the Cassandra user
     - name: cassandra_password
       title: Cassandra Password
-      type: string
+      type: text
       default: cassandra
       required: true
       description: The password to use for the Cassandra user
-    # - name: cassandra_tls_cert
-    #   title: Cassandra TLS Certificate
-    #   type: string
-    #   default: ""
-    #   required: true
-    #   description: The TLS certificate to use for the Cassandra user
-    # - name: cassandra_tls_key
-    #   title: Cassandra TLS Key
-    #   type: string
-    #   default: ""
-    #   required: true
-    #   description: The TLS key to use for the Cassandra user
+    - name: cassandra_tls_cert
+      title: Cassandra TLS Certificate
+      type: textarea
+      default: ""
+      required: true
+      description: The TLS certificate to use for the Cassandra client encryption
+    - name: cassandra_tls_key
+      title: Cassandra TLS Key
+      type: textarea
+      default: ""
+      required: true
+      description: The TLS key to use for the Cassandra client encryption
+    - name: cassandra_tls_ca
+      title: Cassandra TLS CA
+      type: textarea
+      default: ""
+      required: true
+      description: The root CA to use for the Cassandra client encryption
