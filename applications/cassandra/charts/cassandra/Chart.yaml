@@ -2,8 +2,8 @@ apiVersion: v2
 name: cassandra
 description: A Helm chart for apache cassandra
 type: application
-version: "0.4.0"
-appVersion: "2.10.0"
+version: 0.5.0
+appVersion: 2.10.0
 dependencies:
 - name: replicated
   version: "^1.0.0-beta.31"

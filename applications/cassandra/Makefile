@@ -14,6 +14,15 @@ HELM_CHARTS_DIR = ./charts
 # Define the path to your target KOTS directory
 KOTS_DIR = ./kots
 
+# Path to Cassandra's Chart.yaml
+CASSANDRA_CHART_PATH = ./charts/cassandra/Chart.yaml
+
+# Function to extract version from Chart.yaml
+define get_cassandra_chart_version
+	cat $(CASSANDRA_CHART_PATH) | grep '^version:' | cut -d ' ' -f 2
+endef
+
+
 # Define the function to extract chartVersion
 define get_kots_chart_version
 	grep 'chartVersion:' $(1) | sed 's/.*chartVersion: //'
@@ -73,5 +82,6 @@ add-helm-repositories:
 
 .PHONY: release
 release: package-and-update
-	@echo "Creating a new release with Replicated"
-	@replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable
+	@chart_version=$$(eval $(call get_cassandra_chart_version)); \
+	echo "Creating a new release with Replicated using version $$chart_version"; \
+	replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
