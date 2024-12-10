@@ -21,6 +21,21 @@ spec:
       default: cassandra
       required: true
       description: The password to use for the Cassandra user
+      secret: true
+    - name: cassandra_truststore_password
+      title: Cassandra Truststore Password
+      type: text
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra truststore
+      secret: true
+    - name: cassandra_keystore_password
+      title: Cassandra Keystore Password
+      type: text
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra keystore
+      secret: true
     - name: cassandra_tls_cert
       title: Cassandra TLS Certificate
       type: textarea
@@ -33,6 +48,7 @@ spec:
       default: ""
       required: true
       description: The TLS key to use for the Cassandra client encryption
+      secret: true
     - name: cassandra_tls_ca
       title: Cassandra TLS CA
       type: textarea
