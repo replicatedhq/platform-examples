@@ -41,6 +41,8 @@ package-and-update: clean add-helm-repositories update-dependencies
 clean:
 	@echo "Cleaning up build artifacts in $(KOTS_DIR)"
 	@rm -f $(KOTS_DIR)/*.tgz
+	@echo "Removing old Helm tmpcharts-* directories"
+	@rm -rf $(HELM_CHARTS_DIR)/*/tmpcharts-*
 
 
 .PHONY: update-dependencies
