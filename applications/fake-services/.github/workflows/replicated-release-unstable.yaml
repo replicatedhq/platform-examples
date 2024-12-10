@@ -28,8 +28,9 @@ jobs:
       - name: Set release version
         id: set-release-version
         run: |
-          VERSION=${{ env.LATEST_TAG }}-$(git rev-parse --short HEAD)
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          IFS='.' read -r major minor patch <<< "${{ env.LATEST_TAG }}"
+          version="${major}.${minor}.$((patch + 1))-Unstable"
+          echo "VERSION=${version}" >> $GITHUB_ENV
 
       - name: Package Helm chart
         id: package-helm-chart
@@ -54,5 +55,5 @@ jobs:
           app-slug: ${{ secrets.REPLICATED_APP }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           yaml-dir: ./replicated
-          promote-channel: unstable
+          promote-channel: Unstable
           version: ${{ env.VERSION }}
