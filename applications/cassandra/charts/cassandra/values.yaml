@@ -1,5 +1,63 @@
 replicated:
   enabled: true
+nfs-server:
+  enabled: true
+  env:
+    NFS_EXPORT_0: /shared *(rw,sync,no_subtree_check,no_root_squash)
+  service:
+    main:
+      enabled: true
+      primary: true
+      type: NodePort
+      externalTrafficPolicy: Local
+      ports:
+        http:
+          enabled: false
+        nfs-111:
+          enabled: true
+          port: 111
+          protocol: TCP
+        nfsd:
+          enabled: true
+          primary: true
+          port: 2049
+          protocol: TCP
+        nfs-32765:
+          enabled: true
+          port: 32765
+          protocol: TCP
+        nfs-32767:
+          enabled: true
+          port: 32767
+          protocol: TCP
+
+    udp:
+      enabled: true
+      type: NodePort
+      externalTrafficPolicy: Local
+      ports:
+        nfs-111-udp:
+          enabled: true
+          port: 111
+          protocol: UDP
+        nfsd-udp:
+          enabled: true
+          port: 2049
+          protocol: UDP
+        nfs-32765-udp:
+          enabled: true
+          port: 32765
+          protocol: UDP
+        nfs-32767-udp:
+          enabled: true
+          port: 32767
+          protocol: UDP
+  persistence:
+    shared:
+      enabled: true
+      type: emptyDir
+      mountPath: /shared
+
 cassandra:
   enabled: true
 

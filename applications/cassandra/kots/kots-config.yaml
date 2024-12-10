@@ -55,3 +55,40 @@ spec:
       default: ""
       required: true
       description: The root CA to use for the Cassandra client encryption
+  - name: postgres_settings
+    title: Postgres database settings
+    items:
+    - name: postgres_user
+      title: Postgres User
+      type: text
+      default: postgres
+      required: true
+      description: The username for the Postgres user
+    - name: postgres_password
+      title: Postgres Password
+      type: text
+      default: postgres
+      required: true
+      description: Postgres user password
+      secret: true
+    - name: postgres_db
+      title: Postgres Database Name
+      type: text
+      default: postgres
+      required: true
+      description: The name of the Postgres database
+    - name: postgres_db_owner
+      title: Postgres Database Owner
+      type: text
+      default: postgres
+      required: true
+      description: The name of the Postgres database owner
+  - name: nfs_settings
+    title: NFS Server settings
+    items:
+      - name: nfs_share
+        title: NFS Share
+        type: text
+        default: /shared
+        required: true
+        description: The NFS share to mount

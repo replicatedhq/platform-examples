@@ -13,6 +13,15 @@ spec:
   values:
     replicated:
       enabled: true
+    nfs-server:
+      enabled: true
+      persistence:
+        shared:
+          enabled: true
+          type: emptyDir
+          mountPath: repl{{ ConfigOption "nfs_share" }}
+      env:
+        NFS_EXPORT_0: repl{{ ConfigOption "nfs_share" }} *(rw,sync,no_subtree_check,no_root_squash)
     cassandra:
       enabled: true
       truststore_password : repl{{ ConfigOption "cassandra_truststore_password" }}
@@ -32,3 +41,13 @@ spec:
           repl{{ ConfigOptionData `cassandra_tls_key` | nindent 12 }}
         ca: |
           repl{{ ConfigOptionData `cassandra_tls_ca` | nindent 12 }}
+    postgres:
+      enabled: true
+      embedded:
+        enabled: true
+      auth:
+        username: repl{{ ConfigOption "postgres_user" }}
+        password: repl{{ ConfigOption "postgres_password" }}
+      initdb:
+        database: repl{{ ConfigOption "postgres_db" }}
+        owner: repl{{ ConfigOption "postgres_db_owner" }}
