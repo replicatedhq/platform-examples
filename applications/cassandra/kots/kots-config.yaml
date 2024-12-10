@@ -38,21 +38,18 @@ spec:
       secret: true
     - name: cassandra_tls_cert
       title: Cassandra TLS Certificate
-      type: textarea
-      default: ""
+      type: file
       required: true
       description: The TLS certificate to use for the Cassandra client encryption
     - name: cassandra_tls_key
       title: Cassandra TLS Key
-      type: textarea
-      default: ""
+      type: file
       required: true
       description: The TLS key to use for the Cassandra client encryption
       secret: true
     - name: cassandra_tls_ca
       title: Cassandra TLS CA
-      type: textarea
-      default: ""
+      type: file
       required: true
       description: The root CA to use for the Cassandra client encryption
   - name: postgres_settings
