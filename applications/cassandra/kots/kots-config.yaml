@@ -89,3 +89,9 @@ spec:
         default: /shared
         required: true
         description: The NFS share to mount
+      - name: nfs_share_options
+        title: NFS Share Options
+        type: text
+        default: '*(rw,insecure,no_subtree_check,all_squash)'
+        required: true
+        description: The NFS share options
