@@ -1,0 +1,19 @@
+{{- if (and .Values.postgres.embedded.enabled  (eq .Values.postgres.embedded.service.type "NodePort")) -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-nodeport
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/component: primary
+spec:
+  type: NodePort
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      nodePort: 5432
+  selector:
+    cnpg.io/cluster: postgres
+{{- end -}}
