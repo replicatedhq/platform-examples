@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: cassandra
-    chartVersion: 0.5.0
+    chartVersion: 0.7.0
   helmUpgradeFlags:
     - --wait
     - --timeout
@@ -41,11 +41,13 @@ spec:
       #   ca: repl{{ ConfigOption `cassandra_tls_ca` }}
     postgres:
       enabled: true
-      embedded:
-        enabled: true
       auth:
         username: repl{{ ConfigOption "postgres_user" }}
         password: repl{{ ConfigOption "postgres_password" }}
-      initdb:
-        database: repl{{ ConfigOption "postgres_db" }}
-        owner: repl{{ ConfigOption "postgres_db_owner" }}
+      embedded:
+        enabled: true
+        initdb:
+          database: repl{{ ConfigOption "postgres_db" }}
+          owner: repl{{ ConfigOption "postgres_db_owner" }}
+        service:
+          type: NodePort
