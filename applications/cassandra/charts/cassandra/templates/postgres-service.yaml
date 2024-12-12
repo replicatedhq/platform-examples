@@ -7,13 +7,16 @@ metadata:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/instance: postgres
     app.kubernetes.io/component: primary
+    cnpg.io/cluster: postgres
+    cnpg.io/instanceRole: primary
 spec:
   type: NodePort
   ports:
     - name: postgres
       port: 5432
-      targetPort: postgres
+      targetPort: 5432
       nodePort: 5432
   selector:
     cnpg.io/cluster: postgres
+    cnpg.io/instanceRole: primary
 {{- end -}}
