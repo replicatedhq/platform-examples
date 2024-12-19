@@ -1,0 +1,24 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: 1.19.0+k8s-1.29
+  extensions:
+    helm:
+      repositories:
+        - name: cnpg
+          url: https://cloudnative-pg.github.io/charts
+      charts:
+        - name: cloudnative-pg
+          chartname: cnpg/cloudnative-pg
+          namespace: cnpg
+          version: "0.22.1"
+          values: |
+            cloudnative-pg:
+              enabled: true
+  unsupportedOverrides:
+    k0s: |
+      config:
+        spec:
+          api:
+            extraArgs:
+              service-node-port-range: 80-32767

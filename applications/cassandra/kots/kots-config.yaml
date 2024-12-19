@@ -1,0 +1,120 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  # cassandra settings
+  - name: cassandra_settings
+    title: Cassandra Settings
+    items:
+    - name: cassandra_user
+      title: Cassandra User
+      type: text
+      default: cassandra
+      required: true
+      description: The username to use for the Cassandra user
+    - name: cassandra_password
+      title: Cassandra Password
+      type: text
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra user
+      secret: true
+    - name: cassandra_truststore_password
+      title: Cassandra Truststore Password
+      type: text
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra truststore
+      secret: true
+    - name: cassandra_keystore_password
+      title: Cassandra Keystore Password
+      type: text
+      default: cassandra
+      required: true
+      description: The password to use for the Cassandra keystore
+      secret: true
+    - name: cassandra_ingress_settings
+      title: Cassandra Ingress Settings
+      items:
+      - name: cassandra_tls_type
+        title: Cassandra TLS Type
+        type: select_one
+        items:
+        - name: "cassandra_self_signed_ca"
+          title: Autogenerate self-signed CA and certificates
+        - name: "cassandra_external_ca"
+          title: Use external CA and certificates
+        default: "cassandra_self_signed_ca"
+        required: true
+      - name: cassandra_ingress_host
+        title: Cassandra TLS Hostname
+        type: text
+        default: cassandra.example.com
+        required: true
+        description: The hostname to use for the Cassandra ingress
+        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_self_signed_ca" }}'
+      - name: cassandra_tls_cert
+        title: Cassandra TLS Certificate
+        type: file
+        description: The TLS certificate to use for the Cassandra client encryption
+        required: true
+        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+      - name: cassandra_tls_key
+        title: Cassandra TLS Key
+        type: file
+        description: The TLS key to use for the Cassandra client encryption
+        secret: true
+        required: true
+        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+      - name: cassandra_tls_ca
+        title: Cassandra TLS CA
+        type: file
+        description: The root CA to use for the Cassandra client encryption
+        required: true
+        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+  - name: postgres_settings
+    title: Postgres database settings
+    items:
+    - name: postgres_user
+      title: Postgres User
+      type: text
+      default: postgres
+      required: true
+      description: The username for the Postgres user
+    - name: postgres_password
+      title: Postgres Password
+      type: text
+      default: postgres
+      required: true
+      description: Postgres user password
+      secret: true
+    - name: postgres_db
+      title: Postgres Database Name
+      type: text
+      default: postgres
+      required: true
+      description: The name of the Postgres database
+    - name: postgres_db_owner
+      title: Postgres Database Owner
+      type: text
+      default: postgres
+      required: true
+      description: The name of the Postgres database owner
+  - name: nfs_settings
+    title: NFS Server settings
+    items:
+      - name: nfs_share
+        title: NFS Share
+        type: text
+        default: /shared
+        required: true
+        description: The NFS share to mount
+      - name: nfs_share_options
+        title: NFS Share Options
+        type: text
+        default: '*(rw,insecure,no_subtree_check,all_squash)'
+        required: true
+        description: The NFS share options
