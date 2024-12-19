@@ -1,0 +1,12 @@
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+spec:
+  values:
+    frontend_message:
+      value: thisistheway
+    backend_message:
+      value: thisistheway
+    backend_name:
+      value: Payment
+    frontend_name:
+      value: Checkout

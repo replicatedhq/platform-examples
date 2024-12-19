@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: lucky-number-sender
+spec:
+  schedule: "* * * * *"  # Run every minute
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: lucky-sender
+            image: curlimages/curl:latest
+            command: ["/bin/sh"]
+            args:
+            - -c
+            - |
+              # Get seconds since epoch and use it as random seed
+              NUM=$(date +%s)
+              LUCKY_NUMBER=$(expr $NUM % 35 + 1)
+              
+              # Send the metric
+              curl -v -X POST 'http://replicated:3000/api/v1/app/custom-metrics' \
+                -H 'Content-Type: application/json' \
+                -d "{
+                  \"data\": {
+                    \"lucky_number\": $LUCKY_NUMBER
+                  }
+                }"
+          restartPolicy: OnFailure
