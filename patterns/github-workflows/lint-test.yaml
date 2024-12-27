@@ -47,7 +47,7 @@ jobs:
         if: success() || failure()
 
       - name: Upload support bundle artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
           name: support-bundle
