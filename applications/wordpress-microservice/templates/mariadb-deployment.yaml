@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  labels:
+    {{- include "wordpress-microservice.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.mariadb.replicaCount }}
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      containers:
+        - name: mariadb
+          image: "{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}"
+          imagePullPolicy: {{ .Values.mariadb.image.pullPolicy }}
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "{{ .Values.mariadb.env.MYSQL_ROOT_PASSWORD }}"
+            - name: MYSQL_DATABASE
+              value: "{{ .Values.mariadb.env.MYSQL_DATABASE }}"
+            - name: MYSQL_USER
+              value: "{{ .Values.mariadb.env.MYSQL_USER }}"
+            - name: MYSQL_PASSWORD
+              value: "{{ .Values.mariadb.env.MYSQL_PASSWORD }}"
+
+#Use the MySQL Exporter to collect metrics from MariaDB
+        - name: mysql-exporter
+          image: prom/mysqld-exporter:latest
+          env:
+            - name: DATA_SOURCE_NAME
+              value: "{{ .Values.mariadb.env.MYSQL_USER }}:{{ .Values.mariadb.env.MYSQL_PASSWORD }}@(127.0.0.1:3306)/{{ .Values.mariadb.env.MYSQL_DATABASE }}"
+          ports:
+            - containerPort: 9104
+              name: metrics

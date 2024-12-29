@@ -1,0 +1,14 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: wordpress-microservice
+spec:
+  title: Wordpress-Microservice
+  statusInformers:
+    - deployment/wordpress-microservice
+  ports:
+    - serviceName: "wordpress-microservice"
+      servicePort: 80
+      localPort: 30080
+      applicationUrl: "http://wordpress-microservice"
+  icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/kubernetes/icon/color/kubernetes-icon-color.png
