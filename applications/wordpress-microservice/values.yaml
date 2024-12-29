@@ -1,0 +1,38 @@
+wordpress:
+  image:
+    repository: wordpress
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30080
+  replicaCount: 1
+  env:
+    WORDPRESS_DB_HOST: mariadb
+    WORDPRESS_DB_USER: wordpress_user
+    WORDPRESS_DB_PASSWORD: wordpress_password
+    WORDPRESS_DB_NAME: wordpress_db
+
+mariadb:
+  image:
+    repository: mariadb
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3306
+  replicaCount: 1
+  env:
+    MYSQL_ROOT_PASSWORD: root_password
+    MYSQL_DATABASE: wordpress_db
+    MYSQL_USER: wordpress_user
+    MYSQL_PASSWORD: wordpress_password
+
+customMetrics:
+  enabled: true
+  exporters:
+    - name: mariadb-metrics
+      endpoint: "http://mariadb:9104/metrics"
+      description: "MariaDB custom metrics"
+      interval: 30s

@@ -1,0 +1,17 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: wordpress-microservice
+spec:
+  # chart identifies a matching chart from a .tgz
+  chart:
+    name: wordpress-microservice
+    chartVersion: 0.1.1
+  optionalValues:
+  - when: 'repl{{ eq Distribution "embedded-cluster" }}'
+    recursiveMerge: false
+    values:
+      service:
+        type: NodePort
+        nodePorts:
+          http: "30080"

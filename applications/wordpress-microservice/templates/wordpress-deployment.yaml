@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    {{- include "wordpress-microservice.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.wordpress.replicaCount }}
+  selector:
+    matchLabels:
+      app: wordpress
+  template:
+    metadata:
+      labels:
+        app: wordpress
+    spec:
+      containers:
+        - name: wordpress
+          image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
+          imagePullPolicy: {{ .Values.wordpress.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          env:
+            - name: WORDPRESS_DB_HOST
+              value: "{{ .Values.wordpress.env.WORDPRESS_DB_HOST }}"
+            - name: WORDPRESS_DB_USER
+              value: "{{ .Values.wordpress.env.WORDPRESS_DB_USER }}"
+            - name: WORDPRESS_DB_PASSWORD
+              value: "{{ .Values.wordpress.env.WORDPRESS_DB_PASSWORD }}"
+            - name: WORDPRESS_DB_NAME
+              value: "{{ .Values.wordpress.env.WORDPRESS_DB_NAME }}"
+        volumeMounts:
+          - name: custom-metrics-config
+            mountPath: /etc/custom-metrics
+            readOnly: true
+      volumes:
+        - name: custom-metrics-config
+          configMap:
+            name: custom-metrics-config

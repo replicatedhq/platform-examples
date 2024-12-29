@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  labels:
+    {{- include "wordpress-microservice.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.wordpress.service.type }}
+  ports:
+    - port: {{ .Values.wordpress.service.port }}
+      targetPort: 80
+      nodePort: {{ .Values.wordpress.service.nodePort }}
+  selector:
+    app: wordpress
