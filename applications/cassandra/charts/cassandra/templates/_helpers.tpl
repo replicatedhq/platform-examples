@@ -50,14 +50,3 @@ Selector labels
 app.kubernetes.io/name: {{ include "cassandra.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "cassandra.serviceAccountName" -}}
-{{- if .Values.cassandra.serviceAccount.create }}
-{{- default (include "cassandra.fullname" .) .Values.cassandra.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.cassandra.serviceAccount.name }}
-{{- end }}
-{{- end }}

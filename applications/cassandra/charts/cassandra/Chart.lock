@@ -4,9 +4,9 @@ dependencies:
   version: 1.0.0-beta.32
 - name: cassandra
   repository: https://charts.bitnami.com/bitnami
-  version: 12.0.5
+  version: 11.4.2
 - name: nfs-server
   repository: https://charts.obeone.cloud
   version: 1.1.2
-digest: sha256:7475db601598f541a0af0cdb0e58a396565551c3f9fe1903c8ec1c5004bbca58
-generated: "2024-12-10T11:06:38.043682-05:00"
+digest: sha256:9ecdc3cdd5e33b399cae73329a95d3c8ce220c91943ce80cf209577bd7a9f939
+generated: "2024-12-18T11:13:40.889129-05:00"
