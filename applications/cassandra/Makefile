@@ -35,10 +35,10 @@ endef
 
 # Target to package charts and update versions
 .PHONY: package-and-update
-package-and-update: clean add-helm-repositories update-dependencies
+package-and-update: clean
 	@for chart in $(HELM_CHARTS_DIR)/*; do \
 	    echo "Packaging $$chart"; \
-	    helm package $$chart -u -d $(KOTS_DIR); \
+	    helm package $$chart -d $(KOTS_DIR); \
 	    version=$$(eval $(call get_helm_chart_version,$$chart)); \
 		chart_name=$$(basename $$chart); \
 	    echo "Updating version to $$version in $(KOTS_DIR)/*-chart.yaml"; \
