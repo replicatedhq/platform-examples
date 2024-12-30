@@ -115,6 +115,8 @@ cassandra:
     ##
     imagePullSecrets: []
     defaultStorageClass: ""
+    security:
+      allowInsecureImages: true
     ## Compatibility adaptations for Kubernetes platforms
     ##
     compatibility:
@@ -178,7 +180,7 @@ cassandra:
   image:
     registry: docker.io
     repository: bitnami/cassandra
-    tag: 5.0.2-debian-12-r3
+    tag: 4.1.6-debian-12-r3
     digest: ""
     ## Specify a imagePullPolicy
     ## ref: https://kubernetes.io/docs/concepts/containers/images/#pre-pulled-images
@@ -772,7 +774,7 @@ cassandra:
     image:
       registry: docker.io
       repository: bitnami/os-shell
-      tag: 12-debian-12-r33
+      tag: 12-debian-12-r28
       digest: ""
       pullPolicy: IfNotPresent
       ## Optionally specify an array of imagePullSecrets.
@@ -840,7 +842,7 @@ cassandra:
     image:
       registry: docker.io
       repository: bitnami/cassandra-exporter
-      tag: 2.3.8-debian-12-r33
+      tag: 2.3.8-debian-12-r28
       digest: ""
       pullPolicy: IfNotPresent
       ## Optionally specify an array of imagePullSecrets.
@@ -1099,6 +1101,8 @@ postgres:
     postgresUID: 26
     # -- Postgres GID
     postgresGID: 26
+    service:
+      type: ClusterIP
     # -- Postgres storage configuration
     storage:
       size: 10Gi
