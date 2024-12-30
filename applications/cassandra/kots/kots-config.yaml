@@ -36,45 +36,47 @@ spec:
       required: true
       description: The password to use for the Cassandra keystore
       secret: true
-    - name: cassandra_ingress_settings
-      title: Cassandra Ingress Settings
+  - name: cassandra_ingress_settings
+    title: Cassandra Ingress Settings
+    items:
+    - name: cassandra_tls_type
+      title: Cassandra TLS Type
+      type: select_one
       items:
-      - name: cassandra_tls_type
-        title: Cassandra TLS Type
-        type: select_one
-        items:
-        - name: "cassandra_self_signed_ca"
-          title: Autogenerate self-signed CA and certificates
-        - name: "cassandra_external_ca"
-          title: Use external CA and certificates
-        default: "cassandra_self_signed_ca"
-        required: true
-      - name: cassandra_ingress_host
-        title: Cassandra TLS Hostname
-        type: text
-        default: cassandra.example.com
-        required: true
-        description: The hostname to use for the Cassandra ingress
-        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_self_signed_ca" }}'
-      - name: cassandra_tls_cert
-        title: Cassandra TLS Certificate
-        type: file
-        description: The TLS certificate to use for the Cassandra client encryption
-        required: true
-        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-      - name: cassandra_tls_key
-        title: Cassandra TLS Key
-        type: file
-        description: The TLS key to use for the Cassandra client encryption
-        secret: true
-        required: true
-        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-      - name: cassandra_tls_ca
-        title: Cassandra TLS CA
-        type: file
-        description: The root CA to use for the Cassandra client encryption
-        required: true
-        when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+      - name: cassandra_no_ssl
+        title: TLS client encryption disabled
+      - name: "cassandra_self_signed_ca"
+        title: Autogenerate self-signed CA and certificates
+      - name: "cassandra_external_ca"
+        title: Use external CA and certificates
+      default: "cassandra_no_ssl"
+      required: true
+    - name: cassandra_ingress_host
+      title: Cassandra TLS Hostname
+      type: text
+      default: cassandra.example.com
+      required: true
+      description: The hostname to use for the Cassandra ingress
+      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_self_signed_ca" }}'
+    - name: cassandra_tls_cert
+      title: Cassandra TLS Certificate
+      type: file
+      description: The TLS certificate to use for the Cassandra client encryption
+      required: true
+      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+    - name: cassandra_tls_key
+      title: Cassandra TLS Key
+      type: file
+      description: The TLS key to use for the Cassandra client encryption
+      secret: true
+      required: true
+      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+    - name: cassandra_tls_ca
+      title: Cassandra TLS CA
+      type: file
+      description: The root CA to use for the Cassandra client encryption
+      required: true
+      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
   - name: postgres_settings
     title: Postgres database settings
     items:
