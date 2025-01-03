@@ -12,3 +12,4 @@ Welcome to the repository! Below is a list of available applications in this pro
 ### Mlflow
 
 - [Mlflow](mlflow/README.md)
+- [Replibot](replibot/README.md)
