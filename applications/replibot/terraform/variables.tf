@@ -37,5 +37,11 @@ variable "key_name" {
 variable "airgap_download_script" {
   description = "value of the airgap download script"
   type        = string
-  
+
+}
+
+variable "instance_type" {
+  description = "The type of EC2 instance to launch"
+  type        = string
+  default     = "t3.xlarge"
 }

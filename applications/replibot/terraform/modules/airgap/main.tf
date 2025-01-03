@@ -20,7 +20,7 @@ data "aws_key_pair" "ec" {
 
 resource "aws_instance" "ec" {
   ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.xlarge"
+  instance_type = var.instance_type
   subnet_id     = var.private_subnets[0]
   security_groups = [aws_security_group.ec.id]
   key_name      = data.aws_key_pair.ec.key_name
