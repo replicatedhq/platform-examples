@@ -29,11 +29,11 @@ spec:
               value: "{{ .Values.wordpress.env.WORDPRESS_DB_PASSWORD }}"
             - name: WORDPRESS_DB_NAME
               value: "{{ .Values.wordpress.env.WORDPRESS_DB_NAME }}"
-        volumeMounts:
-          - name: custom-metrics-config
-            mountPath: /etc/custom-metrics
-            readOnly: true
-      volumes:
-        - name: custom-metrics-config
-          configMap:
-            name: custom-metrics-config
+#          volumeMounts:
+#          - name: custom-metrics-config
+#            mountPath: /etc/custom-metrics
+#            readOnly: true
+#      volumes:
+#        - name: custom-metrics-config
+#          configMap:
+#            name: custom-metrics-config

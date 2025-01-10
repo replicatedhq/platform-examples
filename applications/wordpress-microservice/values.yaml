@@ -29,10 +29,20 @@ mariadb:
     MYSQL_USER: wordpress_user
     MYSQL_PASSWORD: wordpress_password
 
-customMetrics:
-  enabled: true
-  exporters:
-    - name: mariadb-metrics
-      endpoint: "http://mariadb:9104/metrics"
-      description: "MariaDB custom metrics"
-      interval: 30s
+#cronjob:
+#  name: custom-data-reporter
+#  schedule: "* * * * *"
+#  image: curlimages/curl:latest
+#  metricsEndpoint: "http://replicated:3000/api/v1/app/custom-metrics"
+#  data:
+#    numProjects: 5
+#    weeklyActiveUsers: 10
+
+cronjob:
+  name: custom-data-reporter
+  schedule: "*/2 * * * *"
+  image: curlimages/curl:latest
+  metricsEndpoint: "http://replicated:3000/api/v1/app/custom-metrics"
+  maxTotalPosts: 500               # Maximum value for totalPosts
+  maxActiveUsers: 100            # Maximum value for activeUsers
+

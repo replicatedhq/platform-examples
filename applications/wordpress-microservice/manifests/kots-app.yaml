@@ -5,7 +5,7 @@ metadata:
 spec:
   title: Wordpress-Microservice
   statusInformers:
-    - deployment/wordpress-microservice
+    - deployment/wordpress
   ports:
     - serviceName: "wordpress-microservice"
       servicePort: 80

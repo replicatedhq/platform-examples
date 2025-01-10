@@ -6,7 +6,7 @@ spec:
   # chart identifies a matching chart from a .tgz
   chart:
     name: wordpress-microservice
-    chartVersion: 0.1.1
+    chartVersion: 0.1.0
   optionalValues:
   - when: 'repl{{ eq Distribution "embedded-cluster" }}'
     recursiveMerge: false

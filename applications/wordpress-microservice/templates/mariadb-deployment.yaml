@@ -31,11 +31,11 @@ spec:
               value: "{{ .Values.mariadb.env.MYSQL_PASSWORD }}"
 
 #Use the MySQL Exporter to collect metrics from MariaDB
-        - name: mysql-exporter
-          image: prom/mysqld-exporter:latest
-          env:
-            - name: DATA_SOURCE_NAME
-              value: "{{ .Values.mariadb.env.MYSQL_USER }}:{{ .Values.mariadb.env.MYSQL_PASSWORD }}@(127.0.0.1:3306)/{{ .Values.mariadb.env.MYSQL_DATABASE }}"
-          ports:
-            - containerPort: 9104
-              name: metrics
+#        - name: mysql-exporter
+#          image: prom/mysqld-exporter:latest
+#          env:
+#            - name: DATA_SOURCE_NAME
+#              value: "{{ .Values.mariadb.env.MYSQL_USER }}:{{ .Values.mariadb.env.MYSQL_PASSWORD }}@(127.0.0.1:3306)/{{ .Values.mariadb.env.MYSQL_DATABASE }}"
+#          ports:
+#            - containerPort: 9104
+#              name: metrics

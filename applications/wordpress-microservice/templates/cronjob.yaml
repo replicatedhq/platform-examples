@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.cronjob.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: "{{ .Values.cronjob.schedule }}"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: metrics-reporter
+              image: "{{ .Values.cronjob.image }}"
+              command: ["sh", "-c"]
+              args:
+                - |
+                  totalPosts=$((RANDOM % {{ .Values.cronjob.maxTotalPosts }} + 1))
+                  activeUsers=$((RANDOM % {{ .Values.cronjob.maxActiveUsers }} + 1))
+                  curl -X POST {{ .Values.cronjob.metricsEndpoint }} \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                        \"data\": {
+                          \"total_posts\": $totalPosts,
+                          \"active_users\": $activeUsers
+                        }
+                      }"
+          restartPolicy: OnFailure
