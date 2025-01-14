@@ -1,6 +1,6 @@
 # PowerDNS with PowerDNS-Admin and PostgreSQL backend
 
-This is KOTS app delivered as a Helm chart for the [PowerDNS](https://www.powerdns.com/) DNS authoritative DNS server, the PowerDNS recursor, and the Postgres backend for persistence, with the [PowerDNS-Admin]() web interface for management.
+This is KOTS app delivered as a Helm chart for the [PowerDNS](https://www.powerdns.com/) DNS authoritative DNS server, the PowerDNS recursor, and the Postgres backend for persistence, with the [PowerDNS-Admin](https://github.com/PowerDNS-Admin/PowerDNS-Admin) web interface for management.
 
 It is designed to be deployed as part of the Replicated Embedded Cluster and to act as the authoritative DNS server for the local network.
 
