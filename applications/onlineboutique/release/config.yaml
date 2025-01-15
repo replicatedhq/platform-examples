@@ -1,0 +1,59 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: my-application
+spec:
+  groups:
+    - name: services
+      title: Enabled Services
+      items:
+      - name: adservice_create
+        title: Enable Ad service
+        type: bool
+        default: "1"
+      - name: cartservice_create
+        title: Enable Cart service
+        type: bool
+        default: "1"
+      - name: checkoutservice_create
+        title: Enable Checkout service
+        type: bool
+        default: "1"
+      - name: currencyservice_create
+        title: Enable Currency service
+        type: bool
+        default: "1"
+      - name: emailservice_create
+        title: Enable Email service
+        type: bool
+        default: "1"
+      - name: frontend_create
+        title: Enable Front end
+        type: bool
+        default: "1"
+      - name: loadgen_create
+        title: Enable Load Generator
+        type: bool
+        default: "1"
+      - name: paymentservice_create
+        title: Enable Payment service
+        type: bool
+        default: "1"
+      - name: pcs_create
+        title: Enable Product Category service
+        type: bool
+        default: "1"
+      - name: recommendationservice_create
+        title: Enable Recommendation service
+        type: bool
+        default: "1"
+      - name: shippingservice_create
+        title: Enable Shipping service
+        type: bool
+        default: "1"
+      - name: cartdatabase_create
+        title: Enable Cart service database
+        type: bool
+        default: "1"
+        
+        
