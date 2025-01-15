@@ -4,7 +4,7 @@ Demo replicated app for the google [onlineboutique](https://github.com/GoogleClo
 
 The purpose of this app is to demonstrate porting an existing established helm chart into a replicated release.
 
-# Currently implimented: 
+# Currently implemented: 
 
 - Initial set of helm values mapped to config options
 - Config dependant status informers
