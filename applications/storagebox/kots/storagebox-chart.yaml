@@ -1,10 +1,10 @@
 apiVersion: kots.io/v1beta2
 kind: HelmChart
 metadata:
-  name: cassandra
+  name: storagebox
 spec:
   chart:
-    name: cassandra
+    name: storagebox
     chartVersion: 0.13.0
   # helmUpgradeFlags:
   #   - --wait
