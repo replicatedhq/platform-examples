@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "cassandra.name" -}}
+{{- define "storagebox.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "cassandra.fullname" -}}
+{{- define "storagebox.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "cassandra.chart" -}}
+{{- define "storagebox.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "cassandra.labels" -}}
-helm.sh/chart: {{ include "cassandra.chart" . }}
-{{ include "cassandra.selectorLabels" . }}
+{{- define "storagebox.labels" -}}
+helm.sh/chart: {{ include "storagebox.chart" . }}
+{{ include "storagebox.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -46,7 +46,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "cassandra.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "cassandra.name" . }}
+{{- define "storagebox.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "storagebox.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
