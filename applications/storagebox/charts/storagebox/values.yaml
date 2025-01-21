@@ -1161,8 +1161,8 @@ postgres:
     # -- External Postgres database
     database: pdns
 
-minio-tenant:
 # Root key for MinIO Tenant Chart
+minio-tenant:
   enabled: true
   ###
   # The Tenant name
@@ -1530,16 +1530,3 @@ minio-tenant:
       host: minio-console.local
       path: /
       pathType: Prefix
-  # Use an extraResources template section to include additional Kubernetes resources
-  # with the Helm deployment.
-  #extraResources:
-  #  - |
-  #    apiVersion: v1
-  #    kind: Secret
-  #    type: Opaque
-  #    metadata:
-  #      name: {{ dig "tenant" "configSecret" "name" "" (.Values | merge (dict)) }}
-  #    stringData:
-  #      config.env: |-
-  #        export MINIO_ROOT_USER='minio'
-  #        export MINIO_ROOT_PASSWORD='minio123'
