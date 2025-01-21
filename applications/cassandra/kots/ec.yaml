@@ -1,7 +1,7 @@
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 1.19.0+k8s-1.29
+  version: 1.20.0+k8s-1.30-rc1
   extensions:
     helm:
       repositories:
@@ -15,6 +15,10 @@ spec:
           values: |
             cloudnative-pg:
               enabled: true
+        - name: minio-operator
+          chartname: minio-operator/operator
+          namespace: minio
+          version: "6.0.4"
   unsupportedOverrides:
     k0s: |
       config:
