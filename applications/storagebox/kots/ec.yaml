@@ -21,10 +21,3 @@ spec:
           chartname: minio-operator/operator
           namespace: minio
           version: "6.0.4"
-  unsupportedOverrides:
-    k0s: |
-      config:
-        spec:
-          api:
-            extraArgs:
-              service-node-port-range: 80-32767
