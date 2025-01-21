@@ -2,18 +2,23 @@ apiVersion: v2
 name: cassandra
 description: A Helm chart for apache cassandra
 type: application
-version: 0.12.0
+version: 0.13.0
 appVersion: 4.1.6
 dependencies:
 - name: replicated
-  version: "^1.0.0"
+  version: "~1.0.0"
   repository: "oci://registry.replicated.com/library"
   condition: replicated.enabled
 - name: cassandra
-  version: 11.4.2
+  version: "~11.4.2"
   repository: https://charts.bitnami.com/bitnami
   condition: cassandra.enabled
 - name: nfs-server
-  version: "^1.1.2"
+  version: "~1.1.2"
   repository: https://charts.obeone.cloud
   condition: nfs-server.enabled
+- name: tenant
+  alias: minio-tenant
+  version: "6.0.4"
+  repository: https://operator.min.io
+  condition: minio-tenant.enabled

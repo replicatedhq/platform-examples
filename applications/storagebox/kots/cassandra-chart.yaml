@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: cassandra
-    chartVersion: 0.12.0
+    chartVersion: 0.13.0
   # helmUpgradeFlags:
   #   - --wait
   #   - --timeout
