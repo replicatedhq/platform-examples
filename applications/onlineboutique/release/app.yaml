@@ -1,0 +1,19 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: onlineboutique
+spec:
+  title: onlineboutique
+  releaseNotes: These are our release notes
+  statusInformers:
+    - '{{repl if (ConfigOption "adservice_create" | ParseBool) }}deployment/adservice{{repl end}}'
+    - '{{repl if (ConfigOption "cartservice_create" | ParseBool) }}deployment/cartservice{{repl end}}'
+    - '{{repl if (ConfigOption "checkoutservice_create" | ParseBool)}}deployment/checkoutservice{{repl end}}'
+    - '{{repl if (ConfigOption "currencyservice_create" | ParseBool)}}deployment/currencyservice{{repl end}}'
+    - '{{repl if (ConfigOption "emailservice_create" | ParseBool)}}deployment/emailservice{{repl end}}'
+    - '{{repl if (ConfigOption "frontend_create" | ParseBool)}}deployment/frontend{{repl end}}'
+    - '{{repl if (ConfigOption "paymentservice_create" | ParseBool)}}deployment/paymentservice{{repl end}}'
+    - '{{repl if (ConfigOption "pcs_create" | ParseBool)}}deployment/productcatalogservice{{repl end}}'
+    - '{{repl if (ConfigOption "recommendationservice_create" | ParseBool)|}}deployment/recommendationservice{{repl end}}'
+    - '{{repl if (ConfigOption "cartdatabase_create" | ParseBool)}}deployment/redis-cart{{repl end}}'
+    - '{{repl if (ConfigOption "shippingservice_create" | ParseBool)}}deployment/shippingservice{{repl end}}'

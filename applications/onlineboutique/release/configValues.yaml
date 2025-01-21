@@ -1,0 +1,32 @@
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  creationTimestamp: null
+  name: onlineboutique
+spec:
+  values:
+    adservice_create:
+      default: "1"
+    cartdatabase_create:
+      default: "1"
+    cartservice_create:
+      default: "1"
+    checkoutservice_create:
+      default: "1"
+    currencyservice_create:
+      default: "1"
+    emailservice_create:
+      default: "1"
+    frontend_create:
+      default: "1"
+    loadgen_create:
+      default: "1"
+    paymentservice_create:
+      default: "1"
+    pcs_create:
+      default: "1"
+    recommendationservice_create:
+      default: "1"
+    shippingservice_create:
+      default: "1"
+status: {}

@@ -1,0 +1,39 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: helmtest
+spec:
+  chart:
+    name: onlineboutique
+    chartVersion: 0.14.0
+    releaseName: onlineboutique
+  helmVersion: v3
+  values:
+    adService:
+      create: repl{{ ConfigOption "adservice_create"}}
+    cartService:
+      create: repl{{ ConfigOption "cartservice_create"}}
+    checkoutService:
+      create: repl{{ ConfigOption "checkoutservice_create"}}
+    currencyService:
+      create: repl{{ ConfigOption "currencyservice_create"}}
+    emailService:
+      create: repl{{ ConfigOption "emailservice_create"}}
+    frontend:
+      create: repl{{ ConfigOption "frontend_create"}}
+    loadGenerator:
+      create: repl{{ ConfigOption "loadgen_create"}}
+    paymentService:
+      create: repl{{ ConfigOption "paymentservice_create"}}
+    productCatalogService:
+      create: repl{{ ConfigOption "pcs_create"}}
+    recommendationService:
+      create: repl{{ ConfigOption "recommendationservice_create"}}
+    shippingService:
+      create: repl{{ ConfigOption "shippingservice_create"}}
+    cartDatabase:
+      create: repl{{ ConfigOption "cartdatabase_create"}}
+      
+  builder: {}
+  helmUpgradeFlags:
+    - --skip-schema-validation
