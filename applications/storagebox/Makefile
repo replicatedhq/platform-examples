@@ -14,12 +14,12 @@ HELM_CHARTS_DIR = ./charts
 # Define the path to your target KOTS directory
 KOTS_DIR = ./kots
 
-# Path to Cassandra's Chart.yaml
-CASSANDRA_CHART_PATH = ./charts/cassandra/Chart.yaml
+# Path to Storagebox's Chart.yaml
+STORAGEBOX_CHART_PATH = ./charts/storagebox/Chart.yaml
 
 # Function to extract version from Chart.yaml
-define get_cassandra_chart_version
-	cat $(CASSANDRA_CHART_PATH) | grep '^version:' | cut -d ' ' -f 2
+define get_storagebox_chart_version
+	cat $(STORAGEBOX_CHART_PATH) | grep '^version:' | cut -d ' ' -f 2
 endef
 
 
@@ -82,6 +82,6 @@ add-helm-repositories:
 
 .PHONY: release
 release: package-and-update
-	@chart_version=$$(eval $(call get_cassandra_chart_version)); \
+	@chart_version=$$(eval $(call get_storagebox_chart_version)); \
 	echo "Creating a new release with Replicated using version $$chart_version"; \
 	replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
