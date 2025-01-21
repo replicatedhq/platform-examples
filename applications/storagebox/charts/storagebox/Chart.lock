@@ -1,12 +1,15 @@
 dependencies:
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.0.0-beta.32
+  version: 1.0.0
 - name: cassandra
   repository: https://charts.bitnami.com/bitnami
   version: 11.4.2
 - name: nfs-server
   repository: https://charts.obeone.cloud
   version: 1.1.2
-digest: sha256:9ecdc3cdd5e33b399cae73329a95d3c8ce220c91943ce80cf209577bd7a9f939
-generated: "2024-12-18T11:13:40.889129-05:00"
+- name: tenant
+  repository: https://operator.min.io
+  version: 6.0.4
+digest: sha256:128a569fba25a58ad08a30563e38bacd715883b542124f20ea5c79bfb1ecbb77
+generated: "2025-01-21T15:58:17.646444-05:00"

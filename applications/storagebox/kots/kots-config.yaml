@@ -17,21 +17,21 @@ spec:
       description: The username to use for the Cassandra user
     - name: cassandra_password
       title: Cassandra Password
-      type: text
+      type: password
       default: cassandra
       required: true
       description: The password to use for the Cassandra user
       secret: true
     - name: cassandra_truststore_password
       title: Cassandra Truststore Password
-      type: text
+      type: password
       default: cassandra
       required: true
       description: The password to use for the Cassandra truststore
       secret: true
     - name: cassandra_keystore_password
       title: Cassandra Keystore Password
-      type: text
+      type: password
       default: cassandra
       required: true
       description: The password to use for the Cassandra keystore
@@ -88,7 +88,7 @@ spec:
       description: The username for the Postgres user
     - name: postgres_password
       title: Postgres Password
-      type: text
+      type: password
       default: postgres
       required: true
       description: Postgres user password
