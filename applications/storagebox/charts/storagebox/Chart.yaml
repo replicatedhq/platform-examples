@@ -1,9 +1,9 @@
 apiVersion: v2
-name: cassandra
-description: A Helm chart for apache cassandra
+name: storagebox
+description: A Helm chart for different storage options
 type: application
 version: 0.13.0
-appVersion: 4.1.6
+appVersion: 1.0.0
 dependencies:
 - name: replicated
   version: "~1.0.0"
