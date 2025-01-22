@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.13.0
+    chartVersion: 0.14.0
   values:
     replicated:
       enabled: true
@@ -48,6 +48,56 @@ spec:
           owner: repl{{ ConfigOption "postgres_db_owner" }}
         service:
           type: NodePort
+    minio:
+      enabled: true
+      name: repl{{ ConfigOption "minio_tenant_name" }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}/minio/minio
+        tag: RELEASE.2024-08-17T01-24-54Z
+        pullPolicy: IfNotPresent
+      imagePullSecret: { }
+      scheduler: { }
+      # configuration:
+      #   name: repl{{ ConfigOption "minio_tenant_configuration_name" }}
+      certificate:
+        requestAutoCert: true
+      configSecret:
+        name: repl{{ ConfigOption "minio_tenant_configuration_name" }}
+        accessKey: repl{{ ConfigOption "minio_tenant_configuration_access_key" }}
+        secretKey: repl{{ ConfigOption "minio_tenant_configuration_secret_key" }}
+      pools:
+        - name: repl{{ ConfigOption "minio_tenant_pool_name" }}
+          servers: repl{{ ConfigOption "minio_tenant_pool_servers" }}
+          volumesPerServer: repl{{ ConfigOption "minio_tenant_pool_volumes_per_server" }}
+          size: repl{{ ConfigOption "minio_tenant_pool_size" }}
+          storageClassName: repl{{ ConfigOption "minio_tenant_pool_storage_class_name" }}
+      metrics:
+        enabled: repl{{ ConfigOptionEquals "minio_tenant_metrics_enabled" "1" }}
+        port: repl{{ ConfigOption "minio_tenant_metrics_port" }}
+        protocol: repl{{ ConfigOption "minio_tenant_metrics_protocol" }}
+      ###
+      # Array of objects describing one or more buckets to create during tenant provisioning.
+      # Example:
+      #
+      # .. code-block:: yaml
+      #
+      #    - name: my-minio-bucket
+      #         objectLock: false        # optional
+      #         region: us-east-1        # optional
+      buckets:
+        - name: repl{{ ConfigOption "minio_tenant_bucket_name" }}
+          objectLock: repl{{ ConfigOptionEquals "minio_tenant_bucket_object_lock" "1" }}
+          region: repl{{ ConfigOption "minio_tenant_bucket_region" }}
+      # Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
+      #
+      # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
+      # users:
+      #   - '{{repl ConfigOption "minio_tenant_user_name"}}'
+      # secrets:
+      #   name: repl{{ ConfigOption "minio_tenant_user_name" }}
+      #   accessKey: repl{{ ConfigOption "minio_tenant_user_access_key" }}
+      #   secretKey: repl{{ ConfigOption "minio_tenant_user_secret_key" }}
+
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_no_ssl" }}'
       recursiveMerge: true

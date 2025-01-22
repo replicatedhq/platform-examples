@@ -1,8 +1,8 @@
 apiVersion: app.k8s.io/v1beta1
 kind: Application
 metadata:
-  name: "cassandra"
+  name: "storagebox"
 spec:
   descriptor:
-    version: "0.1.0"
-    description: "cassandra and postgres infrastructure"
+    version: "1.0.0"
+    description: "a bunch of storage options"
