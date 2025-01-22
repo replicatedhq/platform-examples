@@ -1162,7 +1162,7 @@ postgres:
     database: pdns
 
 # Root key for MinIO Tenant Chart
-minio-tenant:
+minio:
   enabled: true
   ###
   # The Tenant name
@@ -1209,8 +1209,8 @@ minio-tenant:
   ###
   # The Kubernetes secret name that contains MinIO environment variable configurations.
   # The secret is expected to have a key named config.env containing environment variables exports.
-  configuration:
-    name: minio-env-configuration
+  # configuration:
+  #   name: minio-env-configuration
   ###
   # Root key for dynamically creating a secret for use with configuring root MinIO User
   # Specify the ``name`` and then a list of environment variables.
