@@ -77,6 +77,7 @@ spec:
       description: The root CA to use for the Cassandra client encryption
       required: true
       when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+  # Postgres settings
   - name: postgres_settings
     title: Postgres database settings
     items:
@@ -105,18 +106,131 @@ spec:
       default: postgres
       required: true
       description: The name of the Postgres database owner
+  # NFS Server settings
   - name: nfs_settings
     title: NFS Server settings
     items:
-      - name: nfs_share
-        title: NFS Share
-        type: text
-        default: /shared
-        required: true
-        description: The NFS share to mount
-      - name: nfs_share_options
-        title: NFS Share Options
-        type: text
-        default: '*(rw,insecure,no_subtree_check,all_squash)'
-        required: true
-        description: The NFS share options
+    - name: nfs_share
+      title: NFS Share
+      type: text
+      default: /shared
+      required: true
+      description: The NFS share to mount
+    - name: nfs_share_options
+      title: NFS Share Options
+      type: text
+      default: '*(rw,insecure,no_subtree_check,all_squash)'
+      required: true
+      description: The NFS share options
+  # MinIO Tenant settings
+  - name: minio_settings
+    title: MinIO Tenant settings
+    items:
+    - name: minio_tenant_name
+      title: MinIO Tenant Name
+      type: text
+      default: minio
+      required: true
+      description: The name of the MinIO Tenant
+    # - name: minio_tenant_configuration_name
+    #   title: MinIO Tenant Configuration Name
+    #   type: text
+    #   default: minio-env-configuration
+    #   required: true
+    #   description: The name of the MinIO Tenant Configuration
+    - name: minio_tenant_configuration_access_key
+      title: MinIO Tenant Configuration Access Key
+      type: password
+      default: minio
+      required: true
+      description: The access key for the MinIO Tenant Configuration
+    - name: minio_tenant_configuration_secret_key
+      title: MinIO Tenant Configuration Secret Key
+      type: password
+      default: minio123
+      required: true
+      description: The secret key for the MinIO Tenant Configuration
+      secret: true
+    - name: minio_tenant_pool_name
+      title: MinIO Tenant Pool Name
+      type: text
+      default: pool-0
+      required: true
+      description: The name of the MinIO Tenant Pool
+    - name: minio_tenant_pool_servers
+      title: MinIO Tenant Pool Servers
+      type: text
+      default: '1'
+      required: true
+      description: The number of MinIO Tenant Pool Servers
+    - name: minio_tenant_pool_volumes_per_server
+      title: MinIO Tenant Pool Volumes Per Server
+      type: text
+      default: '1'
+      required: true
+      description: The number of MinIO Tenant Pool Volumes Per Server
+    - name: minio_tenant_pool_size
+      title: MinIO Tenant Pool Size
+      type: text
+      default: 10Gi
+      required: true
+      description: The size of the MinIO Tenant Pool
+    - name: minio_tenant_pool_storage_class_name
+      title: MinIO Tenant Pool Storage Class Name
+      type: text
+      default: ''
+      description: The storage class name for the MinIO Tenant Pool
+    - name: minio_tenant_metrics_enabled
+      title: MinIO Tenant Metrics Enabled
+      type: bool
+      default: true
+      description: Enable MinIO Tenant Metrics
+      required: true
+    - name: minio_tenant_metrics_port
+      title: MinIO Tenant Metrics Port
+      type: text
+      default: '9000'
+      description: The port for MinIO Tenant Metrics
+      required: true
+    - name: minio_tenant_metrics_protocol
+      title: MinIO Tenant Metrics Protocol
+      type: text
+      default: http
+      description: The protocol for MinIO Tenant Metrics
+      required: true
+    - name: minio_tenant_bucket_name
+      title: MinIO Tenant Bucket Name
+      type: text
+      default: minio
+      required: true
+      description: The name of the MinIO Tenant Bucket
+    - name: minio_tenant_bucket_object_lock
+      title: MinIO Tenant Bucket Object Lock
+      type: bool
+      default: false
+      description: Enable MinIO Tenant Bucket Object Lock
+    - name: minio_tenant_bucket_region
+      title: MinIO Tenant Bucket Region
+      type: text
+      default: us-east-1
+      description: The region for the MinIO Tenant Bucket
+      required: true
+    # - name: minio_tenant_user_name
+    #   title: MinIO Tenant User Name
+    #   type: text
+    #   default: minio
+    #   required: true
+    #   description: The name of the MinIO Tenant User
+    # - name: minio_tenant_user_access_key
+    #   title: MinIO Tenant User Access Key
+    #   type: password
+    #   default: minio
+    #   required: true
+    #   description: The access key for the MinIO Tenant User
+    # - name: minio_tenant_user_secret_key
+    #   title: MinIO Tenant User Secret Key
+    #   type: password
+    #   default: minio123
+    #   required: true
+    #   description: The secret key for the MinIO Tenant User
+    #   secret: true

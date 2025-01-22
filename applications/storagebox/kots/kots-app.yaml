@@ -1,10 +1,11 @@
 apiVersion: kots.io/v1beta1
 kind: Application
 metadata:
-  name: cassandra
+  name: storagebox
 spec:
-  title: cassandra
+  title: StorageBox
   allowRollback: false
   statusInformers:
-    - deployment/cassandra
-    - services/cassandra
+    - deployment/kotsadm
+    - statefulset/kotsadm-rqlite
+    - statefulset/storagebox-cassandra
