@@ -1,11 +1,11 @@
+{{- if .Values.database.embedded }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mariadb
-  labels:
-    {{- include "wordpress-microservice.labels" . | nindent 4 }}
+  name: {{ .Release.Name }}-mariadb
+  namespace: {{ .Release.Namespace }}
 spec:
-  replicas: {{ .Values.mariadb.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
       app: mariadb
@@ -16,26 +16,29 @@ spec:
     spec:
       containers:
         - name: mariadb
-          image: "{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}"
-          imagePullPolicy: {{ .Values.mariadb.image.pullPolicy }}
+          image: mariadb:10.5
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-secret
+                  key: database
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-secret
+                  key: username
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-secret
+                  key: password
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-secret
+                  key: root-password
           ports:
             - containerPort: 3306
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: "{{ .Values.mariadb.env.MYSQL_ROOT_PASSWORD }}"
-            - name: MYSQL_DATABASE
-              value: "{{ .Values.mariadb.env.MYSQL_DATABASE }}"
-            - name: MYSQL_USER
-              value: "{{ .Values.mariadb.env.MYSQL_USER }}"
-            - name: MYSQL_PASSWORD
-              value: "{{ .Values.mariadb.env.MYSQL_PASSWORD }}"
-
-#Use the MySQL Exporter to collect metrics from MariaDB
-#        - name: mysql-exporter
-#          image: prom/mysqld-exporter:latest
-#          env:
-#            - name: DATA_SOURCE_NAME
-#              value: "{{ .Values.mariadb.env.MYSQL_USER }}:{{ .Values.mariadb.env.MYSQL_PASSWORD }}@(127.0.0.1:3306)/{{ .Values.mariadb.env.MYSQL_DATABASE }}"
-#          ports:
-#            - containerPort: 9104
-#              name: metrics
+              name: mysql
+{{- end }}
