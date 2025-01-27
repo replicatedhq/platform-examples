@@ -1,0 +1,19 @@
+Thank you for installing {{ .Chart.Name }}.
+
+1. The Slackbot application is now being deployed. Check its status with:
+   kubectl get pods -n {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "slackbot.name" . }}"
+
+2. PostgreSQL database is available at:
+   {{ .Release.Name }}-postgresql.{{ .Release.Namespace }}.svc.cluster.local
+
+3. To verify the Slackbot is running correctly:
+   kubectl logs -f deployment/{{ include "slackbot.fullname" . }} -n {{ .Release.Namespace }}
+
+4. Configuration details:
+   - Slackbot application URL: http://{{ include "slackbot.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+   - PostgreSQL host: {{ .Release.Name }}-postgresql
+   - Database name: {{ .Values.postgresql.auth.database }}
+
+For more information or troubleshooting, please refer to:
+- Application logs: kubectl logs deployment/{{ include "slackbot.fullname" . }} -n {{ .Release.Namespace }}
+- Database logs: kubectl logs deployment/{{ .Release.Name }}-postgresql -n {{ .Release.Namespace }}

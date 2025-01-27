@@ -1,0 +1,9 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.12.10
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.0.0-beta.32
+digest: sha256:b46bc16976f5a898612a7cc160e27becf1c3e6b8793b228383a64b7fdb5e5993
+generated: "2025-01-27T11:36:44.049895-08:00"
