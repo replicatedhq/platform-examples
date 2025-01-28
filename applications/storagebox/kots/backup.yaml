@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: backup
+spec:
+  includedNamespaces:
+  - kotsadm
+  orLabelSelectors:
+  - matchExpressions:
+    # Exclude Replicated resources
+    - { key: kots.io/kotsadm, operator: NotIn, values:  ["true"] }
