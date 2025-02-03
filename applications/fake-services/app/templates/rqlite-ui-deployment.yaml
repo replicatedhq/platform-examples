@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rqliteui 
+  labels:
+    {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "fake-service.rqliteui.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "fake-service.rqliteui.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "helpers.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: rqliteui 
+          image: {{ .Values.rqliteui.image.registry }}/{{ .Values.rqliteui.image.repository }}:{{ .Values.rqliteui.image.tag }}
+          env:
+            - name: RQLITE_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: kotsadm-rqlite
+            - name: RQLITE_USERNAME 
+              value: kotsadm
+            - name: RQLITE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: kotsadm-rqlite
+          ports:
+            - name: rqliteui
+              containerPort: 3000

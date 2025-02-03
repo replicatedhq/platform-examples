@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-ui-setup
+  labels:
+    {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "fake-service.minioui.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+      {{- include "fake-service.minioui.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: setup-minio-ui
+          image: minio/minio
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kotsadm-minio
+                  key: accesskey
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kotsadm-minio
+                  key: secretkey
+          command:
+            - /bin/sh
+            - -c
+            - |
+              mc alias set myminio http://kotsadm-minio:9000 $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+              echo "Creating Minio Console Admin User..."
+              mc admin user add myminio admin $MINIO_SECRET_KEY 
+              echo "Attaching IAM policy..."
+              mc admin policy attach myminio consoleAdmin --user admin
+      containers:
+        - name: minio-ui
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Check WebUI port in kotsadm-minio pod logs and port forward to it to browse the Minio UI"
+              echo "e.g. kubectl port-forward svc/kotsadm-minio 33655:33655"
+              echo "username: admin, password: set to secretkey in kotsadm-minio secret"
+              sleep infinity
+      restartPolicy: Always

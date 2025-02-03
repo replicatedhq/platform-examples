@@ -43,3 +43,11 @@ ingress-nginx:
         http: 30080
   ingressClassResource:
     default: true
+
+rqliteui:
+  image:
+    registry: docker.io
+    repository: gerardnguyen/rqman
+    tag: 0.0.3
+    pullPolicy: IfNotPresent
+    imagePullSecrets: []
