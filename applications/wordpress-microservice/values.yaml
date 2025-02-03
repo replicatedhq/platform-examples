@@ -11,23 +11,26 @@ wordpress:
 
 mariadb:
   image:
+    registry: docker.io
     repository: mariadb
     tag: "latest"
+  #image:
+  #  repository: mariadb
+  #  tag: "latest"
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
     port: 3306
   replicaCount: 1
-#  env:
-#    MYSQL_ROOT_PASSWORD: root_password
-#    MYSQL_DATABASE: wordpress_db
-#    MYSQL_USER: wordpress_user
-#    MYSQL_PASSWORD: wordpress_password
 
 cronjob:
   name: custom-data-reporter
   schedule: "*/5 * * * *"
-  image: curlimages/curl:latest
+  #image: curlimages/curl:latest
+  image:
+    registry: docker.io
+    repository: curlimages/curl
+    tag: latest  
   metricsEndpoint: "http://replicated:3000/api/v1/app/custom-metrics"
   maxTotalPosts: 500               # Maximum value for totalPosts
   maxActiveUsers: 100            # Maximum value for activeUsers

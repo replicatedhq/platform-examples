@@ -10,4 +10,4 @@ spec:
     - port: {{ .Values.mariadb.service.port }}
       targetPort: 3306
   selector:
-    app: mariadb
+    app: wordpress

@@ -11,7 +11,8 @@ spec:
         spec:
           containers:
             - name: metrics-reporter
-              image: "{{ .Values.cronjob.image }}"
+              image: "{{ .Values.cronjob.image.registry }}/{{ .Values.cronjob.image.repository }}:{{ .Values.cronjob.image.tag }}"
+              #image: "{{ .Values.cronjob.image }}"
               command: ["sh", "-c"]
               args:
                 - |
