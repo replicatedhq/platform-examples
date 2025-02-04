@@ -1102,6 +1102,7 @@ postgres:
     # -- Postgres GID
     postgresGID: 26
     service:
+      enabled: true
       type: ClusterIP
     # -- Postgres storage configuration
     storage:
@@ -1161,9 +1162,10 @@ postgres:
     # -- External Postgres database
     database: pdns
 
-minio:
+
+# Root key for MinIO Tenant Chart
+tenant:
   enabled: true
-  # Root key for MinIO Tenant Chart
   tenant:
     ###
     # The Tenant name
@@ -1531,3 +1533,7 @@ minio:
         host: minio-console.local
         path: /
         pathType: Prefix
+
+certmanager:
+  selfSignedClusterIssuer:
+    enabled: true

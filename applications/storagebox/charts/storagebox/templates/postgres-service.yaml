@@ -1,4 +1,4 @@
-{{- if (and .Values.postgres.embedded.enabled  (eq .Values.postgres.embedded.service.type "NodePort")) -}}
+{{- if .Values.postgres.embedded.service.enabled -}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -10,12 +10,14 @@ metadata:
     cnpg.io/cluster: postgres
     cnpg.io/instanceRole: primary
 spec:
-  type: NodePort
+  type: {{ .Values.postgres.embedded.service.type | default "ClusterIP" }}
   ports:
     - name: postgres
-      port: 5432
-      targetPort: 5432
-      nodePort: 5432
+      port: {{ .Values.postgres.embedded.service.port | default 5432 }}
+      targetPort: {{ .Values.postgres.embedded.service.targetPort | default 5432 }}
+      {{- if eq .Values.postgres.embedded.service.type "NodePort" }}
+      nodePort: {{ .Values.postgres.embedded.service.nodePort | default 5432 }}
+      {{- end }}
   selector:
     cnpg.io/cluster: postgres
     cnpg.io/instanceRole: primary
