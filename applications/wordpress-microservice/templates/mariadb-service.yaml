@@ -10,4 +10,5 @@ spec:
     - port: {{ .Values.mariadb.service.port }}
       targetPort: 3306
   selector:
-    app: wordpress
+    {{- include "wordpress-microservice.selectorLabels" . | nindent 4 }}
+    #app: mariadb

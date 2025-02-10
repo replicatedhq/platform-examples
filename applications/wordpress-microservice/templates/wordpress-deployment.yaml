@@ -13,11 +13,37 @@ spec:
     metadata:
       labels:
         app: wordpress
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}  
     spec:
+      {{- if .Values.wordpress.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.wordpress.securityContext.runAsUser }}
+        fsGroup: {{ .Values.wordpress.securityContext.fsGroup }}
+      {{- end }}
+      {{- if .Values.wordpress.affinity }}
+      affinity: {{ toYaml .Values.wordpress.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.wordpress.tolerations }}
+      tolerations: {{ toYaml .Values.wordpress.tolerations | nindent 8 }}
+      {{- end }}
       containers:
         - name: wordpress
           image: "{{ .Values.wordpress.image.repository }}:{{ .Values.wordpress.image.tag }}"
           imagePullPolicy: {{ .Values.wordpress.image.pullPolicy }}
+          {{- if .Values.wordpress.securityContext.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.wordpress.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.wordpress.securityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.wordpress.securityContext.runAsNonRoot }}
+          {{- end }}        
+          resources:
+            requests:
+              memory: "{{ .Values.wordpress.resources.requests.memory }}"
+              cpu: "{{ .Values.wordpress.resources.requests.cpu }}"
+            limits:
+              memory: "{{ .Values.wordpress.resources.limits.memory }}"
+              cpu: "{{ .Values.wordpress.resources.limits.cpu }}"
           ports:
             - containerPort: 80
           env:
@@ -35,3 +61,8 @@ spec:
                   key: password
             - name: WORDPRESS_DB_NAME
               value: "{{ .Values.database.name }}"
+         # for external db
+            {{- if not .Values.database.embedded }}
+            - name: WORDPRESS_DB_URI
+              value: "{{ .Values.database.external.uri }}"
+            {{- end }}

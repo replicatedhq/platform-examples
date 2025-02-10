@@ -7,6 +7,11 @@ spec:
   chart:
     name: wordpress-microservice
     chartVersion: 0.1.0
+  # Add helmUpgradeFlags to specify timeout and --wait flag
+  helmUpgradeFlags:
+    - "--wait"  # Wait for the deployment to complete before marking the upgrade as successful
+    - "--timeout"  # Specify the timeout for the upgrade
+    - "300s"  # Set the timeout to 300 seconds (5 minutes)
   optionalValues:
   - when: 'repl{{ eq Distribution "embedded-cluster" }}'
     recursiveMerge: false

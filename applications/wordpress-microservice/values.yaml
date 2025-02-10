@@ -3,6 +3,22 @@ wordpress:
     repository: wordpress
     tag: "latest"
     pullPolicy: IfNotPresent
+  securityContext:
+    enabled: true
+    runAsUser: 33
+    fsGroup: 33
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  affinity: {}  # Users can override this if needed
+  tolerations: []  # Empty array means no tolerations
   service:
     type: NodePort
     port: 80
@@ -13,11 +29,25 @@ mariadb:
   image:
     registry: docker.io
     repository: mariadb
-    tag: "latest"
-  #image:
-  #  repository: mariadb
-  #  tag: "latest"
+    tag: "10.5"
+  # tag: "latest"
     pullPolicy: IfNotPresent
+  securityContext:
+    enabled: true
+    runAsUser: 999
+    fsGroup: 999
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    runAsNonRoot: true
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "750m"
+  affinity: {}  # Users can override this if needed
+  tolerations: []  # Empty array means no tolerations
   service:
     type: ClusterIP
     port: 3306
@@ -35,17 +65,20 @@ cronjob:
   maxTotalPosts: 500               # Maximum value for totalPosts
   maxActiveUsers: 100            # Maximum value for activeUsers
 
+
 database:
   embedded: true  # Set to false to use an external database
   name: wordpress_db
   user: wordpress_user
   password: ""  # Auto-generated if left empty for embedded DB
   rootPassword: ""  # Auto-generated if left empty
-  host: ""  # Empty for embedded DB; required for external DB
   port: 3306  # Default MySQL/MariaDB port
-
+         
   external:  # External DB details (only used if embedded: false)
+    port: 3306
     host: ""
     user: ""
     password: ""
     name: ""
+    secretName: ""  # Name of the secret containing external DB credentials (Optional: Custom secret-name)
+    uri: ""  # Optional: Full connection URI for external DB (e.g., "mysql://user:password@host:port/dbname")

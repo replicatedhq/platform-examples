@@ -11,4 +11,5 @@ spec:
       targetPort: 80
       nodePort: {{ .Values.wordpress.service.nodePort }}
   selector:
-    app: wordpress
+    {{- include "wordpress-microservice.selectorLabels" . | nindent 4 }}
+    #app: wordpress

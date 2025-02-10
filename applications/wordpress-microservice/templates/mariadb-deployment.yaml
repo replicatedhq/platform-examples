@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-mariadb
-  namespace: {{ .Release.Namespace }}
+ #namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -12,11 +12,39 @@ spec:
   template:
     metadata:
       labels:
+       #{{- include "wordpress-microservice.selectorLabels" . | nindent 8 }}
         app: mariadb
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      {{- if .Values.mariadb.securityContext.enabled }}
+      securityContext:
+        runAsUser: {{ .Values.mariadb.securityContext.runAsUser }}
+        fsGroup: {{ .Values.mariadb.securityContext.fsGroup }}
+      {{- end }}
+      {{- if .Values.mariadb.affinity }}
+      affinity: {{ toYaml .Values.mariadb.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.mariadb.tolerations }}
+      tolerations: {{ toYaml .Values.mariadb.tolerations | nindent 8 }}
+      {{- end }}
       containers:
         - name: mariadb
-          image: mariadb:10.5
+          image: "{{ .Values.mariadb.image.registry }}/{{ .Values.mariadb.image.repository }}:{{ .Values.mariadb.image.tag }}"
+          #image: mariadb:10.5
+          {{- if .Values.mariadb.securityContext.enabled }}
+          securityContext:
+            allowPrivilegeEscalation: {{ .Values.mariadb.securityContext.allowPrivilegeEscalation }}
+            readOnlyRootFilesystem: {{ .Values.mariadb.securityContext.readOnlyRootFilesystem }}
+            runAsNonRoot: {{ .Values.mariadb.securityContext.runAsNonRoot }}
+          {{- end }}
+          resources:
+            requests:
+              memory: "{{ .Values.mariadb.resources.requests.memory }}"
+              cpu: "{{ .Values.mariadb.resources.requests.cpu }}"
+            limits:
+              memory: "{{ .Values.mariadb.resources.limits.memory }}"
+              cpu: "{{ .Values.mariadb.resources.limits.cpu }}"
           env:
             - name: MYSQL_DATABASE
               valueFrom:
