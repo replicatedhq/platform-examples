@@ -84,3 +84,29 @@ spec:
           title: Allowed origins
           type: text
           default: "\\*"
+    # For Testing #
+    - name: storage_settings
+      title: Storage Settings
+      items:
+        - name: show_storage
+          title: Show Storage Configuration
+          type: bool
+          default: "0"
+          help_text: "Check to enable storage configuration options."
+        - name: storage_settings_timescale_retention_spacer
+          when: repl{{ ConfigOptionEquals "show_storage" "1" }}
+          type: label
+          title: " "
+        - name: storage_settings_timescale_retention_description
+          when: repl{{ ConfigOptionEquals "show_storage" "1" }}
+          type: heading
+          title: Timescale Retention Periods
+        - name: storage_settings_timescale_retention_raw
+          when: repl{{ ConfigOptionEquals "show_storage" "1" }}
+          title: Raw Metrics
+          type: text
+          value: "7d"
+          validation:
+            regex:
+              pattern: "^((([8-9]|[1-9][0-9]+)h)|([1-9][0-9]*d)|([1-9][0-9]*y))$"
+              message: "Please enter a valid retention period. The minimum is 8 hours (e.g., 8h). Example formats: 8h, 45d, 1y."
