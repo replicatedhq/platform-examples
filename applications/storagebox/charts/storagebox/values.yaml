@@ -1094,7 +1094,7 @@ postgres:
       owner: postgres
       # -- Postgres secret name
       secret:
-        name: ''
+        name: 'postgres-initdb-secret'
       # -- Postgres init application SQL
       postInitApplicationSQL: []
     # -- Postgres UID
