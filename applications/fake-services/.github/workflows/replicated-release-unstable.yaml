@@ -2,6 +2,10 @@ name: replicated-release-unstable
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. v1.0.0)"
+        required: false
   push:
     branches:
       - main
@@ -17,7 +21,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+
       - name: Get latest tag
         id: get-latest-tag
         run: |
@@ -28,8 +32,14 @@ jobs:
       - name: Set release version
         id: set-release-version
         run: |
-          VERSION=${{ env.LATEST_TAG }}-$(git rev-parse --short HEAD)
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          if [ -z "${{ github.event.inputs.version }}" ]; then
+            git_hash=$(git rev-parse --short HEAD)
+            date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+            version="${date_version}-Unstable-${git_hash}"
+          else
+            version="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=${version}" >> $GITHUB_ENV
 
       - name: Package Helm chart
         id: package-helm-chart
@@ -37,7 +47,7 @@ jobs:
           helm package ./app --debug -u -d ./replicated \
             --version ${{ env.VERSION }} \
             --app-version ${{ env.VERSION }}
-      
+
       - name: Install yq
         run: |
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq &&\
@@ -46,7 +56,7 @@ jobs:
       - name: Update HelmChart kind
         run: |
           yq -i '.spec.chart.chartVersion = "${{ env.VERSION }}"' replicated/kots-chart.yaml
-      
+
       - name: Create Replicated release
         id: create-release
         uses: replicatedhq/compatibility-actions/create-release@v1
@@ -54,5 +64,5 @@ jobs:
           app-slug: ${{ secrets.REPLICATED_APP }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           yaml-dir: ./replicated
-          promote-channel: unstable
+          promote-channel: Unstable
           version: ${{ env.VERSION }}

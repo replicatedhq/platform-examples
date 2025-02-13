@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "fake-service.rqliteui.name" . }}
+  labels: {{- include "fake-service.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: rqliteui
+      protocol: TCP
+      name: rqliteui
+  selector:
+    {{- include "fake-service.rqliteui.selectorLabels" . | nindent 4 }}
+

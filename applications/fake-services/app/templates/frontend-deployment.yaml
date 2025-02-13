@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: {{ quote (printf "%s-frontend" (include "fake-service.fullname" .)) }}
   labels:
     {{- include "fake-service.labels" . | nindent 4 }}
 spec:
