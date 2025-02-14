@@ -5,16 +5,26 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.16.0
+    chartVersion: 0.17.0
   values:
     replicated:
       enabled: true
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
+      global:
+        fullnameOverride: nfs-server
+      controller:
+        annotations:
+          backup.velero.io/backup-volumes: storagebox-nfs-server-shared
       persistence:
         shared:
           enabled: true
-          type: emptyDir
+          type: pvc
+          readOnly: false
+          accessMode: ReadWriteOnce
+          storageClass: ""
+          size: 10Gi
+          retain: true
           mountPath: repl{{ ConfigOption "nfs_share" }}
       env:
         NFS_EXPORT_0: repl{{ ConfigOption "nfs_share" }} repl{{ ConfigOption "nfs_share_options" }}
