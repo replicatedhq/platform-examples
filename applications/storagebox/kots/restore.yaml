@@ -1,0 +1,72 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: storagebox-restore
+  namespace: velero
+spec:
+  backupName: storagebox-backup
+  includedNamespaces:
+    - '*'  # Include all namespaces to restore the complete application
+
+  # Restore all resources except storage classes which may already exist
+  includedResources:
+    - '*'
+  orLabelSelectors:
+  - matchExpressions:
+    # Exclude Replicated resources
+    - { key: kots.io/kotsadm, operator: NotIn, values:  ["true"] }
+  # Restore PVs from snapshots
+  restorePVs: true
+
+  # Preserve the original node ports for services
+  preserveNodePorts: true
+
+  # Handle existing resources
+  existingResourcePolicy: none
+
+  # Include cluster-scoped resources
+  includeClusterResources: true
+
+  # # Configure restore hooks for stateful components
+  # hooks:
+  #   resources:
+  #   # Cassandra restore hook
+  #   - name: cassandra-restore-hook
+  #     includedResources:
+  #       - pods
+  #     labelSelector:
+  #       matchLabels:
+  #         app.kubernetes.io/name: cassandra
+  #     postHooks:
+  #       - exec:
+  #           container: cassandra
+  #           command:
+  #             - /bin/sh
+  #             - -c
+  #             - "nodetool refresh"
+  #           waitTimeout: 5m
+  #           execTimeout: 2m
+  #           onError: Continue
+
+  #   # PostgreSQL restore hook
+  #   - name: postgres-restore-hook
+  #     includedResources:
+  #       - pods
+  #     labelSelector:
+  #       matchLabels:
+  #         app.kubernetes.io/name: postgres
+  #     postHooks:
+  #       - exec:
+  #           container: postgres
+  #           command:
+  #             - /bin/sh
+  #             - -c
+  #             - "pg_isready"
+  #           waitTimeout: 5m
+  #           execTimeout: 1m
+  #           onError: Continue
+
+  # Configure parallel file downloads for faster restore
+  uploaderConfig:
+    parallelFilesDownload: 10
+    writeSparseFiles: true
