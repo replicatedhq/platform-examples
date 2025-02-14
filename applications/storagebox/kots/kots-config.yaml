@@ -9,6 +9,12 @@ spec:
   - name: cassandra_settings
     title: Cassandra Settings
     items:
+    - name: cassandra_enabled
+      title: Enable Cassandra
+      type: bool
+      default: false
+      required: true
+      description: Enable Cassandra
     - name: cassandra_user
       title: Cassandra User
       type: text
@@ -81,6 +87,12 @@ spec:
   - name: postgres_settings
     title: Postgres database settings
     items:
+    - name: postgres_enabled
+      title: Enable Postgres
+      type: bool
+      default: false
+      required: true
+      description: Enable Postgres
     - name: postgres_user
       title: Postgres User
       type: text
@@ -110,6 +122,12 @@ spec:
   - name: nfs_settings
     title: NFS Server settings
     items:
+    - name: nfs_enabled
+      title: Enable NFS Server
+      type: bool
+      default: false
+      required: true
+      description: Enable NFS Server
     - name: nfs_share
       title: NFS Share
       type: text
@@ -126,6 +144,12 @@ spec:
   - name: minio_settings
     title: MinIO Tenant settings
     items:
+    - name: minio_tenant_enabled
+      title: Enable MinIO Tenant
+      type: bool
+      default: false
+      required: true
+      description: Enable MinIO Tenant
     - name: minio_tenant_name
       title: MinIO Tenant Name
       type: text

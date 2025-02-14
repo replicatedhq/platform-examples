@@ -10,7 +10,7 @@ spec:
     replicated:
       enabled: true
     nfs-server:
-      enabled: true
+      enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
       persistence:
         shared:
           enabled: true
@@ -20,7 +20,7 @@ spec:
         NFS_EXPORT_0: repl{{ ConfigOption "nfs_share" }} repl{{ ConfigOption "nfs_share_options" }}
         NFS_LOG_LEVEL: debug
     cassandra:
-      enabled: true
+      enabled: repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}
       truststore_password : repl{{ ConfigOption "cassandra_truststore_password" }}
       keystore_password : repl{{ ConfigOption "cassandra_keystore_password" }}
       dbUser:
@@ -37,7 +37,7 @@ spec:
         key: repl{{ ConfigOption `cassandra_tls_key` }}
         ca: repl{{ ConfigOption `cassandra_tls_ca` }}
     postgres:
-      enabled: true
+      enabled: repl{{ ConfigOptionEquals "postgres_enabled" "1" }}
       auth:
         username: repl{{ ConfigOption "postgres_user" }}
         password: repl{{ ConfigOption "postgres_password" }}
@@ -49,7 +49,7 @@ spec:
         service:
           type: NodePort
     tenant:
-      enabled: true
+      enabled: repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}
       tenant:
         name: repl{{ ConfigOption "minio_tenant_name" }}
         image:
