@@ -1,0 +1,21 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: gitea
+spec:
+  chart:
+    name: gitea
+    chartVersion: 1.22.3
+  values:
+    global:
+      config:
+        database:
+          type: postgres
+          host: repl{{ ConfigOption "postgres_db_host" }}
+          name: repl{{ ConfigOption "postgres_db" }}
+          user: repl{{ ConfigOption "postgres_user" }}
+          password: repl{{ ConfigOption "postgres_password" }}
+    postgresql-ha:
+      enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
+    postgresql:
+      enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
