@@ -1,24 +1,39 @@
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: backup
+  name: storagebox-backup
 spec:
   includedNamespaces:
-  - kotsadm
+  - "*"
+  includedResources:
+  - "*"
+  ### snapshotVolumes might not be supported by EC - I think this requires CSI plugin
+  snapshotVolumes: false
+  ttl: 48h0m0s
   includeClusterResources: true
   orLabelSelectors:
   - matchExpressions:
     # Exclude Replicated resources
     - { key: kots.io/kotsadm, operator: NotIn, values:  ["true"] }
-
-
-#
-# apiVersion: velero.io/v1
-# kind: Backup
-# metadata:
-#   name: backup
-# spec:
-#   includedNamespaces:
-#   - chef-360
-#   includeClusterResources: true
-#
+  # hooks:
+  #     resources:
+  #       - name: postgres-backup
+  #         includedNamespaces:
+  #         - '*'
+  #         excludedNamespaces:
+  #         - some-namespace
+  #         includedResources:
+  #         - pods
+  #         excludedResources: []
+  #         labelSelector:
+  #           matchLabels:
+  #             app: velero
+  #             component: server
+  #         pre:
+  #           - exec:
+  #               container: my-container
+  #               command:
+  #                 - /bin/uname
+  #                 - -a
+  #               onError: Fail
+  #               timeout: 10s
