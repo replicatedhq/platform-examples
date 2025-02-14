@@ -48,6 +48,8 @@ spec:
     - name: cassandra_tls_type
       title: Cassandra TLS Type
       type: select_one
+      default: "cassandra_no_ssl"
+      required: true
       items:
       - name: cassandra_no_ssl
         title: TLS client encryption disabled
@@ -55,8 +57,6 @@ spec:
         title: Autogenerate self-signed CA and certificates
       - name: "cassandra_external_ca"
         title: Use external CA and certificates
-      default: "cassandra_no_ssl"
-      required: true
     - name: cassandra_ingress_host
       title: Cassandra TLS Hostname
       type: text
