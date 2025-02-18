@@ -34,7 +34,7 @@ spec:
       default: postgres
       required: true
       description: The name of the Postgres database
-    - name: postgres_db_host
+    - name: postgres_host
       title: Postgres Database Host
       type: text
       default: postgresql

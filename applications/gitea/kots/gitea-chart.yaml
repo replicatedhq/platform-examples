@@ -7,14 +7,14 @@ spec:
     name: gitea
     chartVersion: 10.6.0
   values:
-    global:
+    gitea:
       config:
         database:
-          type: postgres
-          host: repl{{ ConfigOption "postgres_db_host" }}
-          name: repl{{ ConfigOption "postgres_db" }}
-          user: repl{{ ConfigOption "postgres_user" }}
-          password: repl{{ ConfigOption "postgres_password" }}
+          DB_TYPE: postgres
+          HOST: repl{{ ConfigOption "postgres_host" }}
+          NAME: repl{{ ConfigOption "postgres_db" }}
+          USER: repl{{ ConfigOption "postgres_user" }}
+          PASSWD: repl{{ ConfigOption "postgres_password" }}
     postgresql-ha:
       enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
     postgresql:

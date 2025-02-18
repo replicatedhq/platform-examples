@@ -19,14 +19,6 @@ global:
   # - ip: 192.168.137.2
   #   hostnames:
   #   - example.com
-  config:
-    database:
-      DB_TYPE: postgres
-      HOST: <mysql HOST>
-      NAME: gitea
-      USER: gitea
-      PASSWD: gitea
-      SCHEMA: gitea
 
 
 ## @param namespace An explicit namespace to deploy gitea into. Defaults to the release namespace if not specified
