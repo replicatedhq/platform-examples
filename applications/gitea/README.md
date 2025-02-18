@@ -19,7 +19,7 @@ Both clusters are configured to use the same network, enabling secure inter-clus
 
 ## Steps
 ### Cluster Setup
-1. PostgresSQL Cluster
+#### 1. PostgresSQL Cluster
 Create a new cluster using Replicated Compatibility Matrix with PostgresSQL installed. A example helm chart will be [storagebox helm chart](/applications/storagebox/README.md) which is a intergrated database container with PostgresSQL.
 
 Under the `storagebox` directory, run the following command to create a new release:
@@ -55,7 +55,7 @@ kubectl port-forward svc/kotsadm 3000:3000 -n kotsadm
 
 Login to the kotsadm dashboard with default password `password` and configure the storagebox helm chart with PostgresSQL only enabled. After the helm chart is installed, the PostgresSQL database is ready to be used by Gitea.
 
-2. Gitea Cluster
+#### 2. Gitea Cluster
 Create a new cluster using Replicated Compatibility Matrix with no pre-installed Kubernetes. The cluster will be used to deploy Gitea Helm chart.
 
 ```bash
