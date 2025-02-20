@@ -15,6 +15,8 @@ Both clusters are configured to use the same network, enabling secure inter-clus
 4. [Replicated Compatibility Matrix](https://docs.replicated.com/vendor/testing-about)
 5. Valid license for Replicated Embedded Cluster
 6. CMX Credits
+7. Dedicated test channels named Storagebox and Gitea
+8. Dedicated test customers for Storagebox and Gitea
 
 
 ## Steps
@@ -25,10 +27,16 @@ Create a new cluster using Replicated Compatibility Matrix with PostgresSQL inst
 Under the `storagebox` directory, run the following command to create a new release:
 ```bash
 cd applications/storagebox
+
+## if you are missing some dependencies repos, run the following command
+make add-helm-repositories
+## else run the following command
+make update-dependencies
+make package-and-update
 make release
 
 ## those commands will package the storagebox helm chart and upload it to the replicated vendor portal with a new release
-## After the release is created, you need to promote the release to the desired channel
+## After the release is created, you need to promote the release to the Storagebox channel
 ## A dedicated test user should be created with embedded cluster access to test the release
 ```
 
@@ -111,10 +119,15 @@ After the network connection is verified, you can deploy Gitea Helm chart.
 Go to `applications/gitea` directory and run the following command to create a new release:
 ```bash
 cd applications/gitea
+## if you are missing some dependencies repos, run the following command
+make add-helm-repositories
+## else run the following command
+make update-dependencies
+make package-and-update
 make release
 ```
 
-Promote the release to the desired channel with a dedicated test user. The test user should have access to the Embedded Cluster.
+Promote the release to the Gitea channel with a dedicated test user which is created recently. The test user should have access to the Embedded Cluster.
 
 In the Replicated Vendor Portal, go to the [customer page](https://docs.replicated.com/vendor/embedded-using) where you enabled Embedded Cluster. At the top right, click Install instructions and choose Embedded Cluster. A dialog appears with instructions on how to download the Embedded Cluster installation assets and install your application.
 
