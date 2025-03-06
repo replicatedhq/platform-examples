@@ -1,0 +1,95 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+In this project, Helm charts will typically be found in a `/charts/$chart-name` subdirectory.
+
+# Helm Chart Best Practices
+
+This document contains best practices for creating Helm charts, based on the official Helm documentation at https://helm.sh/docs/chart_best_practices/.
+
+## General Conventions
+
+- Chart names should use lowercase letters, numbers, and dashes (no uppercase or underscores)
+- Chart names should be descriptive without being too long
+- Version numbers should follow SemVer 2 standard
+- Reuse official base images for your charts where possible
+- Document all chart dependencies
+- Keep chart simple and focused on one application per chart
+- Ensure your chart properly handles upgrades and rollbacks
+
+## Values
+
+- Use camelCase for key names in values.yaml
+- Document all values using comments in values.yaml
+- Define sensible defaults that work out-of-the-box
+- Use appropriate data types (string, int, boolean, etc.)
+- Structure values hierarchically when appropriate
+- Mark sensitive values with comments
+- Use a flat structure for values that represent environment variables
+
+## Templates
+
+- Clearly structure template files in the templates/ directory
+- Use the include function instead of template for reusable template blocks
+- Add helpful NOTES.txt for users after installation
+- Template functions should use lowercase (e.g., quote not Quote)
+- Whitespace formatting: use YAML's indent feature (|-) for readability
+- Use standard Kubernetes naming conventions in templates
+- Templates should emit valid YAML
+- Validate templates with `helm lint` and `helm template`
+
+## Dependencies
+
+- Use the requirements.yaml file to manage dependencies
+- Pin versions of dependencies to specific ranges
+- Document what your dependencies provide and how they're used
+- Set appropriate global values that dependencies can access
+- Minimize external dependencies when possible
+- Use conditions to enable/disable dependencies where appropriate
+
+## Labels and Annotations
+
+- Include Helm-recommended labels:
+  - app.kubernetes.io/name
+  - app.kubernetes.io/instance
+  - app.kubernetes.io/version
+  - app.kubernetes.io/managed-by
+  - helm.sh/chart
+- Use namespaces with your custom labels to avoid collisions
+- Keep annotations focused on tools that will use them
+- Don't use annotations when labels are more appropriate
+- Follow Kubernetes label syntax constraints
+
+## Pods and PodTemplates
+
+- Set appropriate container resources (requests and limits)
+- Create useful liveness and readiness probes
+- Set security context settings appropriately
+- Use init containers correctly if needed
+- Define suitable update strategies
+- Set appropriate termination periods
+- Handle persistent volumes properly
+
+## Custom Resource Definitions (CRDs)
+
+- Place CRDs in the crds/ directory (not templates/)
+- Document clearly which CRDs your chart requires
+- Label your CRDs appropriately
+- Consider separation of CRD installation and application installation
+- Handle CRD updates carefully (they aren't automatically updated)
+
+## Role-Based Access Control (RBAC)
+
+- Follow principle of least privilege
+- Create dedicated ServiceAccounts for your applications
+- Create specific Roles rather than using ClusterRoles when possible
+- Document all permissions required
+- Use templating to allow users to add custom rules
+- Set clear namespace restrictions where possible
+
+## References
+
+- [Helm Chart Best Practices](mdc:https:/helm.sh/docs/chart_best_practices)
+- [Helm Documentation](mdc:https:/helm.sh/docs)
