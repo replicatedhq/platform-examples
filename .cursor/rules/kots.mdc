@@ -1,0 +1,568 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# KOTS Development Guide
+
+This document contains information about KOTS template functions and custom resources for developing applications that integrate with the Replicated Platform.
+
+## KOTS Custom Resources
+
+KOTS uses custom resources to extend the Kubernetes API and provide additional functionality specific to application deployment, configuration, and lifecycle management within the Replicated Platform.
+
+### Application Custom Resource
+
+The Application custom resource (`application.yaml`) provides metadata about the application and is used to inform the Admin Console about your application and the relationship between your application and Admin Console.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: my-application
+spec:
+  title: My Application
+  icon: https://my-application.com/icon.png
+  releaseNotes: |
+    New features in this release
+  targetKotsVersion: "1.60.0"
+  minKotsVersion: "1.40.0"
+  requireMinimalRBACPrivileges: true
+  ports:
+    - serviceName: web
+      servicePort: 8000
+      localPort: 8888
+      applicationUrl: "http://web.example.com"
+  statusInformers:
+    - deployment/my-application
+    - deployment/my-database
+  graphs:
+    - title: "CPU Usage"
+      query: 'sum(rate(container_cpu_usage_seconds_total{namespace="{{repl Namespace}}", container="my-app"}[5m]))'
+```
+
+Key fields:
+- `title`: The application name displayed in the Admin Console
+- `icon`: A URI to the application icon
+- `releaseNotes`: Release notes for this version
+- `targetKotsVersion`/`minKotsVersion`: KOTS version compatibility
+- `statusInformers`: List of resources to monitor for application status
+- `ports`: Port forwarding configuration
+- `graphs`: Prometheus queries for displaying metrics
+- `allowRollback`: Enable/disable rollback feature
+- `requireMinimalRBACPrivileges`: Use minimal RBAC privileges
+
+### Config Custom Resource
+
+The Config custom resource (`config.yaml`) defines the configuration options displayed in the Admin Console, allowing you to collect information needed to deploy your application.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: my-application-config
+spec:
+  groups:
+    - name: database
+      title: Database Configuration
+      description: Configuration for the application database
+      items:
+        - name: db_type
+          title: Database Type
+          type: select_one
+          default: embedded
+          items:
+            - name: embedded
+              title: Embedded Database
+            - name: external
+              title: External Database
+        - name: db_host
+          title: Database Host
+          type: text
+          when: repl{{ ConfigOptionEquals "db_type" "external" }}
+        - name: db_password
+          title: Database Password
+          type: password
+          when: repl{{ ConfigOptionEquals "db_type" "external" }}
+```
+
+Key fields:
+- `groups`: List of configuration groups
+  - `name`: Internal name of the group
+  - `title`: Display name of the group
+  - `description`: Explanation of the group's purpose
+  - `items`: Configuration items within the group
+    - `name`: Internal name of the configuration item
+    - `title`: Display name of the item
+    - `type`: Type of UI element (text, password, bool, select_one, etc.)
+    - `default`: Default value
+    - `when`: Conditional visibility based on other configuration values
+    - `required`: Whether the field is required
+    - `items`: Options for select_one/select_many fields
+
+### HelmChart Custom Resource (v2)
+
+The HelmChart v2 custom resource provides a way to include Helm charts in your application. It is a more flexible and powerful version of the original HelmChart resource.
+
+```yaml
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: my-helm-chart
+spec:
+  chart:
+    name: nginx
+    chartVersion: 9.5.1
+    releaseName: my-release
+    helmVersion: v3
+    values:
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
+        repository: repl{{ HasLocalRegistry | ternary (printf "%s/nginx" LocalRegistryNamespace) "nginx" }}
+        tag: 1.19.3
+      service:
+        type: repl{{ ConfigOption "service_type" }}
+      resources:
+        limits:
+          memory: repl{{ ConfigOption "memory_limit" }}
+  optionalValues:
+    - when: 'repl{{ ConfigOptionEquals "use_ingress" "1" }}'
+      values:
+        ingress:
+          enabled: true
+          hosts:
+            - host: repl{{ ConfigOption "hostname" }}
+```
+
+Key fields:
+- `chart`: Chart specification
+  - `name`: Name of the chart
+  - `chartVersion`: Version of the chart to use
+  - `releaseName`: Name of the Helm release
+  - `helmVersion`: Version of Helm to use (v2 or v3)
+- `values`: Values to pass to the Helm chart
+- `optionalValues`: Conditional values based on configuration
+  - `when`: Condition for applying the values
+  - `values`: Values to apply when the condition is true
+  - `recursiveMerge`: Whether to recursively merge with base values
+
+### HelmChart Custom Resource (v1)
+
+The original HelmChart custom resource that is now deprecated in favor of v2. It has a simpler structure but less flexibility.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: HelmChart
+metadata:
+  name: my-helm-chart
+spec:
+  name: nginx
+  chartVersion: 9.5.1
+  releaseName: my-release
+  helmVersion: v3
+  weight: 2
+  values:
+    service:
+      type: repl{{ ConfigOption "service_type" }}
+```
+
+Key fields:
+- `name`: Name of the chart
+- `chartVersion`: Version of the chart to use
+- `releaseName`: Name of the Helm release
+- `helmVersion`: Version of Helm to use (v2 or v3)
+- `weight`: Order in which charts are processed
+- `values`: Values to pass to the Helm chart
+- `exclude`: Optional field to exclude the chart under certain conditions
+
+### LintConfig Custom Resource
+
+The LintConfig custom resource defines linting rules that can be used to validate an application installation or identify potential issues.
+
+```yaml
+apiVersion: troubleshoot.sh/v1beta2
+kind: LintConfig
+metadata:
+  name: my-app-lintconfig
+spec:
+  lintRules:
+    - podCrashLoopBackOff:
+        checkName: pod-crash-loop-back-off
+        exclude: 
+          - repl{{ ConfigOption "excluded_pod" }}
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - pass:
+              message: No pods are crash looping
+          - fail:
+              message: One or more pods are crash looping
+    - deploymentStatus:
+        checkName: deployment-status
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - pass:
+              message: All deployments are ready
+          - fail:
+              message: Some deployments are not ready
+```
+
+Key fields:
+- `lintRules`: List of linting rules to apply
+  - Each rule has a type (e.g., `podCrashLoopBackOff`, `deploymentStatus`)
+  - `checkName`: Name of the check
+  - `exclude`: Resources to exclude from checking
+  - `namespace`: Namespaces to check
+  - `outcomes`: Possible outcomes of the check
+    - `pass`: Conditions and message for a passing check
+    - `fail`: Conditions and message for a failing check
+    - `warn`: Conditions and message for a warning
+
+### Installer Custom Resource
+
+The Installer custom resource defines requirements and instructions for installing an application in a cluster.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Installer
+metadata:
+  name: my-application-installer
+spec:
+  kubernetes:
+    version: "1.23.0"
+  requireMinimalRBACPrivileges: true
+  serviceAccount:
+    create: true
+    name: ""
+```
+
+Key fields:
+- `kubernetes`: Kubernetes compatibility requirements
+  - `version`: Minimum Kubernetes version
+- `requireMinimalRBACPrivileges`: Use minimal RBAC privileges
+- `serviceAccount`: Service account configuration
+
+### Preflight Custom Resource
+
+The Preflight custom resource defines checks to run before installing an application to ensure the environment meets requirements.
+
+```yaml
+apiVersion: troubleshoot.sh/v1beta2
+kind: Preflight
+metadata:
+  name: my-application-preflight
+spec:
+  analyzers:
+    - clusterVersion:
+        outcomes:
+          - fail:
+              when: "< 1.19.0"
+              message: Kubernetes version must be at least 1.19.0
+          - pass:
+              message: Kubernetes version is compatible
+    - nodeResources:
+        checkName: Node Resources
+        outcomes:
+          - fail:
+              when: "count() < 3"
+              message: At least 3 nodes are required
+          - warn:
+              when: "count() < 5"
+              message: At least 5 nodes are recommended
+          - pass:
+              message: Node count is sufficient
+```
+
+Key fields:
+- `analyzers`: List of analyzers to run
+  - Each analyzer has a type (e.g., `clusterVersion`, `nodeResources`)
+  - `checkName`: Name of the check
+  - `outcomes`: Possible outcomes of the analyzer
+    - `pass`: Conditions and message for a passing check
+    - `fail`: Conditions and message for a failing check
+    - `warn`: Conditions and message for a warning
+
+
+## KOTS Template Functions
+
+KOTS template functions allow you to render dynamic values in your Kubernetes manifests and Replicated custom resources. They are based on the Go text/template library and support all functionality of the Go templating language, including if statements, loops, and variables.
+
+### Template Function Syntax
+
+KOTS supports two syntax options for template functions:
+
+1. The recommended `repl{{ ... }}` syntax:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: example
+     labels:
+       app: repl{{ ConfigOption "app_name" }}
+   ```
+
+2. The legacy `{{repl ... }}` syntax:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: example
+     labels:
+       app: '{{repl ConfigOption "app_name" }}'
+   ```
+
+### Common Template Contexts
+
+KOTS provides several contexts that expose different sets of template functions:
+
+#### Config Context
+Functions to access user-supplied configuration values:
+- `ConfigOption(optionName)` - Returns the value of the specified configuration option
+- `ConfigOptionExists(optionName)` - Returns true if the option exists
+- `ConfigOptionEquals(optionName, value)` - Returns true if the option equals the specified value
+
+#### License Context
+Functions to access the customer license information:
+- `LicenseFieldValue(fieldName)` - Returns the value of a license field
+- `LicenseFieldExists(fieldName)` - Returns true if the license field exists
+- `LicenseProperty(propertyName)` - Returns the value of a license property
+- `LicenseDocker()` - Returns Docker Hub registry credentials if configured for the customer
+
+#### Static Context
+Functions for generating and manipulating data:
+- `Namespace()` - Returns the current namespace
+- `RandomString(length)` - Generates a random string
+- `LocalRegistryImagePullSecret()` - Returns the image pull secret for the local registry
+- `TLSCert(caData, certData, keyData, commonName)` - Generates a TLS certificate
+- `Now()` - Returns the current timestamp
+
+#### Identity Context
+Functions for identity service integration:
+- `IdentityServiceEnabled()` - Returns true if the identity service is enabled
+- `IdentityServiceClientID()` - Returns the client ID for the identity service
+- `IdentityServiceClientSecret()` - Returns the client secret for the identity service
+
+#### kURL Context
+Functions for kURL cluster information:
+- `IsKurl()` - Returns true if running in a kURL cluster
+- `KurlNodeJoinToken()` - Returns the kURL node join token
+- `KurlControlPlaneAddress()` - Returns the kURL control plane address
+
+### Common Use Cases and Examples
+
+#### Boolean Comparison
+```yaml
+when: repl{{ and (LicenseFieldValue "feature-1" | ParseBool) (ConfigOptionEquals "radio_example" "option_one")}}
+```
+
+#### Integer Comparison
+```yaml
+when: repl{{ gt (atoi (LicenseFieldValue "numSeats")) 1000 }}
+```
+
+#### String Comparison
+```yaml
+when: repl{{ eq (LicenseFieldValue "customerType") "enterprise" }}
+```
+
+#### Conditional Statements (If-Else)
+```yaml
+repl{{ if eq (ConfigOption "database_type") "embedded" }}
+  embedded: true
+repl{{ else }}
+  external: true
+repl{{ end }}
+```
+
+#### Ternary Operators
+```yaml
+registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}
+```
+
+#### Indentation in YAML
+```yaml
+annotations: repl{{ ConfigOption "additional_annotations" | nindent 4 }}
+```
+
+#### Generating TLS Certificates
+```yaml
+repl{{ $ca := genCA (ConfigOption "hostname") 365 }}
+repl{{ $cert := genSignedCert (ConfigOption "hostname") (list ) (list (ConfigOption "hostname")) 365 $ca }}
+```
+
+## KOTS Custom Resources
+
+KOTS uses custom resources to manage application deployment and configuration. Here's an overview of the key custom resources:
+
+### Application Custom Resource
+The Application custom resource provides metadata about the application.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: my-application
+spec:
+  title: My Application
+  icon: https://my-application.com/icon.png
+  releaseNotes: |
+    New features in this release
+  targetKotsVersion: "1.60.0"
+  minKotsVersion: "1.40.0"
+  requireMinimalRBACPrivileges: true
+  ports:
+    - serviceName: web
+      servicePort: 8000
+      localPort: 8888
+      applicationUrl: "http://web.example.com"
+  statusInformers:
+    - deployment/my-application
+    - deployment/my-database
+  graphs:
+    - title: "CPU Usage"
+      query: 'sum(rate(container_cpu_usage_seconds_total{namespace="{{repl Namespace}}", container="my-app"}[5m]))'
+```
+
+### Config Custom Resource
+The Config custom resource defines the configuration options displayed in the Admin Console.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: my-application-config
+spec:
+  groups:
+    - name: database
+      title: Database Configuration
+      description: Configuration for the application database
+      items:
+        - name: db_type
+          title: Database Type
+          type: select_one
+          default: embedded
+          items:
+            - name: embedded
+              title: Embedded Database
+            - name: external
+              title: External Database
+        - name: db_host
+          title: Database Host
+          type: text
+          when: repl{{ ConfigOptionEquals "db_type" "external" }}
+        - name: db_password
+          title: Database Password
+          type: password
+          when: repl{{ ConfigOptionEquals "db_type" "external" }}
+```
+
+### HelmChart Custom Resource (v2)
+The HelmChart custom resource v2 defines a Helm chart to be included in the application.
+
+```yaml
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: my-helm-chart
+spec:
+  chart:
+    name: nginx
+    chartVersion: 9.5.1
+    releaseName: my-release
+    helmVersion: v3
+    values:
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
+        repository: repl{{ HasLocalRegistry | ternary (printf "%s/nginx" LocalRegistryNamespace) "nginx" }}
+        tag: 1.19.3
+      service:
+        type: repl{{ ConfigOption "service_type" }}
+      resources:
+        limits:
+          memory: repl{{ ConfigOption "memory_limit" }}
+```
+
+### HelmChart Custom Resource (v1)
+The older version of the HelmChart custom resource.
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: HelmChart
+metadata:
+  name: my-helm-chart
+spec:
+  name: nginx
+  chartVersion: 9.5.1
+  releaseName: my-release
+  helmVersion: v3
+  weight: 2
+  values:
+    service:
+      type: repl{{ ConfigOption "service_type" }}
+```
+
+### LintConfig Custom Resource
+The LintConfig custom resource defines linting rules for the application.
+
+```yaml
+apiVersion: troubleshoot.sh/v1beta2
+kind: LintConfig
+metadata:
+  name: my-app-lintconfig
+spec:
+  lintRules:
+    - podCrashLoopBackOff:
+        checkName: pod-crash-loop-back-off
+        exclude: 
+          - repl{{ ConfigOption "excluded_pod" }}
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - pass:
+              message: No pods are crash looping
+          - fail:
+              message: One or more pods are crash looping
+    - deploymentStatus:
+        checkName: deployment-status
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - pass:
+              message: All deployments are ready
+          - fail:
+              message: Some deployments are not ready
+```
+
+## Best Practices
+
+1. **Template Function Validation**:
+   - Use the `helm template` and `kubectl kots render` commands to validate your templates
+   - Test with different license and configuration values
+
+2. **Error Handling**:
+   - Provide default values for template functions that might not return a value
+   - Use conditional logic to handle missing values
+
+3. **Performance**:
+   - Avoid complex template logic that could slow down rendering
+   - Use variables to store values that are used multiple times
+
+4. **Security**:
+   - Never expose sensitive license information in logs or to end users
+   - Use appropriate types (password, etc.) for sensitive configuration items
+
+5. **Configuration Options**:
+   - Group related configuration options together
+   - Provide clear titles, help text, and default values
+   - Use conditional visibility (when) to simplify the configuration experience
+
+## References
+
+- [KOTS Template Functions Examples](mdc:https:/docs.replicated.com/reference/template-functions-examples)
+- [Custom Resource - About](mdc:https:/docs.replicated.com/reference/custom-resource-about)
+- [Custom Resource - Application](mdc:https:/docs.replicated.com/reference/custom-resource-application)
+- [Custom Resource - Config](mdc:https:/docs.replicated.com/reference/custom-resource-config)
+- [Custom Resource - HelmChart v2](mdc:https:/docs.replicated.com/reference/custom-resource-helmchart-v2)
+- [Custom Resource - HelmChart](mdc:https:/docs.replicated.com/reference/custom-resource-helmchart)
+- [Custom Resource - LintConfig](mdc:https:/docs.replicated.com/reference/custom-resource-lintconfig)
