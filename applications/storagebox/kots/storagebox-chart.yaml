@@ -11,6 +11,11 @@ spec:
       enabled: true
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/ghcr.io/obeone" }}/nfs-server
+        pullPolicy: IfNotPresent
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName`` }}
       global:
         fullnameOverride: nfs-server
       controller:
@@ -23,7 +28,7 @@ spec:
           readOnly: false
           accessMode: ReadWriteOnce
           storageClass: ""
-          size: 10Gi
+          size: repl{{ ConfigOption "nfs_storage_size" | default "10Gi" }}
           retain: true
           mountPath: repl{{ ConfigOption "nfs_share" }}
       env:
@@ -64,12 +69,9 @@ spec:
         name: repl{{ ConfigOption "minio_tenant_name" }}
         image:
           repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/quay.io/" }}/minio/minio
-          tag: RELEASE.2024-08-17T01-24-54Z
           pullPolicy: IfNotPresent
         imagePullSecret: { }
         scheduler: { }
-        # configuration:
-        #   name: repl{{ ConfigOption "minio_tenant_configuration_name" }}
         certificate:
           requestAutoCert: true
         configSecret:
@@ -107,7 +109,13 @@ spec:
             tolerations: [ ]
             nodeSelector: { }
             affinity: { }
-            resources: { }
+            resources:
+              limits:
+                cpu: "2000m"
+                memory: "4Gi"
+              requests:
+                cpu: "1000m"
+                memory: "2Gi"
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
@@ -128,28 +136,13 @@ spec:
           enabled: repl{{ ConfigOptionEquals "minio_tenant_metrics_enabled" "1" }}
           port: repl{{ ConfigOption "minio_tenant_metrics_port" }}
           protocol: repl{{ ConfigOption "minio_tenant_metrics_protocol" }}
-        ###
-        # Array of objects describing one or more buckets to create during tenant provisioning.
-        # Example:
-        #
-        # .. code-block:: yaml
-        #
-        #    - name: my-minio-bucket
-        #         objectLock: false        # optional
-        #         region: us-east-1        # optional
         buckets:
           - name: repl{{ ConfigOption "minio_tenant_bucket_name" }}
             objectLock: repl{{ ConfigOptionEquals "minio_tenant_bucket_object_lock" "1" }}
             region: repl{{ ConfigOption "minio_tenant_bucket_region" }}
-        # Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
-        #
-        # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
-        # users:
-        #   - '{{repl ConfigOption "minio_tenant_user_name"}}'
-        # secrets:
-        #   name: repl{{ ConfigOption "minio_tenant_user_name" }}
-        #   accessKey: repl{{ ConfigOption "minio_tenant_user_access_key" }}
-        #   secretKey: repl{{ ConfigOption "minio_tenant_user_secret_key" }}
+        users:
+          - name: repl{{ ConfigOption "minio_tenant_user_name" | default "minio-user" }}
+            secretName: repl{{ ConfigOption "minio_tenant_user_secret" | default "minio-user-secret" }}
 
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_no_ssl" }}'
