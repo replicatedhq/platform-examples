@@ -15,7 +15,7 @@ spec:
         repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/ghcr.io/obeone" }}/nfs-server
         pullPolicy: IfNotPresent
       imagePullSecrets:
-        - name: repl{{ ImagePullSecretName`` }}
+        - name: repl{{ ImagePullSecretName }}
       global:
         fullnameOverride: nfs-server
       controller:
