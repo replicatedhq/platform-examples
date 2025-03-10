@@ -26,4 +26,4 @@ dependencies:
     condition: ingress-nginx.enabled
   - name: replicated
     repository: oci://registry.replicated.com/library
-    version: 1.0.0-beta.31
+    version: 1.1.1

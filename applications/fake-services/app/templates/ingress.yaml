@@ -2,10 +2,17 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ include "fake-service.name" . }}-ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - {{ .Values.ingress.host }}
+    secretName: {{ include "fake-service.name" . }}-tls
   rules:
-  - http:
+  - host: {{ .Values.ingress.host }}
+    http:
       paths:
       - path: /
         pathType: Prefix

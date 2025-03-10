@@ -1,0 +1,37 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: Preflight
+metadata:
+  name: preflight
+spec:
+  analyzers:
+    - clusterVersion:
+        outcomes:
+          - fail:
+              when: "< 1.16.0"
+              message: The application requires at least Kubernetes 1.16.0, and recommends 1.18.0.
+              uri: https://kubernetes.io
+          - warn:
+              when: "< 1.18.0"
+              message: Your cluster meets the minimum version of Kubernetes, but we recommend you update to 1.18.0 or later.
+              uri: https://kubernetes.io
+          - pass:
+              message: Your cluster meets the recommended and required versions of Kubernetes.
+    - distribution:
+        outcomes:
+          - pass:
+              when: "== gke"
+              message: GKE is a supported platform
+          - pass:
+              when: "== aks"
+              message: AKS is a supported platform
+          - pass:
+              when: "== eks"
+              message: EKS is a supported platform
+          - fail:
+              when: "== docker-desktop"
+              message: This application does not support Docker Desktop
+          - fail:
+              when: "== microk8s"
+              message: This application does not support Microk8s
+          - warn:
+              message: The Kubernetes platform is not validated, but there are no known compatibility issues.

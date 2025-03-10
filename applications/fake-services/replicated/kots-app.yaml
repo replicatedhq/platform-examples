@@ -6,7 +6,8 @@ spec:
   title: Fake Services
   icon: https://www.shareicon.net/data/256x256/2016/05/16/766096_zoo_512x512.png
   statusInformers:
-    - deployment/frontend
+    - '{{repl if ConfigOptionEquals "frontend_informer_enabled" "yessss"}}deployment/frontend{{repl end}}'
     - deployment/backend
   additionalImages:
     - curlimages/curl:latest
+  allowRollback: true

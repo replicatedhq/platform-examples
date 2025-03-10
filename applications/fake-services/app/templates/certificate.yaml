@@ -1,0 +1,21 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "fake-service.name" . }}-cert
+spec:
+  secretName: {{ include "fake-service.name" . }}-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  subject:
+    organizations:
+      - Replicated
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  dnsNames:
+    - {{ .Values.ingress.host }}
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+    group: cert-manager.io 
