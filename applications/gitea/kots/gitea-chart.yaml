@@ -17,5 +17,3 @@ spec:
           PASSWD: repl{{ ConfigOption "postgres_password" }}
     postgresql-ha:
       enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
-    postgresql:
-      enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
