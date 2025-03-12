@@ -1,0 +1,65 @@
+name: fake-services-release-unstable
+
+env:
+  APP_DIR: applications/fake-services
+  APP_SLUG: gerard-helm-fake-service
+
+on:
+  push:
+    branches:
+      - main
+      - '*gerard*'
+    paths:
+      - 'applications/fake-services/**'
+
+jobs:
+  push-to-replicated:
+    runs-on: ubuntu-22.04
+
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set release version
+        id: set-release-version
+        run: |
+          git_hash=$(git rev-parse --short HEAD)
+          date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+          version="${date_version}-Unstable-${git_hash}"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+          
+      - name: Package Helm chart
+        id: package-helm-chart
+        run: |
+          helm package ./app --debug -u -d ./replicated \
+            --version ${{ env.VERSION }} \
+            --app-version ${{ env.VERSION }}
+
+      - name: Install yq
+        run: |
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq &&\
+          chmod +x /usr/local/bin/yq
+
+      - name: Update HelmChart kind
+        run: |
+          yq -i '.spec.chart.chartVersion = "${{ env.VERSION }}"' ./replicated/kots-chart.yaml
+
+      - name: Create Replicated release
+        id: create-release
+        uses: replicatedhq/compatibility-actions/create-release@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          yaml-dir: ./replicated
+          promote-channel: Unstable
+          version: ${{ env.VERSION }}
+          
+    outputs:
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+      release-sequence: ${{ steps.create-release.outputs.release-sequence }}
+      app-version: ${{ env.VERSION }}
