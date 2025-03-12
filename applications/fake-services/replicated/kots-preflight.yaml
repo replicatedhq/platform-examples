@@ -27,6 +27,9 @@ spec:
           - pass:
               when: "== eks"
               message: EKS is a supported platform
+          - pass:
+              when: "== k0s"
+              message: K0s is a supported platform
           - fail:
               when: "== docker-desktop"
               message: This application does not support Docker Desktop

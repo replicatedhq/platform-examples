@@ -11,7 +11,7 @@ spec:
         - name: hostname
           title: Hostname
           type: text
-          required: true
+          required: false
         - name: password
           title: Password
           type: password
@@ -20,15 +20,6 @@ spec:
       title: Frontend settings
       description: Frontend settings
       items:
-        - name: frontend_informer_enabled
-          type: radio
-          title: Frontend Informer Enabled
-          default: noooo
-          items:
-            - name: noooo
-              title: Noooo
-            - name: yessss
-              title: Yessss
         - name: frontend_name
           title: Service Name
           type: text
