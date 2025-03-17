@@ -1,7 +1,7 @@
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 2.0.0+k8s-1.30
+  version: 2.1.2+k8s-1.30
   roles:
     controller:
       name: management
@@ -11,3 +11,10 @@ spec:
       - name: app
         labels:
           app: "true"
+  unsupportedOverrides:
+    k0s: |
+      config:
+        spec:
+          api:
+            extraArgs:
+              service-node-port-range: 80-32767
