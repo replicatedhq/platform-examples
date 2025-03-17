@@ -1,0 +1,24 @@
+{{- if .Values.postgres.embedded.service.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-nodeport
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: postgres
+    app.kubernetes.io/component: primary
+    cnpg.io/cluster: postgres
+    cnpg.io/instanceRole: primary
+spec:
+  type: {{ .Values.postgres.embedded.service.type | default "ClusterIP" }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.embedded.service.port | default 5432 }}
+      targetPort: {{ .Values.postgres.embedded.service.targetPort | default 5432 }}
+      {{- if eq .Values.postgres.embedded.service.type "NodePort" }}
+      nodePort: {{ .Values.postgres.embedded.service.nodePort | default 5432 }}
+      {{- end }}
+  selector:
+    cnpg.io/cluster: postgres
+    cnpg.io/instanceRole: primary
+{{- end -}}
