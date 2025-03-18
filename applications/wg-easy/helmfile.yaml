@@ -1,0 +1,58 @@
+# Global configuration
+helmDefaults:
+  verify: false
+  wait: true
+  timeout: 600
+  atomic: true
+  cleanupOnFail: true
+
+releases:
+  # Install cert-manager with CRDs but without issuers
+  - name: cert-manager
+    namespace: cert-manager
+    chart: ./cert-manager
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    
+  # Install issuers separately after cert-manager is ready
+  - name: cert-manager-issuers
+    namespace: cert-manager
+    chart: ./cert-manager-issuers
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager
+    
+  - name: traefik
+    namespace: traefik
+    chart: ./traefik
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager-issuers
+    
+  - name: wg-easy
+    namespace: wg-easy
+    chart: ./wg-easy
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - traefik/traefik
+    values:
+      - wg-easy:
+          wireguard:
+            host: '{{ env "TF_EXPOSED_URL" }}'
+      - templates:
+          traefikRoutes:
+            web-tls:
+              hostName: '{{ env "TF_EXPOSED_URL" }}'
+            web:
+              hostName: '{{ env "TF_EXPOSED_HTTP_URL" }}'

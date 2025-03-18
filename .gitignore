@@ -28,3 +28,8 @@ Thumbs.db
 *.pyo
 *.pyd
 __pycache__/
+
+# wg-easy specific
+applications/wg-easy/release/
+applications/wg-easy/*/charts/
+applications/wg-easy/*/Chart.lock

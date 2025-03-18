@@ -1,0 +1,173 @@
+version: "3"
+
+tasks:
+  wait-for-cluster:
+    desc: Wait for cluster to be in running state
+    internal: true
+    silent: true
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      TIMEOUT: '{{.TIMEOUT | default "300"}}'
+    cmds:
+      - |
+        echo "Waiting for cluster {{.CLUSTER_NAME}} (timeout {{.TIMEOUT}}s)..."
+        start=$(date +%s)
+        attempt=1
+        while true; do
+          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status')
+          
+          if [ "$CLUSTER_STATUS" = "running" ]; then
+            elapsed=$(($(date +%s) - start))
+            echo "Cluster {{.CLUSTER_NAME}} is ready! (took $elapsed seconds)"
+            break
+          fi
+          
+          elapsed=$(($(date +%s) - start))
+          if [ $elapsed -ge {{.TIMEOUT}} ]; then
+            echo "Timeout after {{.TIMEOUT}} seconds waiting for cluster to be ready"
+            exit 1
+          fi
+          
+          printf "\rWaiting... %ds elapsed (attempt %d) - Current status: %s   " "$elapsed" "$attempt" "$CLUSTER_STATUS"
+          sleep 5
+          attempt=$((attempt+1))
+        done
+
+  traefik-operations:
+    desc: Operations for managing Traefik
+    internal: true
+    silent: true
+    vars:
+      OPERATION: '{{.OPERATION}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
+    cmds:
+      - |
+        if [ "{{.OPERATION}}" = "remove" ]; then
+          echo "Checking for pre-installed Traefik in k3s cluster..."
+          
+          # Check if traefik is installed in kube-system namespace
+          TRAEFIK_CHARTS=$(KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | jq -r '.[] | select(.name | contains("traefik")) | .name')
+          
+          if [ -n "$TRAEFIK_CHARTS" ]; then
+            echo "Found pre-installed Traefik charts in kube-system namespace. Removing..."
+            
+            for chart in $TRAEFIK_CHARTS; do
+              echo "Uninstalling chart: $chart"
+              KUBECONFIG={{.KUBECONFIG_FILE}} helm uninstall $chart -n kube-system --wait
+            done
+            
+            echo "Pre-installed Traefik removed successfully!"
+          else
+            echo "No pre-installed Traefik charts found in kube-system namespace."
+          fi
+        fi
+
+  port-operations:
+    desc: Expose and check status of ports
+    internal: true
+    silent: true
+    vars:
+      OPERATION: '{{.OPERATION | default "expose"}}'
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+    cmds:
+      - |
+        set -e
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        if [ -z "$CLUSTER_ID" ]; then
+          echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
+          exit 1
+        fi
+        
+        if [ "{{.OPERATION}}" = "expose" ]; then
+          echo "Exposing ports for cluster {{.CLUSTER_NAME}} (ID: $CLUSTER_ID)..."
+          
+          {{range .EXPOSE_PORTS}}
+          echo "Exposing port {{.port}} for {{.protocol}}..."
+          replicated cluster port expose $CLUSTER_ID --port {{.port}} --protocol {{.protocol}}
+          {{end}}
+        elif [ "{{.OPERATION}}" = "getenv" ]; then
+          # Get TF_EXPOSED_URL for HTTPS
+          TF_EXPOSED_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 443 and .exposed_ports[0].protocol == "https") | .hostname' | head -n 1)
+          
+          # Get TF_EXPOSED_HTTP_URL for HTTP
+          TF_EXPOSED_HTTP_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 80 and .exposed_ports[0].protocol == "http") | .hostname' | head -n 1)
+          
+          if [ -z "$TF_EXPOSED_URL" ]; then
+            echo "Error: Could not determine TF_EXPOSED_URL. HTTPS port is not properly exposed."
+            echo "Please ensure the HTTPS port is exposed before deploying."
+            exit 1
+          fi
+          
+          if [ -z "$TF_EXPOSED_HTTP_URL" ]; then
+            echo "Error: Could not determine TF_EXPOSED_HTTP_URL. HTTP port is not properly exposed."
+            echo "Please ensure the HTTP port is exposed before deploying."
+            exit 1
+          fi
+          
+          echo "TF_EXPOSED_URL=$TF_EXPOSED_URL TF_EXPOSED_HTTP_URL=$TF_EXPOSED_HTTP_URL"
+        fi
+        
+  gcp-operations:
+    desc: GCP VM operations
+    internal: true
+    silent: true
+    vars:
+      OPERATION: '{{.OPERATION}}'
+      GCP_PROJECT: '{{.GCP_PROJECT}}'
+      GCP_ZONE: '{{.GCP_ZONE}}'
+      VM_NAME: '{{.VM_NAME}}'
+    cmds:
+      - |
+        if [ -z "{{.GCP_PROJECT}}" ]; then
+          echo "Error: GCP_PROJECT is required. Please specify with GCP_PROJECT=your-project-id"
+          exit 1
+        fi
+        
+        if [ "{{.OPERATION}}" = "create" ]; then
+          echo "Creating GCP VM instance {{.VM_NAME}}..."
+          
+          # Create the VM
+          gcloud compute instances create {{.VM_NAME}} \
+            --project={{.GCP_PROJECT}} \
+            --zone={{.GCP_ZONE}} \
+            --machine-type={{.GCP_MACHINE_TYPE}} \
+            --image-family={{.GCP_IMAGE_FAMILY}} \
+            --image-project={{.GCP_IMAGE_PROJECT}} \
+            --boot-disk-size={{.GCP_DISK_SIZE}}GB \
+            --boot-disk-type={{.GCP_DISK_TYPE}} \
+            --labels=expires-on=never,owner={{or (env "GUSER") "user"}}
+          
+          # Get the external IP
+          EXTERNAL_IP=$(gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+          
+          echo "VM {{.VM_NAME}} created successfully with IP: $EXTERNAL_IP"
+          echo "You can SSH into the VM with: gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}}"
+
+        elif [ "{{.OPERATION}}" = "delete" ]; then
+          echo "Deleting GCP VM instance {{.VM_NAME}}..."
+          
+          # Delete the VM
+          gcloud compute instances delete {{.VM_NAME}} \
+            --project={{.GCP_PROJECT}} \
+            --zone={{.GCP_ZONE}} \
+            --quiet
+          
+          echo "VM {{.VM_NAME}} deleted successfully"
+          
+        elif [ "{{.OPERATION}}" = "setup-embedded" ]; then
+          echo "Setting up embedded cluster on GCP VM {{.VM_NAME}}..."
+          
+          # Run installation commands on the VM
+          echo "Installing embedded cluster on VM..."
+          gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="
+            set -e
+            echo 'Downloading home-cluster installer...'
+            curl -f 'https://replicated.app/embedded/home-cluster/{{.CHANNEL}}' -H 'Authorization: {{.AUTH_TOKEN}}' -o home-cluster-{{.CHANNEL}}.tgz
+            
+            echo 'Extracting installer...'
+            tar -xvzf home-cluster-{{.CHANNEL}}.tgz
+          "
+          
+          echo "Embedded cluster setup initiated on VM {{.VM_NAME}}"
+          echo "You can SSH into the VM with: gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}}"
+        fi

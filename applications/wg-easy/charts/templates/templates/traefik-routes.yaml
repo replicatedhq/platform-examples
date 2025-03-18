@@ -1,0 +1,106 @@
+{{- define "authUrl" -}}
+  {{- $auth := .auth | default dict -}}
+  {{- $host := default "auth" $auth.host -}}
+  {{- printf "http://keycloak-service.keycloak.svc:8080/realms/%s/protocol/openid-connect/certs" $host -}}
+{{- end -}}
+
+{{- define "getMiddlewareName" -}}
+  {{- $host := .host | splitList "." -}}
+  {{- $firstPart := index $host 0 -}}
+  {{- $path := .path | default "" | trimPrefix "/" | replace "/" "-" -}}
+  {{- if $path -}}
+    {{- printf "%s-%s" $firstPart $path -}}
+  {{- else -}}
+    {{- $firstPart -}}
+  {{- end -}}
+{{- end -}}
+
+{{- range $host, $routeConfig := .Values.traefikRoutes }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $host | splitList "." | first }}
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    {{- range $route := $routeConfig.routes | default (list (dict "path" "")) }}
+    - kind: Rule
+      match: Host(`{{ $routeConfig.hostName | default $host }}`){{ if .path }} && Path(`{{ .path }}`){{ end }}{{ if .pathPrefix }} && PathPrefix(`{{ .pathPrefix }}`){{ end }}
+      {{- if or .redirectPath .authGroups }}
+      middlewares:
+        {{- if .redirectPath }}
+        - name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-redirect
+        {{- end }}
+        {{- if .authGroups }}
+        - name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-auth
+        - name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-inject-groups
+        - name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-authz
+        {{- end }}
+      {{- end }}
+      services:
+        {{- if .redirectPath }}
+        - kind: TraefikService
+          name: noop@internal
+        {{- else }}
+        - kind: {{ $routeConfig.serviceType | default "Service" }}
+          name: {{ $routeConfig.serviceName }}
+          {{- if not $routeConfig.serviceType }}
+          port: {{ $routeConfig.servicePort }}
+          {{- end }}
+        {{- end }}
+    {{- end }}
+{{- end }}
+
+{{- range $host, $routeConfig := .Values.traefikRoutes }}
+  {{- range $route := $routeConfig.routes }}
+    {{- if .redirectPath }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-redirect
+spec:
+  redirectRegex:
+    regex: ^https?://{{ $routeConfig.hostName | default $host | replace "." "\\." }}{{ or .path .pathPrefix | default "/" | replace "/" "\\/" }}/?$
+    replacement: https://{{ $routeConfig.hostName | default $host }}{{ .redirectPath }}
+    permanent: true
+    {{- end }}
+
+    {{- if .authGroups }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-auth
+spec:
+  forwardAuth:
+    address: http://oauth2-proxy.oauth2-proxy.svc.cluster.local:80
+    trustForwardHeader: true
+    authResponseHeaders:
+      - Authorization
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-inject-groups
+spec:
+  headers:
+    customRequestHeaders:
+      X-Required-Groups: {{ join "," .authGroups | quote }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "getMiddlewareName" (dict "host" $host "path" (or .path .pathPrefix)) }}-authz
+spec:
+  plugin:
+    jwt:
+      OpaUrl: http://opa.opa.svc:8181/v1/data/keycloak/authz
+      Required: true
+      Keys:
+      - {{ include "authUrl" (dict "auth" $routeConfig.auth) }}
+    {{- end }}
+  {{- end }}
+{{- end }}
