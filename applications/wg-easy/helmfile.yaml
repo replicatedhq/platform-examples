@@ -36,6 +36,13 @@ releases:
     skipDeps: true
     needs:
       - cert-manager/cert-manager-issuers
+    values:
+      - traefik:
+          ports:
+            web:
+              nodePort: 30080
+            websecure:
+              nodePort: 30443
     
   - name: wg-easy
     namespace: wg-easy

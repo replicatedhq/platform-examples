@@ -35,7 +35,6 @@ tasks:
 
   traefik-operations:
     desc: Operations for managing Traefik
-    internal: true
     silent: true
     vars:
       OPERATION: '{{.OPERATION}}'
@@ -64,7 +63,6 @@ tasks:
 
   port-operations:
     desc: Expose and check status of ports
-    internal: true
     silent: true
     vars:
       OPERATION: '{{.OPERATION | default "expose"}}'
@@ -87,10 +85,10 @@ tasks:
           {{end}}
         elif [ "{{.OPERATION}}" = "getenv" ]; then
           # Get TF_EXPOSED_URL for HTTPS
-          TF_EXPOSED_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 443 and .exposed_ports[0].protocol == "https") | .hostname' | head -n 1)
+          TF_EXPOSED_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 30443 and .exposed_ports[0].protocol == "https") | .hostname' | head -n 1)
           
           # Get TF_EXPOSED_HTTP_URL for HTTP
-          TF_EXPOSED_HTTP_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 80 and .exposed_ports[0].protocol == "http") | .hostname' | head -n 1)
+          TF_EXPOSED_HTTP_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 30080 and .exposed_ports[0].protocol == "http") | .hostname' | head -n 1)
           
           if [ -z "$TF_EXPOSED_URL" ]; then
             echo "Error: Could not determine TF_EXPOSED_URL. HTTPS port is not properly exposed."

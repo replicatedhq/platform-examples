@@ -34,7 +34,7 @@ templates:
       hostName: "example.com"
       serviceName: public-web
       servicePort: 51821
-    #web:
-    #  hostName: "example.com"
-    #  serviceName: public-web
-    #  servicePort: 51821
+    web:
+      hostName: "example.com"
+      serviceName: public-web
+      servicePort: 51821
