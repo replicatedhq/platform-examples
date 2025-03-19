@@ -1,10 +1,10 @@
-name: wg-easy
+name: replicated-sdk
 version: 1.0.0
 apiVersion: v2
 dependencies:
-  - name: wg-easy
-    version: '1.0.0'
-    repository: https://chris-sanders.github.io/helm-charts
   - name: templates
     version: '*'
     repository: file://../charts/templates
+  - name: replicated
+    repository: oci://registry.replicated.com/library
+    version: 1.1.1

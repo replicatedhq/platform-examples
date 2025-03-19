@@ -43,6 +43,17 @@ releases:
               nodePort: 30080
             websecure:
               nodePort: 30443
+  
+  # Install replicated-sdk
+  - name: replicated-sdk
+    namespace: replicated-sdk
+    chart: ./replicated-sdk
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - traefik/traefik
     
   - name: wg-easy
     namespace: wg-easy
@@ -52,7 +63,7 @@ releases:
     installed: true
     skipDeps: true
     needs:
-      - traefik/traefik
+      - replicated-sdk/replicated-sdk
     values:
       - wg-easy:
           wireguard:
