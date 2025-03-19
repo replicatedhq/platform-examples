@@ -6,11 +6,35 @@ helmDefaults:
   atomic: true
   cleanupOnFail: true
 
+environments:
+  default:
+    values:
+      - chartSources:
+          certManager: ./cert-manager
+          certManagerIssuers: ./cert-manager-issuers
+          traefik: ./traefik
+          wgEasy: ./wg-easy
+          replicatedSDK: ./replicated-sdk
+      - extras:
+          enableReplicatedSDK: false
+  replicated:
+    values:
+      - app: '{{ env "APP" | default "wg-easy" }}'
+      - channel: '{{ env "CHANNEL" | default "Unstable" }}'
+      - chartSources:
+          certManager: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager'
+          certManagerIssuers: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager-issuers'
+          traefik: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/traefik'
+          wgEasy: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/wg-easy'
+          replicatedSDK: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/replicated-sdk'
+      - extras:
+          enableReplicatedSDK: true
+---
 releases:
   # Install cert-manager with CRDs but without issuers
   - name: cert-manager
     namespace: cert-manager
-    chart: ./cert-manager
+    chart: {{ .Values.chartSources.certManager }}
     createNamespace: true
     wait: true
     installed: true
@@ -19,7 +43,7 @@ releases:
   # Install issuers separately after cert-manager is ready
   - name: cert-manager-issuers
     namespace: cert-manager
-    chart: ./cert-manager-issuers
+    chart: {{ .Values.chartSources.certManagerIssuers }}
     createNamespace: true
     wait: true
     installed: true
@@ -29,7 +53,7 @@ releases:
     
   - name: traefik
     namespace: traefik
-    chart: ./traefik
+    chart: {{ .Values.chartSources.traefik }}
     createNamespace: true
     wait: true
     installed: true
@@ -44,21 +68,20 @@ releases:
             websecure:
               nodePort: 30443
   
-  # TODO: Can't use this until using an actual release?
-  # Install replicated-sdk
-  #- name: replicated-sdk
-  #  namespace: replicated-sdk
-  #  chart: ./replicated-sdk
-  #  createNamespace: true
-  #  wait: true
-  #  installed: true
-  #  skipDeps: true
-  #  needs:
-  #    - traefik/traefik
+  # Install replicated-sdk (only in replicated environment)
+  - name: replicated-sdk
+    namespace: replicated-sdk
+    chart: {{ .Values.chartSources.replicatedSDK }}
+    createNamespace: true
+    wait: true
+    installed: {{ .Values.extras.enableReplicatedSDK }}
+    skipDeps: true
+    needs:
+      - traefik/traefik
     
   - name: wg-easy
     namespace: wg-easy
-    chart: ./wg-easy
+    chart: {{ .Values.chartSources.wgEasy }}
     createNamespace: true
     wait: true
     installed: true
