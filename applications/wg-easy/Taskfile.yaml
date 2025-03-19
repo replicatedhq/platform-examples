@@ -4,6 +4,9 @@ includes:
   utils: ./taskfiles/utils.yml
 
 vars:
+  # Application configuration
+  APP_NAME: '{{.APP_NAME | default "wg-easy"}}'
+  
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
   K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
@@ -226,18 +229,17 @@ tasks:
       - echo "Release files prepared in ./release/ directory"
       
   release-create:
-    desc: Create and promote a release for home-cluster using the Replicated CLI
+    desc: Create and promote a release using the Replicated CLI
     silent: true
-    requiredVars:
-      - CHANNEL
     vars:
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     cmds:
-      - echo "Creating and promoting release for home-cluster to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for {{.APP_NAME}} to channel {{.CHANNEL}}..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app home-cluster --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}}
+        replicated release create --app {{.APP_NAME}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}}
         
         echo "Release created and promoted to channel {{.CHANNEL}}"
     deps:
@@ -273,14 +275,14 @@ tasks:
     desc: Setup Replicated embedded cluster on the GCP VM
     silent: true
     vars:
-      CHANNEL: '{{.CHANNEL | default "unstable"}}'
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2uJbnRgxrmrhqBDF1Sd7wcYFDPh"}}'
     deps:
       - create-gcp-vm
     status:
       - |
-        # Check if the home-cluster tarball has already been downloaded and extracted
-        gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="test -d ./home-cluster" &>/dev/null
+        # Check if the application tarball has already been downloaded and extracted
+        gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="test -d ./{{.APP_NAME}}" &>/dev/null
     cmds:
       - task: utils:gcp-operations
         vars:
