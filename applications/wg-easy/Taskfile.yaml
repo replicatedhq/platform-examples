@@ -13,7 +13,7 @@ vars:
   DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
   DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
-  KUBECONFIG_FILE: './kubeconfig-{{.CLUSTER_NAME}}'
+  KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
   
   # Ports configuration
   EXPOSE_PORTS:
