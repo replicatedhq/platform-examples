@@ -1,0 +1,40 @@
+wg-easy:
+  global:
+    fullNameOverride: public
+  apps:
+    wg-easy:
+      fullNameOverride: public
+      containers:
+        wg-container:
+          resources:
+            requests:
+              cpu: 5m
+              memory: 35Mi
+  persistence:
+    config:
+      persistentVolumeClaim:
+        spec:
+          resources:
+            requests:
+              storage: 1Gi
+  services:
+    vpn:
+      type: NodePort
+  wireguard:
+    password: "testpass"
+    host: "example.com"
+    port: 51820 # This is used in the postUp
+    defaultAddress: "10.10.10.x"
+    defaultDns: "1.1.1.1"
+    allowedIps: "0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, 160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, 173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, 192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, 193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 224.0.0.0/3"
+    postUp: "iptables -A FORWARD -i wg0 -o eth0 -d 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8 -j DROP; iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o eth0 -j MASQUERADE; iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT"
+templates:
+  traefikRoutes:
+    web-tls:
+      hostName: "example.com"
+      serviceName: public-web
+      servicePort: 51821
+    web:
+      hostName: "example.com"
+      serviceName: public-web
+      servicePort: 51821

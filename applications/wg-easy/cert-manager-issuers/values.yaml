@@ -1,0 +1,7 @@
+local:
+  letsencrypt:
+    production: false
+    staging: false
+    selfSigned: true
+    email: admin@example.com
+    acme_host: 'dns.example.com'
