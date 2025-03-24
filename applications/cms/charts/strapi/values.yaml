@@ -6,17 +6,18 @@ replicaCount: 1
 
 storage:
   claim:
-    enabled: false
-    accessModes: [ "ReadWriteOnce" ]
-    storageClassName: "default"
-    mountPath: "/tmp"
-    capacity: 5Gi
+    enabled: true
+  accessModes: 
+    - "ReadWriteOnce"
+  storageClassName: "hostpath"
+  mountPath: "/srv/app"
+  capacity: 5Gi
 
 image:
   repository: strapi/strapi
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "3.6.8"
 
 configMap:
   enabled: true
@@ -24,13 +25,22 @@ configMap:
     HOST: 0.0.0.0
     PORT: "1337"
     NODE_ENV: production
-    DATABASE_HOST: mysql-strapi-chart # notice that this name changed
-    DATABASE_PORT: "3306"
+    DATABASE_HOST: postgres-nodeport
+    DATABASE_PORT: "5432"
     DATABASE_USERNAME: strapi
-    DATABASE_NAME: strapi-k8s
+    DATABASE_NAME: strapi
+    DATABASE_CLIENT: postgres
 
 secret:
-  enabled: false
+  enabled: true
+  data:
+    APP_KEYS: "toBeModified1,toBeModified2"
+    API_TOKEN_SALT: tobemodified
+    ADMIN_JWT_SECRET: tobemodified
+    TRANSFER_TOKEN_SALT: tobemodified
+    JWT_SECRET: tobemodified
+    DATABASE_USERNAME: strapi
+    DATABASE_PASSWORD: strapi
 
 imagePullSecrets: []
 nameOverride: ""
@@ -109,3 +119,95 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# -- Embedded Postgres configuration
+# Deploys a cluster using the CloudnativePG Operator
+# [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
+postgres:
+  # -- Postgres credentials secret configuration
+  auth:
+    username: strapi
+    password: strapi
+
+  embedded:
+    # -- Specifies whether to enable the Embedded Postgres cluster
+    enabled: true
+    # -- Postgres cluster annotations
+    annotations: {}
+    # -- Addtional labels for Postgres cluster
+    additionalLabels: {}
+    # -- Number of Postgres instances to deploy
+    instances: 1
+    image:
+      # -- Image registry
+      repository: ghcr.io/cloudnative-pg/postgresql
+      # -- Image tag
+      tag: '15.2'
+    # -- Image pull policy
+    imagePullPolicy: IfNotPresent
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # -- Postgres InitDB configuration
+    initdb:
+      # -- Postgres database name to be initilized
+      database: strapi
+      # -- Postgres username name to be initilized
+      owner: strapi
+      # -- Postgres secret name
+      secret:
+        name: 'postgres-initdb-secret'
+      # -- Postgres init application SQL
+      postInitApplicationSQL: []
+    # -- Postgres UID
+    postgresUID: 26
+    # -- Postgres GID
+    postgresGID: 26
+    service:
+      enabled: true
+      type: ClusterIP
+    # -- Postgres storage configuration
+    storage:
+      size: 10Gi
+      storageClass: ''
+    # -- Postgres resources
+    resources: {}
+    # -- Postgres priority class name
+    priorityClassName: ''
+    # -- Postgres primary update method
+    primaryUpdateMethod: switchover
+    # -- Postgres primary update strategy
+    primaryUpdateStrategy: unsupervised
+    # -- Postgres log level
+    logLevel: 'info'
+    # -- Affinity/Anti-affinity rules for Pods.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-AffinityConfiguration
+    affinity:
+      topologyKey: topology.kubernetes.io/zone
+    # -- The configuration for the CA and related certificates.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration
+    certificates: {}
+    # -- When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password.
+    # If the secret is not present, the operator will automatically create one.
+    # When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created,
+    # and then blank the password of the postgres user by setting it to NULL.
+    enableSuperuserAccess: true
+    superuserSecret: ''
+
+    # -- This feature enables declarative management of existing roles, as well as the creation of new roles if they are not
+    # already present in the database.
+    # See: https://cloudnative-pg.io/documentation/current/declarative_role_management/
+    roles:
+      []
+      # - name: dante
+      #   ensure: present
+      #   comment: Dante Alighieri
+      #   login: true
+      #   superuser: false
+      #   inRoles:
+      #     - pg_monitor
+      #     - pg_signal_backend
+
+    # -- Configuration of the PostgreSQL server.
+    # See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-PostgresConfiguration
+    postgresql:
+      {}
