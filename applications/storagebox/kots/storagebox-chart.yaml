@@ -5,17 +5,20 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.18.0
+    chartVersion: 0.19.0
   values:
     replicated:
       enabled: true
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
-      image:
-        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/ghcr.io/obeone" }}/nfs-server
-        pullPolicy: IfNotPresent
       imagePullSecrets:
         - name: repl{{ ImagePullSecretName }}
+      defaultPodOptions:
+        imagePullSecrets:
+          - name: repl{{ ImagePullSecretName }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "obeone" }}/nfs-server
+        pullPolicy: IfNotPresent
       global:
         fullnameOverride: nfs-server
       controller:
@@ -36,6 +39,11 @@ spec:
         NFS_LOG_LEVEL: debug
     cassandra:
       enabled: repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/docker.io" }}
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/cassandra
+        pullSecrets:
+          - name: repl{{ ImagePullSecretName }}
       truststore_password : repl{{ ConfigOption "cassandra_truststore_password" }}
       keystore_password : repl{{ ConfigOption "cassandra_keystore_password" }}
       dbUser:
@@ -68,9 +76,10 @@ spec:
       tenant:
         name: repl{{ ConfigOption "minio_tenant_name" }}
         image:
-          repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/quay.io/" }}/minio/minio
+          repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/quay.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "minio" }}/minio
           pullPolicy: IfNotPresent
-        imagePullSecret: { }
+        imagePullSecret:
+          - name: repl{{ ImagePullSecretName }}
         scheduler: { }
         certificate:
           requestAutoCert: true
