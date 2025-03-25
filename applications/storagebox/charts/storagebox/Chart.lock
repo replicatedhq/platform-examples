@@ -1,7 +1,7 @@
 dependencies:
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.1.0
+  version: 1.2.0
 - name: cassandra
   repository: https://charts.bitnami.com/bitnami
   version: 11.4.2
@@ -11,5 +11,5 @@ dependencies:
 - name: tenant
   repository: https://operator.min.io
   version: 6.0.4
-digest: sha256:d3aa337c748cf7959a01aa3f45a00b516990d6b1e79fbea94a758dced1eb74de
-generated: "2025-02-11T13:29:13.913789-05:00"
+digest: sha256:511c7cd4de6c5128afb80df73adf753910c49bc1aff8c05dcafe0e31f6cae2ca
+generated: "2025-03-18T11:42:22.774467-04:00"
