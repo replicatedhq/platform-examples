@@ -254,6 +254,11 @@ tasks:
       - task: utils:gcp-operations
         vars:
           OPERATION: "create"
+          GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE}}'
+          GCP_DISK_SIZE: '{{.GCP_DISK_SIZE}}'
+          GCP_DISK_TYPE: '{{.GCP_DISK_TYPE}}'
+          GCP_IMAGE_FAMILY: '{{.GCP_IMAGE_FAMILY}}'
+          GCP_IMAGE_PROJECT: '{{.GCP_IMAGE_PROJECT}}'
 
   delete-gcp-vm:
     desc: Delete the GCP VM instance for K8s and VPN
@@ -264,13 +269,16 @@ tasks:
       - task: utils:gcp-operations
         vars:
           OPERATION: "delete"
+          GCP_PROJECT: '{{.GCP_PROJECT}}'
+          GCP_ZONE: '{{.GCP_ZONE}}'
+          VM_NAME: '{{.VM_NAME}}'
 
   setup-embedded-cluster:
     desc: Setup Replicated embedded cluster on the GCP VM
     silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2uJbnRgxrmrhqBDF1Sd7wcYFDPh"}}'
+      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
       - create-gcp-vm
     status:
@@ -281,6 +289,12 @@ tasks:
       - task: utils:gcp-operations
         vars:
           OPERATION: "setup-embedded"
+          APP_NAME: '{{.APP_NAME}}'
+          CHANNEL: '{{.CHANNEL}}'
+          AUTH_TOKEN: '{{.AUTH_TOKEN}}'
+          GCP_PROJECT: '{{.GCP_PROJECT}}'
+          GCP_ZONE: '{{.GCP_ZONE}}'
+          VM_NAME: '{{.VM_NAME}}'
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete

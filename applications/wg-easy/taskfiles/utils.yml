@@ -167,6 +167,32 @@ tasks:
           
           echo "VM {{.VM_NAME}} created successfully with IP: $EXTERNAL_IP"
           echo "You can SSH into the VM with: gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}}"
+          
+          # Wait for VM to be fully in RUNNING state (should be immediate, but just in case)
+          echo "Verifying VM is in RUNNING state..."
+          start=$(date +%s)
+          attempt=1
+          timeout=30  # 30 seconds timeout
+          
+          while true; do
+            VM_STATUS=$(gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --format='get(status)' 2>/dev/null || echo "PENDING")
+            
+            if [ "$VM_STATUS" = "RUNNING" ]; then
+              elapsed=$(($(date +%s) - start))
+              echo "VM {{.VM_NAME}} is in RUNNING state! (took $elapsed seconds)"
+              break
+            fi
+            
+            elapsed=$(($(date +%s) - start))
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout after $timeout seconds waiting for VM to be ready"
+              exit 1
+            fi
+            
+            printf "\rWaiting... %ds elapsed (attempt %d) - Current status: %s   " "$elapsed" "$attempt" "$VM_STATUS"
+            sleep 1
+            attempt=$((attempt+1))
+          done
 
         elif [ "{{.OPERATION}}" = "delete" ]; then
           echo "Deleting GCP VM instance {{.VM_NAME}}..."
@@ -181,6 +207,30 @@ tasks:
           
         elif [ "{{.OPERATION}}" = "setup-embedded" ]; then
           echo "Setting up embedded cluster on GCP VM {{.VM_NAME}}..."
+          
+          # Wait for SSH to be ready with retry logic
+          echo "Waiting for SSH to be ready on VM {{.VM_NAME}}..."
+          start=$(date +%s)
+          attempt=1
+          timeout=60  # 60 seconds timeout for SSH
+          
+          while true; do
+            if gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="echo 'SSH is ready'" &>/dev/null; then
+              elapsed=$(($(date +%s) - start))
+              echo "SSH connection established successfully! (took $elapsed seconds)"
+              break
+            fi
+            
+            elapsed=$(($(date +%s) - start))
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout after $timeout seconds waiting for SSH to be ready"
+              exit 1
+            fi
+            
+            printf "\rWaiting... %ds elapsed (attempt %d) - SSH not ready yet   " "$elapsed" "$attempt"
+            sleep 2
+            attempt=$((attempt+1))
+          done
           
           # Run installation commands on the VM
           echo "Installing embedded cluster on VM..."
