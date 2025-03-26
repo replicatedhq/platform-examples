@@ -33,7 +33,7 @@ These tasks help manage the development and testing environments.
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
 | `create-cluster` | Creates a test Kubernetes cluster using Replicated's Compatibility Matrix | Stage 4: Single Chart Install |
-| `get-kubeconfig` | Retrieves the kubeconfig for the test cluster | Stage 4: Single Chart Install |
+| `setup-kubeconfig` | Retrieves and sets up the kubeconfig for the test cluster | Stage 4: Single Chart Install |
 | `delete-cluster` | Deletes the test cluster and cleans up resources | Stage 4-5: Cleanup |
 | `create-gcp-vm` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
 | `delete-gcp-vm` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
@@ -43,9 +43,9 @@ These tasks help manage the development and testing environments.
 
 **Create Test Environment:**
 ```bash
-task create-cluster && task get-kubeconfig
+task create-cluster && task setup-kubeconfig
 OR
-task get-kubeconfig
+task setup-kubeconfig
 ```
 
 While tasks can be run in order, they also have dependencies. Running the get-kubeconfig task for example will also create a cluster if the test cluster hasn't been created already.
@@ -86,7 +86,7 @@ These tasks provide end-to-end automation combining multiple individual tasks.
 This task performs the following sequence:
 
 1. Creates a cluster
-2. Gets the kubeconfig
+2. Sets up the kubeconfig
 3. Exposes ports
 4. Removes pre-installed Traefik
 5. Updates dependencies
@@ -100,7 +100,7 @@ Many tasks accept parameters to customize their behavior. Here are the most comm
 
 | Parameter | Used With | Description | Default |
 |-----------|-----------|-------------|---------|
-| `CLUSTER_NAME` | `create-cluster`, `get-kubeconfig` | Name for the cluster | "test-cluster" |
+| `CLUSTER_NAME` | `create-cluster`, `setup-kubeconfig` | Name for the cluster | "test-cluster" |
 | `K8S_VERSION` | `create-cluster` | Kubernetes version | "1.32.2" |
 | `DISTRIBUTION` | `create-cluster` | Cluster distribution | "k3s" |
 | `CHANNEL` | `release-create` | Channel to promote to | "Unstable" |

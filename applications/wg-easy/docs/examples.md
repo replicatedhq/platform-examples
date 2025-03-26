@@ -45,7 +45,7 @@ ls -la ./rendered-templates/cert-manager/templates/
 ```bash
 # Create a test cluster
 task create-cluster
-task get-kubeconfig
+task setup-kubeconfig
 
 # Install the single chart
 helm install cert-manager ./cert-manager -n cert-manager --create-namespace

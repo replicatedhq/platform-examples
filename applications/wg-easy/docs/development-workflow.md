@@ -114,7 +114,7 @@ Deploy individual charts to a test cluster to verify functionality.
 
    ```bash
    task create-cluster
-   task get-kubeconfig
+   task setup-kubeconfig
    ```
 
 2. Install a single chart:
