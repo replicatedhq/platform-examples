@@ -34,3 +34,4 @@ __pycache__/
 applications/wg-easy/release/
 applications/wg-easy/*/charts/
 applications/wg-easy/*/Chart.lock
+.aider*
