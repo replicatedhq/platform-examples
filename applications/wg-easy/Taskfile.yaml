@@ -36,7 +36,7 @@ tasks:
   create-cluster:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     run: once
-    silent: true
+    silent: false
     vars:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
@@ -58,29 +58,37 @@ tasks:
 
   test:
     desc: Run a basic test suite
-    silent: true
+    silent: false
     cmds:
       - echo "Running basic tests..."
       - echo "This is a placeholder for actual tests"
       - sleep 5
       - echo "Tests completed!"
 
-  get-kubeconfig:
-    desc: Get kubeconfig for the test cluster
-    silent: true
+  setup-kubeconfig:
+    desc: Get kubeconfig and prepare cluster for application deployment
+    silent: false
     run: once
     cmds:
-      - |
-        echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
-        replicated cluster kubeconfig --name {{.CLUSTER_NAME}} --output-path {{.KUBECONFIG_FILE}}
+      - task: utils:get-kubeconfig
+      - task: utils:remove-k3s-traefik
     status:
-      - test -f {{.KUBECONFIG_FILE}}
+      - |
+        # Check if kubeconfig exists
+        test -f {{.KUBECONFIG_FILE}} && \
+        # For k3s, also check if traefik is removed
+        if [ "{{.DISTRIBUTION}}" = "k3s" ]; then
+          KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | \
+            jq -e 'map(select(.name == "traefik" or .name == "traefik-crd")) | length == 0' >/dev/null
+        else
+          true
+        fi
     deps:
       - create-cluster
 
   update-dependencies:
     desc: Update Helm dependencies for all charts
-    silent: true
+    silent: false
     cmds:
       - echo "Updating Helm dependencies for all charts..."
       - |
@@ -93,7 +101,7 @@ tasks:
 
   expose-ports:
     desc: Expose configured ports and capture exposed URLs
-    silent: true
+    silent: false
     run: once
     status:
       - |
@@ -122,7 +130,7 @@ tasks:
 
   deploy-helm:
     desc: Deploy all charts using helmfile
-    silent: true
+    silent: false
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -141,27 +149,13 @@ tasks:
         eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
       - echo "All charts deployed!"
     deps:
-      - get-kubeconfig
+      - setup-kubeconfig
       - expose-ports
-      - remove-k3s-traefik
 
-  remove-k3s-traefik:
-    desc: Remove pre-installed Traefik from k3s clusters
-    silent: true
-    cmds:
-      - |
-        # Only run for k3s distributions
-        if [ "{{.DISTRIBUTION}}" = "k3s" ]; then
-          task utils:traefik-operations OPERATION=remove KUBECONFIG_FILE={{.KUBECONFIG_FILE}}
-        else
-          echo "Not a k3s cluster, skipping Traefik removal."
-        fi
-    deps:
-      - get-kubeconfig
 
   delete-cluster:
     desc: Delete all test clusters with matching name and clean up kubeconfig
-    silent: true
+    silent: false
     cmds:
       - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
       - |
@@ -185,7 +179,7 @@ tasks:
 
   prepare-release:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
-    silent: true
+    silent: false
     cmds:
       - echo "Preparing release files..."
       - rm -rf ./release
@@ -230,7 +224,7 @@ tasks:
       
   release-create:
     desc: Create and promote a release using the Replicated CLI
-    silent: true
+    silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
@@ -247,7 +241,7 @@ tasks:
 
   create-gcp-vm:
     desc: Create a simple GCP VM instance
-    silent: true
+    silent: false
     vars:
       GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE | default "e2-standard-2"}}'
       GCP_DISK_SIZE: '{{.GCP_DISK_SIZE | default "100"}}'
@@ -263,7 +257,7 @@ tasks:
 
   delete-gcp-vm:
     desc: Delete the GCP VM instance for K8s and VPN
-    silent: true
+    silent: false
     status:
       - "! gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} &>/dev/null"
     cmds:
@@ -273,7 +267,7 @@ tasks:
 
   setup-embedded-cluster:
     desc: Setup Replicated embedded cluster on the GCP VM
-    silent: true
+    silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2uJbnRgxrmrhqBDF1Sd7wcYFDPh"}}'
@@ -290,12 +284,11 @@ tasks:
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
-    silent: true
+    silent: false
     cmds:
       - task: create-cluster
-      - task: get-kubeconfig
+      - task: setup-kubeconfig
       - task: expose-ports
-      - task: remove-k3s-traefik
       - task: update-dependencies
       - task: deploy-helm
       - task: test
