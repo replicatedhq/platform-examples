@@ -1,0 +1,14 @@
+{{- if .Values.storage.claim.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "strapi.fullname" . }}-pvc
+  labels:
+      {{- include "strapi.labels" . | nindent 4 }}
+spec:
+  accessModes: {{ .Values.storage.accessModes }}
+  storageClassName: {{ .Values.storage.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.storage.capacity }}
+{{- end }}
