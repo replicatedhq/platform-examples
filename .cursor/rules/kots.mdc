@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: KOTS Resources and Template Functions
+globs: **/applications/*/kots/*
 alwaysApply: false
 ---
 # KOTS Development Guide
@@ -566,3 +566,4 @@ spec:
 - [Custom Resource - HelmChart v2](mdc:https:/docs.replicated.com/reference/custom-resource-helmchart-v2)
 - [Custom Resource - HelmChart](mdc:https:/docs.replicated.com/reference/custom-resource-helmchart)
 - [Custom Resource - LintConfig](mdc:https:/docs.replicated.com/reference/custom-resource-lintconfig)
+

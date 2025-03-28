@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description: Best practices for writing Helm charts
+globs: **/charts/*/templates/*
 alwaysApply: false
 ---
 In this project, Helm charts will typically be found in a `/charts/$chart-name` subdirectory.
