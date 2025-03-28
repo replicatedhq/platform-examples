@@ -1,0 +1,38 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: wg-easy
+spec:
+  chart:
+    name: wg-easy
+    chartVersion: '1.0.0'
+    #chartVersion: '*'
+  weight: 3
+  
+  # helmUpgradeFlags specifies additional flags to pass to the `helm upgrade` command.
+  helmUpgradeFlags:
+    - --skip-crds
+    - --timeout
+    - 30s
+    - --history-max=15
+    - --wait
+
+  values:
+    wg-easy:
+      services:
+        vpn:
+          # TODO: Template for stand alone KOTS install?
+          #type: NodePort
+          ports:
+            udp:
+              nodePort: repl{{ ConfigOption `vpn-port` | ParseInt  }}
+      wireguard:
+        password: repl{{ ConfigOption `password` }}
+        host: repl{{ ConfigOption `domain` }}
+        port: repl{{ ConfigOption `vpn-port` | ParseInt }}
+    templates:
+      traefikRoutes:
+        web-tls:
+          hostName: repl{{ ConfigOption `domain` }}
+  namespace: wg-easy
+  builder: {}

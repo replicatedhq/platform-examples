@@ -1,0 +1,64 @@
+{{ if .Values.certs.selfSigned }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: traefik-self-signed
+spec:
+  commonName: traefik
+  secretName: traefik-self-signed
+  issuerRef:
+    name: selfsigned-cluster-issuer
+    kind: ClusterIssuer
+    group: cert-manager.io
+{{- end }}
+{{- if .Values.certs.installProduction }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: traefik-cert
+spec:
+  secretName: traefik-cert
+  duration: 2160h0m0s
+  renewBefore: 720h0m0s
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+  - server auth
+  - client auth
+  dnsNames:
+  {{- range .Values.certs.dnsNames }}
+  - {{ . | quote }}
+  {{- end }}
+  issuerRef:
+    name: letsencrypt-production
+    kind: ClusterIssuer
+{{- end }}
+{{- if .Values.certs.installStaging }}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: traefik-cert-staging
+spec:
+  secretName: traefik-cert-staging
+  duration: 2160h0m0s
+  renewBefore: 720h0m0s
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+  - server auth
+  - client auth
+  dnsNames:
+  {{- range .Values.certs.dnsNames }}
+  - {{ . | quote }}
+  {{- end }}
+  issuerRef:
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+{{- end }}
