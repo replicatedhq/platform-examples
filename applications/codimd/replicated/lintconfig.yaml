@@ -1,0 +1,56 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: LintConfig
+metadata:
+  name: codimd-lintconfig
+spec:
+  lintRules:
+    - podCrashLoopBackOff:
+        checkName: pod-crash-loop-back-off
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - fail:
+              message: One or more pods are crash looping
+          - pass:
+              message: No pods are crash looping
+
+    - deploymentStatus:
+        checkName: codimd-deployment-status
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - fail:
+              message: The CodiMD deployment is not ready
+          - pass:
+              message: The CodiMD deployment is ready
+
+    - statefulsetStatus:
+        checkName: database-status
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - fail:
+              message: The database statefulset is not ready
+          - pass:
+              message: The database statefulset is ready
+
+    - containerRunning:
+        checkName: codimd-container-running
+        namespace:
+          - repl{{ Namespace }}
+        containerName: codimd
+        outcomes:
+          - fail:
+              message: The CodiMD container is not running
+          - pass:
+              message: The CodiMD container is running
+
+    - imagePullSecret:
+        checkName: registry-credentials
+        namespace:
+          - repl{{ Namespace }}
+        outcomes:
+          - fail:
+              message: Registry credentials are not properly configured
+          - pass:
+              message: Registry credentials are properly configured

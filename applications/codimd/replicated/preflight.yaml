@@ -1,0 +1,51 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: Preflight
+metadata:
+  name: codimd-preflight
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources: {}
+  analyzers:
+    - clusterVersion:
+        outcomes:
+          - fail:
+              when: "< 1.16.0"
+              message: Kubernetes version must be at least 1.16.0
+          - pass:
+              message: Kubernetes version is compatible
+
+    - nodeResources:
+        checkName: Node Resources
+        outcomes:
+          - fail:
+              when: "count() < 1"
+              message: At least one node is required
+          - fail:
+              when: "sum(memoryCapacity) < 4G"
+              message: Total cluster memory must be at least 4GB
+          - fail:
+              when: "sum(cpuCapacity) < 2"
+              message: Total CPU cores must be at least 2
+          - pass:
+              message: Node resources look good
+
+    - containerRuntime:
+        outcomes:
+          - fail:
+              when: "== cri-o"
+              message: cri-o is not supported yet
+          - pass:
+              when: "== docker"
+              message: Docker container runtime is supported
+          - pass:
+              when: "== containerd"
+              message: Containerd container runtime is supported
+
+    - storageClass:
+        checkName: Check for default storage class
+        outcomes:
+          - fail:
+              message: No default storage class found
+          - pass:
+              message: Default storage class found

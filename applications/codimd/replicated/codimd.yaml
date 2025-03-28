@@ -1,0 +1,25 @@
+apiVersion: kots.io/v1beta1
+kind: HelmChart
+metadata:
+  name: codimd
+spec:
+  # Chart reference in your release
+  chart:
+    name: codimd
+    chartVersion: "0.1.0"  # This will be updated by the release task
+
+  # Values for the chart
+  values:
+    postgresql:
+      enabled: true
+    redis:
+      enabled: true
+    codimd:
+      enabled: true
+
+  # Optional: Builder values (if needed)
+  builder: {}
+
+  # Destination where the chart should be rendered
+  destination:
+    server: https://kubernetes.default.svc

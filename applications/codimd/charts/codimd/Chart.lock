@@ -1,0 +1,12 @@
+dependencies:
+- name: codimd
+  repository: https://helm.codimd.dev
+  version: 0.1.11
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.0.1
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 17.0.11
+digest: sha256:a53d3faf8b1233419ff819e1884c6a53522457e4ab5265eeb4aad55f7caecd9f
+generated: "2025-03-28T16:10:02.671502-04:00"

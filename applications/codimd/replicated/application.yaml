@@ -1,0 +1,27 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: codimd
+spec:
+  title: CodiMD
+  icon: https://raw.githubusercontent.com/hackmdio/codimd/develop/public/icons/icon.png
+  statusInformers:
+    - deployment/codimd
+    - statefulset/postgresql
+    - statefulset/redis
+  ports:
+    - serviceName: codimd
+      servicePort: 3000
+      localPort: 3000
+      applicationUrl: "http://codimd"
+  requireMinimalRBACPrivileges: true
+  allowRollback: true
+  targetKotsVersion: "~1.96.0"
+  minKotsVersion: "1.96.0"
+  graphs:
+    - title: "CodiMD Memory Usage"
+      query: 'sum(container_memory_usage_bytes{namespace="{{repl Namespace}}", container="codimd"})'
+    - title: "PostgreSQL Memory Usage"
+      query: 'sum(container_memory_usage_bytes{namespace="{{repl Namespace}}", container="postgresql"})'
+    - title: "Redis Memory Usage"
+      query: 'sum(container_memory_usage_bytes{namespace="{{repl Namespace}}", container="redis"})'

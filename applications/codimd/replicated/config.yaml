@@ -1,0 +1,105 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: codimd
+spec:
+  groups:
+    - name: database
+      title: Database Configuration
+      description: Configure the PostgreSQL database settings
+      items:
+        - name: postgresql_enabled
+          title: Use Embedded PostgreSQL
+          type: bool
+          default: "1"
+          help_text: Enable to use the embedded PostgreSQL database, disable to use an external database
+        - name: postgresql_host
+          title: PostgreSQL Host
+          type: text
+          when: repl{{ ConfigOptionEquals "postgresql_enabled" "0" }}
+          required: true
+        - name: postgresql_port
+          title: PostgreSQL Port
+          type: text
+          default: "5432"
+          when: repl{{ ConfigOptionEquals "postgresql_enabled" "0" }}
+          required: true
+        - name: postgresql_username
+          title: PostgreSQL Username
+          type: text
+          when: repl{{ ConfigOptionEquals "postgresql_enabled" "0" }}
+          required: true
+        - name: postgresql_password
+          title: PostgreSQL Password
+          type: password
+          when: repl{{ ConfigOptionEquals "postgresql_enabled" "0" }}
+          required: true
+        - name: postgresql_database
+          title: PostgreSQL Database
+          type: text
+          default: "codimd"
+          when: repl{{ ConfigOptionEquals "postgresql_enabled" "0" }}
+          required: true
+
+    - name: redis
+      title: Redis Configuration
+      description: Configure the Redis settings
+      items:
+        - name: redis_enabled
+          title: Use Embedded Redis
+          type: bool
+          default: "1"
+          help_text: Enable to use the embedded Redis, disable to use an external Redis
+        - name: redis_host
+          title: Redis Host
+          type: text
+          when: repl{{ ConfigOptionEquals "redis_enabled" "0" }}
+          required: true
+        - name: redis_port
+          title: Redis Port
+          type: text
+          default: "6379"
+          when: repl{{ ConfigOptionEquals "redis_enabled" "0" }}
+          required: true
+        - name: redis_password
+          title: Redis Password
+          type: password
+          when: repl{{ ConfigOptionEquals "redis_enabled" "0" }}
+          required: false
+
+    - name: codimd
+      title: CodiMD Configuration
+      description: Configure CodiMD application settings
+      items:
+        - name: host
+          title: Application Host
+          type: text
+          default: "codimd"
+          required: true
+          help_text: The hostname where CodiMD will be accessible
+        - name: allow_anonymous
+          title: Allow Anonymous Access
+          type: bool
+          default: "1"
+          help_text: Allow users to access CodiMD without authentication
+        - name: allow_anonymous_edits
+          title: Allow Anonymous Edits
+          type: bool
+          default: "1"
+          help_text: Allow anonymous users to edit notes
+          when: repl{{ ConfigOptionEquals "allow_anonymous" "1" }}
+        - name: default_permission
+          title: Default Note Permission
+          type: select_one
+          default: freely
+          items:
+            - name: freely
+              title: Freely - Anyone can view and edit
+            - name: editable
+              title: Editable - Anyone can edit (owner can limit)
+            - name: limited
+              title: Limited - Signed-in users can edit
+            - name: locked
+              title: Locked - Only owner can edit
+            - name: private
+              title: Private - Only owner can view and edit

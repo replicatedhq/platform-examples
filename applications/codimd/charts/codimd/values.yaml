@@ -1,0 +1,6 @@
+codimd:
+  enabled: true  # Enable/disable the official CodiMD chart
+postgresql:
+  enabled: true  # Enable/disable embedded PostgreSQL
+redis:
+  enabled: true  # Enable/disable embedded Redis
