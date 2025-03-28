@@ -1,0 +1,13 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cert-manager-issuers
+spec:
+  chart:
+    name: cert-manager-issuers
+    chartVersion: '1.0.0'
+  weight: 1
+  helmUpgradeFlags:
+    - --wait
+  namespace: cert-manager
+  builder: {}

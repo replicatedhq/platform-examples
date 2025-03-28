@@ -1,0 +1,21 @@
+certs:
+  selfSigned: true
+  installProduction: false
+  installStaging: false
+  dnsNames: []
+traefik:
+  service:
+    type: NodePort
+  ports:
+    web:
+      nodePort: 80
+      redirectTo:
+        port: websecure
+    websecure:
+      nodePort: 443
+  tlsStore:
+    default:
+      certificates:
+        - secretName: traefik-self-signed
+      defaultCertificate:
+        secretName: traefik-self-signed

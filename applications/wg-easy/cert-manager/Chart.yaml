@@ -1,0 +1,10 @@
+name: cert-manager
+apiVersion: v2
+version: 1.0.0
+dependencies:
+  - name: cert-manager
+    version: '1.14.5'
+    repository: https://charts.jetstack.io
+  - name: templates
+    version: '*'
+    repository: file://../charts/templates

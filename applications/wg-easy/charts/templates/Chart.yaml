@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: latest
+description: Common templates
+name: templates
+version: 1.0.0
+kubeVersion: ">=1.16.0-0"

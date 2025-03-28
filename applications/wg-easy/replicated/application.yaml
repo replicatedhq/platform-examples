@@ -1,0 +1,26 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: wg-easy
+spec:
+  title: wg-easy
+  icon: https://www.logo.wine/a/logo/WireGuard/WireGuard-Icon-Logo.wine.svg
+  #releaseNotes: These are our release notes
+  allowRollback: true
+  #additionalImages:
+  #  - jenkins/jenkins:lts
+  additionalNamespaces:
+    - "cert-manager"
+    - "traefik"
+    - "wg-easy"
+    - "*"
+  #ports:
+  #  - serviceName: wg-easy/web
+  #    servicePort: 51821
+  #    applicationUrl: "http://web"
+  statusInformers:
+    - wg-easy/deployment/public
+    - traefik/deployment/traefik
+    - cert-manager/deployment/cert-manager
+    - cert-manager/deployment/cert-manager-cainjector
+    - cert-manager/deployment/cert-manager-webhook

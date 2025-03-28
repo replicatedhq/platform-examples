@@ -1,0 +1,100 @@
+# Global configuration
+helmDefaults:
+  verify: false
+  wait: true
+  timeout: 600
+  atomic: true
+  cleanupOnFail: true
+
+environments:
+  default:
+    values:
+      - chartSources:
+          certManager: ./cert-manager
+          certManagerIssuers: ./cert-manager-issuers
+          traefik: ./traefik
+          wgEasy: ./wg-easy
+          replicatedSDK: ./replicated-sdk
+      - extras:
+          enableReplicatedSDK: false
+  replicated:
+    values:
+      - app: '{{ env "APP" | default "wg-easy" }}'
+      - channel: '{{ env "CHANNEL" | default "Unstable" }}'
+      - chartSources:
+          certManager: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager'
+          certManagerIssuers: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager-issuers'
+          traefik: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/traefik'
+          wgEasy: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/wg-easy'
+          replicatedSDK: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/replicated-sdk'
+      - extras:
+          enableReplicatedSDK: true
+---
+releases:
+  # Install cert-manager with CRDs but without issuers
+  - name: cert-manager
+    namespace: cert-manager
+    chart: {{ .Values.chartSources.certManager }}
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    
+  # Install issuers separately after cert-manager is ready
+  - name: cert-manager-issuers
+    namespace: cert-manager
+    chart: {{ .Values.chartSources.certManagerIssuers }}
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager
+    
+  - name: traefik
+    namespace: traefik
+    chart: {{ .Values.chartSources.traefik }}
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager-issuers
+    values:
+      - traefik:
+          ports:
+            web:
+              nodePort: 30080
+            websecure:
+              nodePort: 30443
+  
+  # Install replicated-sdk (only in replicated environment)
+  - name: replicated-sdk
+    namespace: replicated-sdk
+    chart: {{ .Values.chartSources.replicatedSDK }}
+    createNamespace: true
+    wait: true
+    installed: {{ .Values.extras.enableReplicatedSDK }}
+    skipDeps: true
+    needs:
+      - traefik/traefik
+    
+  - name: wg-easy
+    namespace: wg-easy
+    chart: {{ .Values.chartSources.wgEasy }}
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - traefik/traefik
+    values:
+      - wg-easy:
+          wireguard:
+            host: '{{ env "TF_EXPOSED_URL" }}'
+      - templates:
+          traefikRoutes:
+            web-tls:
+              hostName: '{{ env "TF_EXPOSED_URL" }}'
+            web:
+              hostName: '{{ env "TF_EXPOSED_HTTP_URL" }}'

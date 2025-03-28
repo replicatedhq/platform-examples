@@ -1,0 +1,4 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: wg-easy

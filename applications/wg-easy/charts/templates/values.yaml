@@ -1,0 +1,27 @@
+#traefikRoutes:
+#  host.example.com:
+#    serviceName: my-serviceName
+#    servicePort: my-servicePort
+#    #Optional: Override the auth settings
+#    #auth:
+#    #  domain: example.com
+#    #  host: auth
+#    #  realm: example.com
+#    routes:
+#    - path: /
+#    - path: /login
+#      auth: true
+#    - path: /admin
+#      auth: true
+#      authGroups:
+#        - admin
+#        - superuser
+#    - path: /old-path
+#      redirectPath: /new-path
+#    - pathPrefix: /docs
+#      auth: true
+# traefikRouteTCP:
+#   - serviceName: 
+#     servicePort: 
+#     entryPoints:
+#       - <from traefik config> 
