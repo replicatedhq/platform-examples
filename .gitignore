@@ -1,5 +1,7 @@
 # Helm-specific ignores
 **/charts/*.tgz
+**/.specstory/
+
 
 # Ignore Helm dependency directories
 **/charts/*.lock
