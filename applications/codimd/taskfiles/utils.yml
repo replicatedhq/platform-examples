@@ -1,0 +1,46 @@
+version: "3"
+
+tasks:
+  get-kubeconfig:
+    desc: Get kubeconfig for the test cluster (internal)
+    internal: true
+    silent: false
+    run: once
+    cmds:
+      - |
+        echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
+        replicated cluster kubeconfig --name {{.CLUSTER_NAME}} --output-path {{.KUBECONFIG_FILE}}
+    status:
+      - test -f {{.KUBECONFIG_FILE}}
+
+  wait-for-cluster:
+    desc: Wait for cluster to be in running state
+    internal: true
+    silent: true
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      TIMEOUT: '{{.TIMEOUT | default "300"}}'
+    cmds:
+      - |
+        echo "Waiting for cluster {{.CLUSTER_NAME}} (timeout {{.TIMEOUT}}s)..."
+        start=$(date +%s)
+        attempt=1
+        while true; do
+          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status')
+
+          if [ "$CLUSTER_STATUS" = "running" ]; then
+            elapsed=$(($(date +%s) - start))
+            echo "Cluster {{.CLUSTER_NAME}} is ready! (took $elapsed seconds)"
+            break
+          fi
+
+          elapsed=$(($(date +%s) - start))
+          if [ $elapsed -ge {{.TIMEOUT}} ]; then
+            echo "Timeout after {{.TIMEOUT}} seconds waiting for cluster to be ready"
+            exit 1
+          fi
+
+          printf "\rWaiting... %ds elapsed (attempt %d) - Current status: %s   " "$elapsed" "$attempt" "$CLUSTER_STATUS"
+          sleep 5
+          attempt=$((attempt+1))
+        done

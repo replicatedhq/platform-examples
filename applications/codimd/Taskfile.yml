@@ -1,0 +1,192 @@
+version: '3'
+
+includes:
+  utils: ./taskfiles/utils.yml
+
+vars:
+  CHART_DIR: charts/codimd
+  CHART_NAME: codimd
+  NAMESPACE: codimd
+  VALUES_FILE: "{{.CHART_DIR}}/values.yaml"
+
+  # Cluster configuration
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
+  K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
+  DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
+  INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
+  DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
+  KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
+
+tasks:
+  default:
+    cmds:
+      - task -l
+    silent: true
+
+  create-cluster:
+    desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
+    run: once
+    silent: false
+    vars:
+      EMBEDDED: '{{.EMBEDDED | default "false"}}'
+      LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
+      TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
+    status:
+      - replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null
+    cmds:
+      - |
+        if [ "{{.EMBEDDED}}" = "true" ]; then
+          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.LICENSE_ID}}..."
+          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}}
+        else
+          echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
+          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}}
+        fi
+      - task: utils:wait-for-cluster
+        vars:
+          TIMEOUT: "{{.TIMEOUT}}"
+
+  setup-kubeconfig:
+    desc: Get kubeconfig and prepare cluster for application deployment
+    silent: false
+    run: once
+    cmds:
+      - task: utils:get-kubeconfig
+    status:
+      - test -f {{.KUBECONFIG_FILE}}
+    deps:
+      - create-cluster
+
+  delete-cluster:
+    desc: Delete all test clusters with matching name and clean up kubeconfig
+    silent: false
+    cmds:
+      - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
+      - |
+        CLUSTER_IDS=$(replicated cluster ls | grep "{{.CLUSTER_NAME}}" | awk '{print $1}')
+        if [ -z "$CLUSTER_IDS" ]; then
+          echo "No clusters found with name {{.CLUSTER_NAME}}"
+          exit 0
+        fi
+
+        for id in $CLUSTER_IDS; do
+          echo "Deleting cluster ID: $id"
+          replicated cluster rm "$id"
+        done
+      - |
+        # Clean up kubeconfig file
+        if [ -f "{{.KUBECONFIG_FILE}}" ]; then
+          echo "Removing kubeconfig file {{.KUBECONFIG_FILE}}"
+          rm "{{.KUBECONFIG_FILE}}"
+        fi
+      - echo "All matching clusters deleted and kubeconfig cleaned up!"
+
+  prepare-release:
+    desc: Prepare release files by copying replicated YAML files and packaging Helm charts
+    silent: false
+    cmds:
+      - echo "Preparing release files..."
+      - rm -rf ./release
+      - mkdir -p ./release
+
+      # Copy all non-config.yaml files
+      - echo "Copying non-config YAML files to release folder..."
+      - find . -path '*/replicated/*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \;
+      - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
+
+      # Package Helm chart
+      - task: package
+
+      # Update version in codimd.yaml
+      - |
+        VERSION=$(git describe --tags --always)
+        if ! command -v yq &> /dev/null; then
+          echo "Installing yq..."
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_$(uname -s | tr '[:upper:]' '[:lower:]')_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+        fi
+        yq -i '.spec.chart.chartVersion = env(VERSION)' ./release/codimd.yaml
+
+  create-release:
+    desc: Create a new release in Replicated
+    cmds:
+      - task: prepare-release
+      - |
+        if [ -z "$REPLICATED_APP" ] || [ -z "$REPLICATED_API_TOKEN" ]; then
+          echo "Error: REPLICATED_APP and REPLICATED_API_TOKEN environment variables must be set"
+          exit 1
+        fi
+        VERSION=$(git describe --tags --always)
+        replicated release create \
+          --app "$REPLICATED_APP" \
+          --token "$REPLICATED_API_TOKEN" \
+          --yaml-dir release \
+          --promote Unstable \
+          --version "$VERSION"
+
+  deploy-helm:
+    desc: Deploy the Helm chart to the Replicated cluster
+    cmds:
+      - task: setup-kubeconfig
+      - |
+        echo "Installing CodiMD chart to cluster..."
+        KUBECONFIG={{.KUBECONFIG_FILE}} kubectl create namespace {{.NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
+        KUBECONFIG={{.KUBECONFIG_FILE}} helm upgrade --install {{.CHART_NAME}} {{.CHART_DIR}} -n {{.NAMESPACE}}
+
+  lint:
+    desc: Lint the Helm chart
+    cmds:
+      - helm lint {{.CHART_DIR}}
+
+  template:
+    desc: Template the Helm chart
+    cmds:
+      - helm template {{.CHART_NAME}} {{.CHART_DIR}} --debug
+
+  validate:
+    desc: Validate the Helm chart
+    cmds:
+      - helm lint {{.CHART_DIR}}
+      - helm template {{.CHART_NAME}} {{.CHART_DIR}} --debug
+
+  package:
+    desc: Package the Helm chart
+    cmds:
+      - helm package {{.CHART_DIR}}
+
+  clean:
+    desc: Clean up generated files
+    cmds:
+      - rm -f *.tgz template-output.yaml
+      - rm -rf ./release
+
+  uninstall:
+    desc: Uninstall the Helm chart
+    cmds:
+      - KUBECONFIG={{.KUBECONFIG_FILE}} helm uninstall {{.CHART_NAME}} -n {{.NAMESPACE}}
+
+  upgrade:
+    desc: Upgrade the Helm chart
+    cmds:
+      - KUBECONFIG={{.KUBECONFIG_FILE}} helm upgrade {{.CHART_NAME}} {{.CHART_DIR}} -n {{.NAMESPACE}}
+
+  values:
+    desc: Show the chart values
+    cmds:
+      - cat {{.VALUES_FILE}}
+
+  deps:
+    desc: Update Helm dependencies
+    dir: "{{.CHART_DIR}}"
+    cmds:
+      - helm dependency update
+
+  test:
+    desc: Run Helm tests
+    cmds:
+      - KUBECONFIG={{.KUBECONFIG_FILE}} helm test {{.CHART_NAME}} -n {{.NAMESPACE}}
+
+  debug:
+    desc: Debug chart template rendering
+    cmds:
+      - helm template {{.CHART_NAME}} {{.CHART_DIR}} --debug --dry-run
