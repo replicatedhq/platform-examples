@@ -109,11 +109,12 @@ livenessProbe:
   httpGet:
     path: /
     port: http
+  initialDelaySeconds: 600
 readinessProbe:
   httpGet:
     path: /
     port: http
-
+  initialDelaySeconds: 600
 nodeSelector: {}
 
 tolerations: []

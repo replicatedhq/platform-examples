@@ -24,6 +24,6 @@ version: 0.1.0
 appVersion: "3.6.8"
 dependencies:
 - name: replicated
-  version: "~1.0.0"
+  version: "~1.2.0"
   repository: "oci://registry.replicated.com/library"
   condition: replicated.enabled
