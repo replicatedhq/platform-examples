@@ -1,0 +1,89 @@
+version: "3"
+
+tasks:
+  get-kubeconfig:
+    desc: Get kubeconfig for the test cluster (internal)
+    internal: true
+    silent: false
+    run: once
+    cmds:
+      - |
+        echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
+        replicated cluster kubeconfig --name {{.CLUSTER_NAME}} --output-path {{.KUBECONFIG_FILE}}
+        export KUBECONFIG={{.KUBECONFIG_FILE}}
+    status:
+      - test -f {{.KUBECONFIG_FILE}}
+
+  remove-k3s-traefik:
+    desc: Remove pre-installed Traefik from k3s clusters (internal)
+    internal: true
+    silent: false
+    run: once
+    status:
+      - |
+        # Only check if we need to run this for k3s distributions
+        if [ "{{.DISTRIBUTION}}" != "k3s" ]; then
+          exit 0  # Not a k3s cluster, so we're "done"
+        fi
+        
+        # Check if traefik is already removed by looking for the helm releases
+        KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | \
+          jq -e 'map(select(.name == "traefik" or .name == "traefik-crd")) | length == 0' >/dev/null
+    cmds:
+      - |
+        # Only run for k3s distributions
+        if [ "{{.DISTRIBUTION}}" = "k3s" ]; then
+          echo "Checking for pre-installed Traefik in k3s cluster..."
+          
+          # Check if traefik is installed in kube-system namespace
+          TRAEFIK_CHARTS=$(KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | jq -r '.[] | select(.name == "traefik" or .name == "traefik-crd") | .name')
+          
+          if [ -n "$TRAEFIK_CHARTS" ]; then
+            echo "Found pre-installed Traefik charts in kube-system namespace. Removing..."
+            
+            for chart in $TRAEFIK_CHARTS; do
+              echo "Uninstalling chart: $chart"
+              KUBECONFIG={{.KUBECONFIG_FILE}} helm uninstall $chart -n kube-system --wait
+            done
+            
+            echo "Pre-installed Traefik removed successfully!"
+          else
+            echo "No pre-installed Traefik charts found in kube-system namespace."
+          fi
+        else
+          echo "Not a k3s cluster, skipping Traefik removal."
+        fi
+    deps:
+      - get-kubeconfig
+
+  wait-for-cluster:
+    desc: Wait for cluster to be in running state
+    internal: true
+    silent: true
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      TIMEOUT: '{{.TIMEOUT | default "300"}}'
+    cmds:
+      - |
+        echo "Waiting for cluster {{.CLUSTER_NAME}} (timeout {{.TIMEOUT}}s)..."
+        start=$(date +%s)
+        attempt=1
+        while true; do
+          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status')
+          
+          if [ "$CLUSTER_STATUS" = "running" ]; then
+            elapsed=$(($(date +%s) - start))
+            echo "Cluster {{.CLUSTER_NAME}} is ready! (took $elapsed seconds)"
+            break
+          fi
+          
+          elapsed=$(($(date +%s) - start))
+          if [ $elapsed -ge {{.TIMEOUT}} ]; then
+            echo "Timeout after {{.TIMEOUT}} seconds waiting for cluster to be ready"
+            exit 1
+          fi
+          
+          printf "\rWaiting... %ds elapsed (attempt %d) - Current status: %s   " "$elapsed" "$attempt" "$CLUSTER_STATUS"
+          sleep 5
+          attempt=$((attempt+1))
+        done

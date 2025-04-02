@@ -1,0 +1,79 @@
+version: "3"
+
+includes:
+  utils: ./taskfiles/utils.yml
+
+vars:
+  # Application configuration
+  APP_NAME: '{{.APP_NAME | default "cms"}}'
+
+
+  # Cluster configuration
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default (printf "%s-test-cluster" .APP_NAME)}}'
+  K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
+  DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
+  INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
+  DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
+  KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task -s --list
+
+  create-cluster:
+    desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
+    run: once
+    silent: false
+    vars:
+      EMBEDDED: '{{.EMBEDDED | default "false"}}'
+      LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
+      TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
+    status:
+      - replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null
+    cmds:
+      - |
+        if [ "{{.EMBEDDED}}" = "true" ]; then
+          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.LICENSE_ID}}..."
+          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}}
+        else
+          echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
+          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}}
+        fi
+      - task: utils:wait-for-cluster
+        vars:
+          TIMEOUT: "{{.TIMEOUT}}"
+  
+  setup-kubeconfig:
+    desc: Get kubeconfig and prepare cluster for application deployment
+    silent: false
+    run: once
+    cmds:
+      - task: utils:get-kubeconfig
+      - task: utils:remove-k3s-traefik
+    status:
+      - |
+        # Check if kubeconfig exists
+        test -f {{.KUBECONFIG_FILE}} && \
+        # For k3s, also check if traefik is removed
+        if [ "{{.DISTRIBUTION}}" = "k3s" ]; then
+          KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | \
+            jq -e 'map(select(.name == "traefik" or .name == "traefik-crd")) | length == 0' >/dev/null
+        else
+          true
+        fi
+    deps:
+      - create-cluster
+        
+
+  export-kubeconfig:
+    desc: Export kubeconfig to environment variable
+    cmds:
+      - |
+        echo "Run this command in your terminal to set KUBECONFIG:"
+        echo "export KUBECONFIG={{.KUBECONFIG_FILE}}"
+    deps:
+      - setup-kubeconfig
+        
+
