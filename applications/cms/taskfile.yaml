@@ -89,8 +89,9 @@ tasks:
     desc: Export kubeconfig to environment variable
     cmds:
       - |
-        echo "Run this command in your terminal to set KUBECONFIG:"
-        echo "export KUBECONFIG={{.KUBECONFIG_FILE}}"
+        FULL_PATH=$(realpath {{.KUBECONFIG_FILE}})
+        echo -e "\033[31mRun this command in your terminal to set KUBECONFIG:\033[0m"
+        echo -e "\033[31mexport KUBECONFIG=$FULL_PATH\033[0m"
     deps:
       - setup-kubeconfig
         
