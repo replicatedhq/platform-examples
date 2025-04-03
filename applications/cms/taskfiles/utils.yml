@@ -10,7 +10,6 @@ tasks:
       - |
         echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
         replicated cluster kubeconfig --name {{.CLUSTER_NAME}} --output-path {{.KUBECONFIG_FILE}}
-        export KUBECONFIG={{.KUBECONFIG_FILE}}
     status:
       - test -f {{.KUBECONFIG_FILE}}
 
