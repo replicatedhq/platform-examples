@@ -9,7 +9,9 @@ metadata:
       {{- include "strapi.labels" . | nindent 4 }}
 spec:
   accessModes: {{ .Values.storage.accessModes }}
+  {{- if .Values.storage.storageClassName }}
   storageClassName: {{ .Values.storage.storageClassName }}
+  {{- end }}
   resources:
     requests:
       storage: {{ .Values.storage.capacity }}

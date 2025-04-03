@@ -9,7 +9,6 @@ storage:
     enabled: true
   accessModes: 
     - "ReadWriteOnce"
-  storageClassName: "hostpath"
   mountPath: "/srv/app"
   capacity: 5Gi
 
