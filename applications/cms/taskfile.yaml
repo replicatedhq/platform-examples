@@ -44,6 +44,24 @@ tasks:
       - task: utils:wait-for-cluster
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
+
+  verify-kubeconfig:
+    desc: Verify kubeconfig
+    silent: false
+    run: once
+    cmds:
+      - |
+        if [ -f {{.KUBECONFIG_FILE}} ]; then
+          echo "Getting Cluster ID From Replicated Cluster list"
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+          echo "Getting Cluster ID From Kubeconfig"
+          CLUSTER_ID_KUBECONFIG=$(grep "current-context:" {{.KUBECONFIG_FILE}} | cut -d'-' -f3)
+          if [ "$CLUSTER_ID" != "$CLUSTER_ID_KUBECONFIG" ]; then
+            echo "{{.CLUSTER_NAME}} Cluster ID between Replicated ($CLUSTER_ID) and Kubeconfig ($CLUSTER_ID_KUBECONFIG) mismatch"
+            echo "Removing old kubeconfig file"
+            rm -f {{.KUBECONFIG_FILE}}
+          fi
+        fi     
   
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
@@ -65,7 +83,7 @@ tasks:
         fi
     deps:
       - create-cluster
-        
+      - verify-kubeconfig
 
   export-kubeconfig:
     desc: Export kubeconfig to environment variable
