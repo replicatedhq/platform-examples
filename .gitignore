@@ -1,5 +1,7 @@
 # Helm-specific ignores
 **/charts/*.tgz
+**/.specstory/
+
 
 # Ignore Helm dependency directories
 **/charts/*.lock
@@ -21,6 +23,7 @@
 # System-specific ignores
 .DS_Store
 Thumbs.db
+.envrc
 
 # Python ignores
 *.pyc

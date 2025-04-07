@@ -10,3 +10,5 @@ spec:
       value: Payment
     frontend_name:
       value: Checkout
+    hostname:
+      value: gerard-vm.testcluster.net

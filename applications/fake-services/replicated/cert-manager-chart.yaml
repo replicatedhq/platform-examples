@@ -1,0 +1,18 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: cert-manager
+spec:
+  chart:
+    name: cert-manager
+    chartVersion: v1.17.0
+  releaseName: cert-manager
+  weight: -4
+  helmUpgradeFlags:
+    - --wait
+    - --debug
+  values:
+    global:
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
+    installCRDs: true

@@ -1,0 +1,15 @@
+---
+apiVersion: v2
+description: A Helm chart for PowerDNS Recursor, using the Helm "library chart" pattern from https://bjw-s.github.io/helm-charts.
+name: powerdns-recursor
+type: application
+version: 0.2.0
+appVersion: 5.0.5
+kubeVersion: '>=1.26.0-0'
+maintainers:
+  - name: adamancini
+    email: ada@annarchy.net
+dependencies:
+  - name: common
+    repository: https://bjw-s.github.io/helm-charts
+    version: 3.5.1

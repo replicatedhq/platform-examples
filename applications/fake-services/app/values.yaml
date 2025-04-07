@@ -7,14 +7,14 @@ image:
 
 frontend:
   name: "frontend"
-  message: "Hello from frontend!"
+  message: "New frontend update! This is the way!"
   serverType: "http"
   logLevel: "debug"
   port: 9090
 
 backend:
   name: "backend"
-  message: "Hello from backend!"
+  message: "New backend update"
   serverType: "http"
   logLevel: "debug"
   port: 9091
@@ -40,6 +40,21 @@ ingress-nginx:
     service:
       type: NodePort
       nodePorts:
-        http: 30080
+        http: 80
+        https: 443
   ingressClassResource:
     default: true
+
+rqliteui:
+  image:
+    registry: docker.io
+    repository: gerardnguyen/rqman
+    tag: 0.0.3
+    pullPolicy: IfNotPresent
+    imagePullSecrets: []
+
+cert-manager:
+  enabled: true
+
+ingress:
+  host: gerard-vm.testcluster.net

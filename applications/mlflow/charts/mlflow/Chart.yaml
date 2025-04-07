@@ -2,13 +2,13 @@ apiVersion: v2
 name: mlflow
 description: A Helm chart for MLflow - Open source platform for the machine learning lifecycle.
 type: application
-version: "0.3.0"
+version: "0.4.0"
 appVersion: "2.10.0"
 home: https://github.com/mlflow/mlflow/tree/master/charts/mlflow
 sources:
   - https://github.com/mlflow/mlflow/tree/master/charts/mlflow
 dependencies:
 - name: replicated
-  version: "^1.0.0-beta.20"
+  version: "^1.1.0"
   repository: "oci://registry.replicated.com/library"
   condition: replicated.enabled

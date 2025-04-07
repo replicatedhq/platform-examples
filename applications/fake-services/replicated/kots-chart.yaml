@@ -10,7 +10,7 @@ spec:
     - --debug
   values:
     image:
-      registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+      registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quirkyquokka.dev" }}'
       repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/fake-service'
       imagePullSecrets:
         - name: "{{repl ImagePullSecretName }}"
@@ -29,10 +29,26 @@ spec:
         - name: "{{repl ImagePullSecretName }}"
       controller:
         image:
-          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quirkyquokka.dev" }}'
           image: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/controller'
         admissionWebhooks:
           patch:
             image:
-              registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+              registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quirkyquokka.dev" }}'
               image: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/kube-webhook-certgen'
+        service:
+          type: NodePort
+          nodePorts:
+            http: "80"
+            https: "443"
+    rqliteui:
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quirkyquokka.dev" }}'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "proxy/gerard-helm-fake-service/429114214526.dkr.ecr.ap-southeast-2.amazonaws.com/gerard" }}/rqman'
+        imagePullSecrets:
+          - name: "{{repl ImagePullSecretName }}"
+    ingress:
+      host: '{{repl ConfigOption "hostname" }}'
+    replicated:
+      podLabels:
+        message: thisistheway

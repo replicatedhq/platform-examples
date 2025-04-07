@@ -1,0 +1,9 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: powerdns-authoritative
+spec:
+  chart:
+    name: powerdns-authoritative
+    chartVersion: 0.2.0
+    weight: 90

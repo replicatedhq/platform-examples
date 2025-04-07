@@ -1,9 +1,9 @@
 dependencies:
 - name: cloudnative-pg
   repository: https://cloudnative-pg.github.io/charts
-  version: 0.21.2
+  version: 0.23.0
 - name: operator
   repository: https://operator.min.io/
-  version: 5.0.15
-digest: sha256:5b12374f3685717296763374504bb944e17653bd37b3242a48b1550e2ad5b484
-generated: "2024-07-18T11:42:24.113804-04:00"
+  version: 7.0.0
+digest: sha256:1cc4b5c1157967ffa197326b1ecb1331c164b649ff8dc987584e7400f2c71d73
+generated: "2025-02-09T00:40:29.792212-05:00"

@@ -23,6 +23,9 @@ helm-install-dry-run:
 helm-template:
 	helm template $(REPLICATED_APP) $(CHART_DIR)
 
+helm-template-with-values:
+	yq '.spec.values' replicated/kots-sample-config-values.yaml | helm template $(REPLICATED_APP) --values - $(CHART_DIR)
+
 helm-install:
 	helm install $(REPLICATED_APP) --debug --wait $(CHART_DIR)
 

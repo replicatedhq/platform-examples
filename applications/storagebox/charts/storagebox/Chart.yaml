@@ -1,0 +1,23 @@
+apiVersion: v2
+name: storagebox
+description: A Helm chart for different storage options
+type: application
+version: 0.16.0
+appVersion: 1.0.0
+dependencies:
+- name: replicated
+  version: "~1.0.0"
+  repository: "oci://registry.replicated.com/library"
+  condition: replicated.enabled
+- name: cassandra
+  version: "~11.4.2"
+  repository: https://charts.bitnami.com/bitnami
+  condition: cassandra.enabled
+- name: nfs-server
+  version: "~1.1.2"
+  repository: https://charts.obeone.cloud
+  condition: nfs-server.enabled
+- name: tenant
+  version: "6.0.4"
+  repository: https://operator.min.io
+  condition: tenant.enabled

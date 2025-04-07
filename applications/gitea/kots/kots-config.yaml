@@ -1,0 +1,42 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  # Postgres settings
+  - name: postgres_settings
+    title: Postgres database settings
+    items:
+    - name: internal_postgres_enabled
+      title: Enable Internal Postgres
+      type: bool
+      default: false
+      required: true
+      description: Enable Postgres
+    - name: postgres_user
+      title: Postgres User
+      type: text
+      default: postgres
+      required: true
+      description: The username for the Postgres user
+    - name: postgres_password
+      title: Postgres Password
+      type: password
+      default: postgres
+      required: true
+      description: Postgres user password
+      secret: true
+    - name: postgres_db
+      title: Postgres Database Name
+      type: text
+      default: postgres
+      required: true
+      description: The name of the Postgres database
+    - name: postgres_host
+      title: Postgres Database Host
+      type: text
+      default: postgresql
+      required: true
+      description: The host of the Postgres database

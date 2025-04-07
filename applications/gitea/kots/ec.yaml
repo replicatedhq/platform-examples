@@ -1,0 +1,21 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: 2.0.0+k8s-1.30
+  extensions:
+    helm:
+      repositories:
+        - name: ingress-nginx
+          url: https://kubernetes.github.io/ingress-nginx
+      charts:
+        - name: ingress-nginx
+          chartname: ingress-nginx/ingress-nginx
+          namespace: ingress-nginx
+          version: "4.9.1"
+          values: |
+            controller:
+              service:
+                type: NodePort
+                nodePorts:
+                  http: 80
+                  https: 443
