@@ -11,3 +11,11 @@ spec:
     - name: worker
       labels:
         worker: "true"
+  unsupportedOverrides:
+    k0s: |
+      config:
+        spec:
+          workerProfiles:
+            - name: increased-pod-limit
+              values:
+                maxPods: 250
