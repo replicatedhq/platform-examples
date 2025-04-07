@@ -5,8 +5,7 @@ metadata:
 spec:
   chart:
     name: wg-easy
-    chartVersion: '1.0.0'
-    #chartVersion: '*'
+    chartVersion: 1.0.0
   weight: 3
   
   # helmUpgradeFlags specifies additional flags to pass to the `helm upgrade` command.

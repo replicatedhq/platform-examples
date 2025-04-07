@@ -56,6 +56,15 @@ tasks:
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
 
+  list-cluster:
+    desc: List the cluster
+    silent: false
+    cmds:
+      - |
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .expires_at')
+        echo "{{.CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
+
   test:
     desc: Run a basic test suite
     silent: false
@@ -196,6 +205,17 @@ tasks:
           rm "{{.KUBECONFIG_FILE}}"
         fi
       - echo "All matching clusters deleted and kubeconfig cleaned up!"
+
+  update-version:
+    desc: Update the version in the .env file
+    dotenv: ['.env']
+    silent: false
+    cmds:
+      - echo "Creating new version with Replicated using version $VERSION"
+      - |
+        sed -i '' 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: '$VERSION'|g' wg-easy/replicated/helmChart-wg-easy.yaml; \
+        sed -i '' 's|^version: [0-9a-zA-Z.-]*|version: '$VERSION'|' wg-easy/Chart.yaml; \
+        echo "Updated version and appVersion to $VERSION in chart files"
 
   prepare-release:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
