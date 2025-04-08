@@ -1,0 +1,17 @@
+# Test values for MLflow CI pipeline
+# These values specifically configure the service to use NodePort for testing
+
+mlflow:
+  ingress: 
+    enabled: false
+  # Service configuration for MLflow
+  service:
+    # Use NodePort to expose the service on a specific port
+    type: NodePort
+    # Service port number (internal)
+    port: 5000
+    # Hardcoded nodePort for consistent access 
+    # Note: Must be between 30000-32767
+    nodePort: 30080
+    # Service port name
+    name: http
