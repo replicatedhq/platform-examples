@@ -1,0 +1,27 @@
+helmDefaults:
+  wait: true
+  timeout: 66
+
+repositories:
+  - name: cloudnative-pg
+    url: https://cloudnative-pg.github.io/charts
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+
+releases:
+  - name: cloudnative-pg
+    namespace: n8n
+    chart: cloudnative-pg/cloudnative-pg
+    version: 0.20.5
+    values: []
+
+  - name: ingress-nginx
+    namespace: n8n
+    chart: ingress-nginx/ingress-nginx
+    version: 4.7.1
+    values: []
+
+  - name: n8n
+    namespace: n8n
+    chart: ./n8n
+    values: [] 
