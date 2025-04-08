@@ -261,23 +261,37 @@ tasks:
         done
       
       - echo "Release files prepared in ./release/ directory"
-      
+    deps:
+      - update-version
+
+
   release-create:
     desc: Create and promote a release using the Replicated CLI
     silent: false
-    vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
+    dotenv: ['.env']
     cmds:
-      - echo "Creating and promoting release for {{.APP_NAME}} to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for $APP_NAME to channel $CHANNEL..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_NAME}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}}
-        
-        echo "Release created and promoted to channel {{.CHANNEL}}"
+        replicated release create --app $APP_NAME --yaml-dir ./release --release-notes "$RELEASE_NOTES" --promote $CHANNEL --version $VERSION
+        echo "Release version $VERSION created and promoted to channel $CHANNEL"
     deps:
       - prepare-release
+
+  release-inspect:
+    desc: Inspect the release
+    silent: false
+    dotenv: ['.env']
+    cmds:
+      - |
+        release_sequence=$(replicated channel inspect $CHANNEL --output json | jq -r '.releaseSequence')
+        echo "Release sequence: $release_sequence"
+        app_id=$(replicated app ls --output json | jq -r '.[] | select(.app.name == "'$APP_NAME'") | .app.id')
+        echo "App ID: $app_id"
+        curl -X GET "https://api.replicated.com/vendor/v3/app/$app_id/release/$release_sequence" \
+          -H "Authorization: Bearer $REPLICATED_API_TOKEN" \
+          -H "Content-Type: application/json"
 
   create-gcp-vm:
     desc: Create a simple GCP VM instance
