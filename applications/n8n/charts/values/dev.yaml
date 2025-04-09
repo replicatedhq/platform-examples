@@ -1,0 +1,18 @@
+# small deployment with nodeport for local testing or small deployments
+# no Postgres, no Ingress
+n8n:
+  main:
+    config:
+      n8n:
+        hide_usage_page: true
+    secret:
+      n8n:
+        encryption_key: "thisistheway"
+    resources:
+      limits:
+        memory: 2048Mi
+      requests:
+        memory: 512Mi
+    service:
+      type: NodePort
+      port: 5678

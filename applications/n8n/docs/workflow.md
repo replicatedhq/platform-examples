@@ -35,4 +35,8 @@ Digest: sha256:318c4abf101e6aa50a5ffad3199f7073eb3a91678f03d37cc358946984150315
 
 Study the Helm chart source code for deeper understanding.
 
-At this point, you'll see that n8n needs Nginx Ingress and Postgres. The next step is to automate these dependencies using `helmfile`.
+You'll see that n8n needs Nginx Ingress and Postgres. The next step is to set up these parts using `helmfile`. We keep these parts separate from the Helm chart.
+
+After writing the `helmfile`, run `helmfile template | ag "# Source"` to see what will be deployed. 
+
+## Step 2: Populate values

@@ -1,27 +1,32 @@
-helmDefaults:
-  wait: true
-  timeout: 66
-
 repositories:
   - name: cloudnative-pg
     url: https://cloudnative-pg.github.io/charts
-  - name: ingress-nginx
-    url: https://kubernetes.github.io/ingress-nginx
+  - name: traefik
+    url: https://helm.traefik.io/traefik
 
+environments:
+  dev: {}
+  prod: {}
+
+commonLabels:
+  app: n8n-stack
+
+---
 releases:
   - name: cloudnative-pg
     namespace: n8n
     chart: cloudnative-pg/cloudnative-pg
-    version: 0.20.5
-    values: []
+    version: 0.23.2
+    installed: {{ eq .Environment.Name "prod" }}
 
-  - name: ingress-nginx
-    namespace: n8n
-    chart: ingress-nginx/ingress-nginx
-    version: 4.7.1
-    values: []
+  - name: traefik
+    namespace: traefik
+    chart: traefik/traefik
+    version: 35.0.0
+    installed: {{ eq .Environment.Name "prod"}}
 
   - name: n8n
     namespace: n8n
     chart: ./n8n
-    values: [] 
+    values:
+      - values/{{ .Environment.Name }}.yaml
