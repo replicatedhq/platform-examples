@@ -40,4 +40,8 @@ __pycache__/
 *.tfvars.json
 *.tfvars.json.lock
 
+# Misc
 .env
+
+# Cursor
+.cursor/
