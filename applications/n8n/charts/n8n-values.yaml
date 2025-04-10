@@ -6,7 +6,7 @@ main:
       postgresdb:
         host: db-rw
         user: n8n
-#        password: password is read from cnpg db-app secretKeyRef
+        #        password: password is read from cnpg db-app secretKeyRef
         pool:
           size: 10
         ssl:
@@ -29,7 +29,6 @@ main:
     - name: db-ca-cert
       mountPath: /home/ssl/certs/postgresql
       readOnly: true
-
   extraVolumes:
     - name: db-ca-cert
       secret:
@@ -42,10 +41,8 @@ main:
       memory: 2048Mi
     requests:
       memory: 512Mi
-
 ingress:
   enabled: false
-
 # cnpg DB cluster request
 extraManifests:
   - apiVersion: postgresql.cnpg.io/v1

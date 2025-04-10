@@ -12,6 +12,9 @@ terraform {
 }
 
 provider "helm" {
+  experiments {
+    manifest = true
+  }
   kubernetes {
     config_path = "~/.kube/config"
   }
@@ -92,20 +95,7 @@ resource "random_password" "encryption_key" {
   special = false
 }
 
-# resource "random_password" "db_password" {
-#   length  = 16
-#   special = false
-# }
-
-# # Create a secret for PostgreSQL credentials
-# resource "kubernetes_secret" "postgres_credentials" {
-#   metadata {
-#     name      = "n8n-db-credentials"
-#     namespace = kubernetes_namespace.n8n.metadata[0].name
-#   }
-
-#   data = {
-#     username = "n8n"
-#     password = random_password.db_password.result
-#   }
-# } 
+output "n8n_template" {
+  sensitive = true
+  value = helm_release.n8n.manifest
+}

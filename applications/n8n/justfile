@@ -1,3 +1,34 @@
+set dotenv-load
+
+customer_name := "dev-customer"
+channel_name := "workflow-experiment"
+
+setup:
+    @echo "Create DEV customer..."
+    replicated customer create --name {{customer_name}} --channel {{channel_name}}
+    @echo "CUSTOMER_ID=$(replicated customer inspect --customer {{customer_name}} --output json | jq -r '.id')" >> .env
+    @echo "LICENSE_ID=$(replicated customer inspect --customer {{customer_name}} --output json | jq -r '.installationId')" >> .env
+
+    @echo "Setting up Terraform..."
+    terraform init
+
+install:
+    @echo "Add DEV customer to n8n-values.yaml..."
+    @echo "Installing all charts..."
+    terraform apply --auto-approve
+
+destroy:
+    @echo "Destroying Terraform..."
+    terraform destroy --auto-approve
+    @echo "Remove global/replicated block from n8n-values.yaml if any..."
+    yq -i 'del(.global)' ./charts/n8n-values.yaml
+    yq -i 'del(.replicated)' ./charts/n8n-values.yaml
+    @echo "Delete DEV customer..."
+    replicated customer archive "$CUSTOMER_ID"
+    @echo "Remove env CUSTOMER_ID and LICENSE_ID..."
+    gsed -i '/^CUSTOMER_ID=/d' .env || true
+    gsed -i '/^LICENSE_ID=/d' .env || true
+
 helm-dep-update:
     @echo "Updating Helm dependencies for n8n chart..."
     cd charts/n8n && helm dependency update
@@ -6,6 +37,31 @@ helm-template:
     @echo "Running helm template to verify current values..."
     helm template n8n ./charts/n8n -f ./charts/n8n-values.yaml --debug
 
+helm-lint:
+    @echo "Running helm lint to verify current values..."
+    helm lint ./charts/n8n -f ./charts/n8n-values.yaml --debug
+
+helm-diff:
+    @echo "Running helm diff to verify current values..."
+    helm diff upgrade n8n -n n8n ./charts/n8n -f ./charts/n8n-values.yaml --debug
+
+get-manifests:
+    @echo "Getting manifests for n8n chart..."
+    terraform output n8n_template | jq -r '. | fromjson' | yq -P
+
 create-replicated-release version channel:
     @echo "Creating replicated release..."
     dagger call create-replicated-release --token=env://REPLICATED_API_TOKEN --version={{version}} --channel={{channel}}
+
+show-replicated-values:
+    @echo "Logging into replicated registry with license ID..."
+    helm registry login registry.replicated.com --username $LICENSE_ID --password $LICENSE_ID
+    @echo "Showing values from replicated Helm chart..."
+    helm show values oci://registry.replicated.com/library/replicated --version 1.5.0 | yq
+    @echo "Logging out from replicated registry..."
+    helm registry logout registry.replicated.com
+
+set-replicated-values:
+    @echo "Setting replicated values in n8n-values.yaml..."
+    yq eval -i '.replicated.integration.licenseID = env(LICENSE_ID)' ./charts/n8n-values.yaml
+    yq eval -i '.replicated.integration.enabled = true' ./charts/n8n-values.yaml

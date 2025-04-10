@@ -30,3 +30,14 @@ Thumbs.db
 *.pyo
 *.pyd
 __pycache__/
+
+# Terraform
+*.tfvars
+*.terraform
+*.tfplan
+*.tfstate
+*.tfstate.backup
+*.tfvars.json
+*.tfvars.json.lock
+
+.env
