@@ -1,0 +1,20 @@
+{
+  "name": "n8n",
+  "engineVersion": "v0.18.1",
+  "sdk": {
+    "source": "go"
+  },
+  "dependencies": [
+    {
+      "name": "helm",
+      "source": "github.com/sagikazarmark/daggerverse/helm@helm/v0.14.0",
+      "pin": "4981f49ead356d64a860ef85caec9b0622933ad7"
+    },
+    {
+      "name": "replicated",
+      "source": "github.com/replicatedhq/daggerverse/replicated@1b8faf528b3c00b6b400bc7555ea4b5de5224ef8",
+      "pin": "1b8faf528b3c00b6b400bc7555ea4b5de5224ef8"
+    }
+  ],
+  "source": "dagger"
+}

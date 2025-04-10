@@ -1,0 +1,11 @@
+helm-dep-update:
+    @echo "Updating Helm dependencies for n8n chart..."
+    cd charts/n8n && helm dependency update
+
+helm-template:
+    @echo "Running helm template to verify current values..."
+    helm template n8n ./charts/n8n -f ./charts/n8n-values.yaml --debug
+
+create-replicated-release version channel:
+    @echo "Creating replicated release..."
+    dagger call create-replicated-release --token=env://REPLICATED_API_TOKEN --version={{version}} --channel={{channel}}
