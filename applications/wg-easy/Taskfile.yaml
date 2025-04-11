@@ -237,7 +237,7 @@ tasks:
         
         echo "Release created and promoted to channel {{.CHANNEL}}"
     deps:
-      - prepare-release
+      - release-prepare
 
   create-gcp-vm:
     desc: Create a simple GCP VM instance
