@@ -69,7 +69,7 @@ kubectl get ingressroutes -A
 
 ```bash
 # Prepare release files
-task prepare-release
+task release-prepare
 
 # Create a release
 task release-create
@@ -145,7 +145,7 @@ spec:
 During release preparation, these files are automatically merged:
 
 ```bash
-task prepare-release
+task release-prepare
 ```
 
 This produces a combined `config.yaml` in the release directory with all options from both components.

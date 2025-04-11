@@ -63,7 +63,7 @@ These tasks support preparing and creating releases.
 
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
-| `prepare-release` | Packages charts and merges configuration files for release | Stage 6: Release Preparation |
+| `release-prepare` | Packages charts and merges configuration files for release | Stage 6: Release Preparation |
 | `release-create` | Creates and promotes a release using the Replicated CLI | Stage 6: Release Preparation |
 | `test` | Runs basic validation tests against the deployed application | Stage 5-7: Validation |
 
@@ -72,7 +72,7 @@ TODO: The test task is a placeholder currently it just sleeps and returns positi
 ### Release Process Example
 
 ```bash
-task prepare-release && task release-create CHANNEL=Beta
+task release-prepare && task release-create CHANNEL=Beta
 ```
 
 ## Automation Tasks
@@ -116,7 +116,7 @@ These tasks are designed to support the progressive complexity approach:
 
 1. **Early Stages** - Use `update-dependencies` and helm commands directly
 2. **Middle Stages** - Use `create-cluster`, `deploy-helm`,  and `test`
-3. **Later Stages** - Use `prepare-release`, `release-create`, and embedded cluster tasks
+3. **Later Stages** - Use `release-prepare`, `release-create`, and embedded cluster tasks
 
 This organization allows developers to focus on the appropriate level of complexity at each stage of development.
 

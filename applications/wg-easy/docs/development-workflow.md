@@ -191,7 +191,7 @@ Prepare a release package for distribution.
 1. Generate release files:
 
    ```bash
-   task prepare-release
+   task release-prepare
    ```
 
 2. Inspect the generated release files:
