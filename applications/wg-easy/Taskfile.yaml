@@ -177,7 +177,7 @@ tasks:
         fi
       - echo "All matching clusters deleted and kubeconfig cleaned up!"
 
-  prepare-release:
+  release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
     silent: false
     cmds:
