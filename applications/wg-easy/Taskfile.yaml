@@ -5,7 +5,7 @@ includes:
 
 vars:
   # Application configuration
-  APP_NAME: '{{.APP_NAME | default "wg-easy"}}'
+  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
   
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
