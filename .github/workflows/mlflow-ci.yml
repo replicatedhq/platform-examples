@@ -221,7 +221,6 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           cluster-name: mlflow-ci-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}-${{ matrix.config.name }}
           disk: 100
-          instance-type: r1.large
           ttl: 1h
           export-kubeconfig: true
 
