@@ -8,9 +8,9 @@ These tasks support the iterative development process, focusing on fast feedback
 
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
-| `update-dependencies` | Updates Helm dependencies for all charts in the repository | Stage 1: Dependencies |
-| `deploy-helm` | Deploys all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
-| `expose-ports` | Exposes the configured ports on the cluster for testing | Stage 4-5: Chart Installation/Integration |
+| `dependencies-update` | Updates Helm dependencies for all charts in the repository | Stage 1: Dependencies |
+| `helm-deploy` | Deploys all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
+| `ports-expose` | Exposes the configured ports on the cluster for testing | Stage 4-5: Chart Installation/Integration |
 | `remove-k3s-traefik` | Removes pre-installed Traefik from k3s clusters to avoid conflicts | Stage 4-5: Chart Installation/Integration |
 
 ### Common Development Combinations
@@ -32,18 +32,18 @@ These tasks help manage the development and testing environments.
 
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
-| `create-cluster` | Creates a test Kubernetes cluster using Replicated's Compatibility Matrix | Stage 4: Single Chart Install |
+| `cluster-create` | Creates a test Kubernetes cluster using Replicated's Compatibility Matrix | Stage 4: Single Chart Install |
 | `setup-kubeconfig` | Retrieves and sets up the kubeconfig for the test cluster | Stage 4: Single Chart Install |
-| `delete-cluster` | Deletes the test cluster and cleans up resources | Stage 4-5: Cleanup |
-| `create-gcp-vm` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
-| `delete-gcp-vm` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
-| `setup-embedded-cluster` | Sets up a Replicated embedded cluster on the GCP VM | Stage 7: Embedded Testing |
+| `cluster-delete` | Deletes the test cluster and cleans up resources | Stage 4-5: Cleanup |
+| `gcp-vm-create` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
+| `gcp-vm-delete` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
+| `embedded-cluster-setup` | Sets up a Replicated embedded cluster on the GCP VM | Stage 7: Embedded Testing |
 
 ### Common Environment Combinations
 
 **Create Test Environment:**
 ```bash
-task create-cluster && task setup-kubeconfig
+task cluster-create && task setup-kubeconfig
 OR
 task setup-kubeconfig
 ```
@@ -52,7 +52,7 @@ While tasks can be run in order, they also have dependencies. Running the get-ku
 
 **Cleanup After Testing:**
 ```bash
-task delete-cluster
+task cluster-delete
 ```
 
 Creating a cluster can take up to 5 minutes and helm charts should be uninstalled/reinstalled while developing rather than removing the entire cluster to iterate in seconds rather than minutes.
@@ -63,7 +63,7 @@ These tasks support preparing and creating releases.
 
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
-| `prepare-release` | Packages charts and merges configuration files for release | Stage 6: Release Preparation |
+| `release-prepare` | Packages charts and merges configuration files for release | Stage 6: Release Preparation |
 | `release-create` | Creates and promotes a release using the Replicated CLI | Stage 6: Release Preparation |
 | `test` | Runs basic validation tests against the deployed application | Stage 5-7: Validation |
 
@@ -72,7 +72,7 @@ TODO: The test task is a placeholder currently it just sleeps and returns positi
 ### Release Process Example
 
 ```bash
-task prepare-release && task release-create CHANNEL=Beta
+task release-prepare && task release-create CHANNEL=Beta
 ```
 
 ## Automation Tasks
@@ -100,13 +100,13 @@ Many tasks accept parameters to customize their behavior. Here are the most comm
 
 | Parameter | Used With | Description | Default |
 |-----------|-----------|-------------|---------|
-| `CLUSTER_NAME` | `create-cluster`, `setup-kubeconfig` | Name for the cluster | "test-cluster" |
-| `K8S_VERSION` | `create-cluster` | Kubernetes version | "1.32.2" |
-| `DISTRIBUTION` | `create-cluster` | Cluster distribution | "k3s" |
+| `CLUSTER_NAME` | `cluster-create`, `setup-kubeconfig` | Name for the cluster | "test-cluster" |
+| `K8S_VERSION` | `cluster-create` | Kubernetes version | "1.32.2" |
+| `DISTRIBUTION` | `cluster-create` | Cluster distribution | "k3s" |
 | `CHANNEL` | `release-create` | Channel to promote to | "Unstable" |
 | `RELEASE_NOTES` | `release-create` | Notes for the release | "" |
-| `GCP_PROJECT` | `create-gcp-vm` | GCP project ID | Required |
-| `GCP_ZONE` | `create-gcp-vm` | GCP zone | "us-central1-a" |
+| `GCP_PROJECT` | `gcp-vm-create` | GCP project ID | Required |
+| `GCP_ZONE` | `gcp-vm-create` | GCP zone | "us-central1-a" |
 
 Parameters in the Taskfile.yaml try to always have defaults so that it works out of the box but allows customization for common values.
 
@@ -114,9 +114,9 @@ Parameters in the Taskfile.yaml try to always have defaults so that it works out
 
 These tasks are designed to support the progressive complexity approach:
 
-1. **Early Stages** - Use `update-dependencies` and helm commands directly
-2. **Middle Stages** - Use `create-cluster`, `deploy-helm`,  and `test`
-3. **Later Stages** - Use `prepare-release`, `release-create`, and embedded cluster tasks
+1. **Early Stages** - Use `dependencies-update` and helm commands directly
+2. **Middle Stages** - Use `cluster-create`, `helm-deploy`,  and `test`
+3. **Later Stages** - Use `release-prepare`, `release-create`, and embedded cluster tasks
 
 This organization allows developers to focus on the appropriate level of complexity at each stage of development.
 

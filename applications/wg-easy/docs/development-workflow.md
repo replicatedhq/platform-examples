@@ -49,7 +49,7 @@ Begin by defining and verifying chart dependencies.
 2. Update dependencies:
 
    ```bash
-   task update-dependencies
+   task dependencies-update
    # Or for a single chart:
    helm dependency update ./cert-manager
    ```
@@ -113,7 +113,7 @@ Deploy individual charts to a test cluster to verify functionality.
 1. Create a test cluster if needed:
 
    ```bash
-   task create-cluster
+   task cluster-create
    task setup-kubeconfig
    ```
 
@@ -168,7 +168,7 @@ Test multiple charts working together using Helmfile orchestration.
 2. Deploy all charts:
 
    ```bash
-   task deploy-helm
+   task helm-deploy
    ```
 
 3. Verify cross-component integration:
@@ -191,7 +191,7 @@ Prepare a release package for distribution.
 1. Generate release files:
 
    ```bash
-   task prepare-release
+   task release-prepare
    ```
 
 2. Inspect the generated release files:
@@ -219,13 +219,13 @@ Test the full application and configuration screen in a using an embedded cluste
 1. Create a VM for testing:
 
    ```bash
-   task create-gcp-vm
+   task gcp-vm-create
    ```
 
 2. Set up an embedded cluster:
 
    ```bash
-   task setup-embedded-cluster
+   task embedded-cluster-setup
    ```
 
 3. Verify the application:

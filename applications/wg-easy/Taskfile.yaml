@@ -5,7 +5,7 @@ includes:
 
 vars:
   # Application configuration
-  APP_NAME: '{{.APP_NAME | default "wg-easy"}}'
+  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
   
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
@@ -33,7 +33,7 @@ tasks:
     cmds:
       - task -s --list
 
-  create-cluster:
+  cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     run: once
     silent: false
@@ -84,9 +84,9 @@ tasks:
           true
         fi
     deps:
-      - create-cluster
+      - cluster-create
 
-  update-dependencies:
+  dependencies-update:
     desc: Update Helm dependencies for all charts
     silent: false
     cmds:
@@ -99,7 +99,7 @@ tasks:
         done
       - echo "All dependencies updated!"
 
-  expose-ports:
+  ports-expose:
     desc: Expose configured ports and capture exposed URLs
     silent: false
     run: once
@@ -126,9 +126,9 @@ tasks:
         vars:
           OPERATION: "expose"
     deps:
-      - create-cluster
+      - cluster-create
 
-  deploy-helm:
+  helm-deploy:
     desc: Deploy all charts using helmfile
     silent: false
     cmds:
@@ -150,10 +150,10 @@ tasks:
       - echo "All charts deployed!"
     deps:
       - setup-kubeconfig
-      - expose-ports
+      - ports-expose
 
 
-  delete-cluster:
+  cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
     cmds:
@@ -177,7 +177,7 @@ tasks:
         fi
       - echo "All matching clusters deleted and kubeconfig cleaned up!"
 
-  prepare-release:
+  release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
     silent: false
     cmds:
@@ -237,9 +237,9 @@ tasks:
         
         echo "Release created and promoted to channel {{.CHANNEL}}"
     deps:
-      - prepare-release
+      - release-prepare
 
-  create-gcp-vm:
+  gcp-vm-create:
     desc: Create a simple GCP VM instance
     silent: false
     vars:
@@ -260,7 +260,7 @@ tasks:
           GCP_IMAGE_FAMILY: '{{.GCP_IMAGE_FAMILY}}'
           GCP_IMAGE_PROJECT: '{{.GCP_IMAGE_PROJECT}}'
 
-  delete-gcp-vm:
+  gcp-vm-delete:
     desc: Delete the GCP VM instance for K8s and VPN
     silent: false
     status:
@@ -273,14 +273,14 @@ tasks:
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
 
-  setup-embedded-cluster:
+  embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
     silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
-      - create-gcp-vm
+      - gcp-vm-create
     status:
       - |
         # Check if the application tarball has already been downloaded and extracted
@@ -300,10 +300,10 @@ tasks:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
     silent: false
     cmds:
-      - task: create-cluster
+      - task: cluster-create
       - task: setup-kubeconfig
-      - task: expose-ports
-      - task: update-dependencies
-      - task: deploy-helm
+      - task: ports-expose
+      - task: dependencies-update
+      - task: helm-deploy
       - task: test
-      - task: delete-cluster
+      - task: cluster-delete
