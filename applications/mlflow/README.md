@@ -90,8 +90,28 @@ The solution architecture consists of:
 
 - **MLflow Server**: Core MLflow tracking and registry services
 - **PostgreSQL**: Metadata storage for experiments, runs, and models
+  - Embedded PostgreSQL (default): Automatically deployed with the chart
+  - External PostgreSQL (optional): Connect to your existing database
 - **MinIO**: S3-compatible storage for artifacts and model files 
+  - Embedded MinIO (default): Automatically deployed with the chart
+  - External S3-compatible storage (optional): Connect to your existing object storage
 - **Replicated Integration**: Management layer for installation and updates
+
+### Storage Options
+
+This solution offers flexibility in how you store MLflow data:
+
+#### Metadata Storage
+
+- **Embedded PostgreSQL** (Default): Simplifies deployment with an automatically managed database
+- **External PostgreSQL**: Connect to your existing PostgreSQL instance for better control, scaling, and integration with your infrastructure
+
+#### Artifact Storage
+
+- **Embedded MinIO** (Default): Provides S3-compatible storage within the deployment
+- **External S3-compatible Storage**: Store artifacts in your own S3, GCS, or other S3-compatible storage service
+
+See the [Configuration Reference](./charts/mlflow/README_CONFIG.md) for detailed setup instructions.
 
 ## Getting Started
 
