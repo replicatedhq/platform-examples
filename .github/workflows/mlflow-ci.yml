@@ -145,6 +145,10 @@ jobs:
         cluster:
           - distribution: kind
             version: 1.32
+          - distribution: aks
+            version: 1.31
+          - distribution: gke
+            version: 1.32
         config:
           - name: nodeport-ingress-disabled
             values_file: tests/helm/nodeport-ingress-disabled.yaml
@@ -298,6 +302,10 @@ jobs:
       matrix:
         cluster:
           - distribution: kind
+            version: 1.32
+          - distribution: aks
+            version: 1.31
+          - distribution: gke
             version: 1.32
     steps:
       - name: Checkout
