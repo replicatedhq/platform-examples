@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: wg-easy
-    chartVersion: 1.0.0
+    chartVersion: '1.0.0'
     #chartVersion: '*'
   weight: 3
   
