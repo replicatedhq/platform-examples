@@ -145,8 +145,6 @@ jobs:
         cluster:
           - distribution: k3s
             version: 1.32
-          - distribution: aks
-            version: 1.31
           - distribution: gke
             version: 1.32
         config:
@@ -303,8 +301,6 @@ jobs:
         cluster:
           - distribution: k3s
             version: 1.32
-          - distribution: aks
-            version: 1.31
           - distribution: gke
             version: 1.32
     steps:
