@@ -44,7 +44,7 @@ ls -la ./rendered-templates/cert-manager/templates/
 
 ```bash
 # Create a test cluster
-task create-cluster
+task cluster-create
 task setup-kubeconfig
 
 # Install the single chart
