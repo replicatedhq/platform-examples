@@ -1,0 +1,139 @@
+{{- define "custom.config.header" -}}
+# Configuration
+
+This document outlines the configuration options for the MLflow Helm chart.
+{{- end -}}
+
+{{- define "custom.config.introduction" -}}
+The following table lists the configurable parameters for the MLflow chart and their default values.
+{{- end -}}
+
+{{- define "custom.config.advanced" -}}
+## Advanced Configuration
+
+### PostgreSQL Configuration
+
+The chart uses PostgreSQL for storing MLflow metadata. You can configure the database connection using:
+
+```yaml
+postgresql:
+  enabled: true
+  auth:
+    username: mlflow
+    password: mlflowpassword
+    database: mlflow
+  primary:
+    persistence:
+      size: 10Gi
+```
+
+### MinIO Configuration
+
+MinIO is used for artifact storage. Configure it with:
+
+```yaml
+minio:
+  enabled: true
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  persistence:
+    size: 20Gi
+  defaultBuckets: "mlflow"
+```
+{{- end -}}
+
+{{- define "custom.config.externalServices" -}}
+### Using External Storage
+
+To use external PostgreSQL:
+
+```yaml
+postgresql:
+  enabled: false
+
+mlflow:
+  backendStore:
+    databaseUri: "postgresql://user:password@external-postgresql:5432/mlflow"
+```
+
+To use external S3-compatible storage:
+
+```yaml
+minio:
+  enabled: false
+
+mlflow:
+  artifactRoot:
+    s3:
+      enabled: true
+      bucket: "mlflow"
+      endpoint: "s3.amazonaws.com"
+      accessKey: "your-access-key"
+      secretKey: "your-secret-key"
+      region: "us-east-1"
+```
+{{- end -}}
+
+{{- define "custom.config.replicated" -}}
+### Replicated SDK Integration
+
+Enable or disable the Replicated SDK integration:
+
+```yaml
+replicated:
+  enabled: true
+```
+
+For development environments, you'll typically want to disable this:
+
+```yaml
+replicated:
+  enabled: false
+```
+{{- end -}}
+
+{{- define "custom.config.security" -}}
+### Security Considerations
+
+By default, this chart doesn't include authentication. In production, consider:
+
+1. Using an ingress with authentication
+2. Setting up TLS encryption
+3. Configuring username/password protection
+
+Example ingress configuration with TLS:
+
+```yaml
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: mlflow.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: mlflow-tls
+      hosts:
+        - mlflow.example.com
+```
+{{- end -}}
+
+{{ template "custom.config.header" . }}
+
+{{ template "custom.config.introduction" . }}
+
+{{ template "custom.config.advanced" . }}
+
+{{ template "custom.config.externalServices" . }}
+
+{{ template "custom.config.replicated" . }}
+
+{{ template "custom.config.security" . }}
+
+{{ template "chart.valuesTable" . }}
+
+{{ template "chart.maintainersSection" . }}

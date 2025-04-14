@@ -1,0 +1,46 @@
+{{- define "custom.changelog.header" -}}
+# Changelog
+
+This file documents all notable changes to the MLflow Helm chart. The release numbering follows [Semantic Versioning](https://semver.org/).
+{{- end -}}
+
+{{- define "custom.changelog" -}}
+{{ template "custom.changelog.header" . }}
+
+## [{{ .Version }}]
+
+### Added
+- Added support for Replicated distribution
+- Integrated with Replicated SDK
+- Added example ML workflow for testing
+
+### Changed
+- Updated MLflow to version {{ .AppVersion }}
+- Improved PostgreSQL configuration options
+- Enhanced MinIO integration
+
+## [0.3.0]
+
+### Added
+- Support for artifact proxying through the tracking server
+- Additional security options for production deployments
+
+### Fixed
+- Connection issues with PostgreSQL backend
+- Artifact storage path handling in MinIO
+
+## [0.2.0]
+
+### Added
+- Integration with PostgreSQL for metadata storage
+- MinIO support for artifact storage
+- Helm test for verifying deployment
+
+## [0.1.0]
+
+### Added
+- Initial chart release
+- Basic MLflow tracking server deployment
+- Support for configurable persistence
+
+{{- end -}} 
