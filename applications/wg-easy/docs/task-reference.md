@@ -38,6 +38,8 @@ These tasks help manage the development and testing environments.
 | `create-gcp-vm` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
 | `delete-gcp-vm` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
 | `setup-embedded-cluster` | Sets up a Replicated embedded cluster on the GCP VM | Stage 7: Embedded Testing |
+| `list-cluster` | List the test cluster with the cluster id, name, and expiration date | Stage 4: Single Chart Install |
+| `verify-kubeconfig` | Verifies the kubeconfig for the test cluster | Stage 4: Single Chart Install |
 
 ### Common Environment Combinations
 
