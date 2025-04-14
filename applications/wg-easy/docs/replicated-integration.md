@@ -84,17 +84,17 @@ spec:
 
 ### 4. Release Workflow
 
-The integration with Replicated's release process is handled by the `prepare-release` and `release-create` tasks:
+The integration with Replicated's release process is handled by the `release-prepare` and `release-create` tasks:
 
 ```bash
 # Prepare release files
-task prepare-release
+task release-prepare
 
 # Create and promote a release
 task release-create CHANNEL=Beta
 ```
 
-The `prepare-release` task:
+The `release-prepare` task:
 
 1. Copies all Replicated YAML files to a release directory
 2. Merges all `config.yaml` files from different components
