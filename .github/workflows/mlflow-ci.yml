@@ -143,7 +143,7 @@ jobs:
       fail-fast: false
       matrix:
         cluster:
-          - distribution: kind
+          - distribution: k3s
             version: 1.32
           - distribution: aks
             version: 1.31
@@ -221,6 +221,7 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           cluster-name: mlflow-ci-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}-${{ matrix.config.name }}
           disk: 100
+          nodes: 3
           ttl: 1h
           export-kubeconfig: true
 
@@ -300,7 +301,7 @@ jobs:
       fail-fast: false
       matrix:
         cluster:
-          - distribution: kind
+          - distribution: k3s
             version: 1.32
           - distribution: aks
             version: 1.31
@@ -337,6 +338,7 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           cluster-name: mlflow-kots-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
           disk: 100
+          nodes: 3
           ttl: 1h
           export-kubeconfig: true
 
