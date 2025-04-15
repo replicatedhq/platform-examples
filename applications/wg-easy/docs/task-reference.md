@@ -123,3 +123,33 @@ This organization allows developers to focus on the appropriate level of complex
 ## Cross-References to Workflow Stages
 
 Refer to the [Development Workflow](development-workflow.md) document for details on each stage and when to use specific tasks.
+
+## Example Replicated CLI Commands
+
+1. create a replicated cmx cluster
+```
+CLUSTER_NAME=test-cluster
+DISTRIBUTION=k3s
+K8S_VERSION=1.32.2
+DISK_SIZE=100
+INSTANCE_TYPE=r1.small
+
+replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}}
+```
+
+2. get the kubeconfig for the cluster
+```
+replicated cluster kubeconfig --name {{.CLUSTER_NAME}} --output-path {{.KUBECONFIG_FILE}}
+```
+
+3. filter the cmx cluster
+```
+replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")'
+CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+```
+
+4. delete the cmx cluster
+```
+replicated cluster rm {{.CLUSTER_ID}}
+```
+

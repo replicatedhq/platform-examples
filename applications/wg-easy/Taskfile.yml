@@ -1,0 +1,302 @@
+version: '3'
+
+# Variables that apply to all tasks
+vars:
+  # Helm chart directories
+  WG_EASY_CHART: "./wg-easy"
+  CERT_MANAGER_CHART: "./cert-manager"
+  TRAEFIK_CHART: "./traefik"
+  REPLICATED_SDK_CHART: "./replicated-sdk"
+  
+  # Namespace variables
+  WG_EASY_NAMESPACE: wg-easy
+  CERT_MANAGER_NAMESPACE: cert-manager
+  TRAEFIK_NAMESPACE: traefik
+  REPLICATED_SDK_NAMESPACE: replicated-sdk
+
+  # Chart collection for iteration
+  CHARTS: 
+    - path: "./wg-easy"
+      name: wg-easy
+      namespace: wg-easy
+    - path: "./cert-manager"
+      name: cert-manager
+      namespace: cert-manager
+    - path: "./traefik"
+      name: traefik
+      namespace: traefik
+    - path: "./replicated-sdk"
+      name: replicated-sdk
+      namespace: replicated-sdk
+
+  # Release directory for packaged charts
+  RELEASE_DIR: "./release"
+
+  # CMX cluster configuration defaults
+  CLUSTER_NAME: "{{.CLUSTER_NAME | default \"test-cluster\"}}"
+  DISTRIBUTION: "{{.DISTRIBUTION | default \"k3s\"}}"
+  K8S_VERSION: "{{.K8S_VERSION | default \"1.32.2\"}}"
+  DISK_SIZE: "{{.DISK_SIZE | default \"100\"}}"
+  INSTANCE_TYPE: "{{.INSTANCE_TYPE | default \"r1.small\"}}"
+  KUBECONFIG_FILE: "{{.KUBECONFIG_FILE | default \"kubeconfig.yaml\"}}"
+  TIMEOUT: "{{.TIMEOUT | default \"300\"}}"
+
+tasks:
+  helm-lint:
+    desc: Lint all Helm charts to validate syntax and best practices
+    cmds:
+      - echo "Linting all Helm charts..."
+      - |
+        for chart in "{{.WG_EASY_CHART}}" "{{.CERT_MANAGER_CHART}}" "{{.TRAEFIK_CHART}}" "{{.REPLICATED_SDK_CHART}}"; do
+          if [ -d "$chart" ]; then
+            echo "Linting chart: $chart"
+            helm lint "$chart" || exit 1
+          else
+            echo "Chart directory not found: $chart"
+          fi
+        done
+      - echo "All charts linted successfully!"
+
+  helm-template:
+    desc: Template all Helm charts to preview the generated Kubernetes manifests
+    cmds:
+      - echo "Templating all Helm charts..."
+      - |
+        for chart in "{{.WG_EASY_CHART}}" "{{.CERT_MANAGER_CHART}}" "{{.TRAEFIK_CHART}}" "{{.REPLICATED_SDK_CHART}}"; do
+          if [ -d "$chart" ]; then
+            echo "Templating chart: $chart"
+            helm template "$chart" > "$chart-rendered.yaml"
+            echo "Template saved to $chart-rendered.yaml"
+          else
+            echo "Chart directory not found: $chart"
+          fi
+        done
+      - echo "All charts templated successfully!"
+
+  helm-install:
+    desc: Install all Helm charts in the proper order
+    cmds:
+      - echo "Installing cert-manager..."
+      - helm install cert-manager {{.CERT_MANAGER_CHART}} --namespace {{.CERT_MANAGER_NAMESPACE}} --create-namespace --wait
+      - echo "Installing traefik..."
+      - helm install traefik {{.TRAEFIK_CHART}} --namespace {{.TRAEFIK_NAMESPACE}} --create-namespace --wait
+      - echo "Installing replicated-sdk..."
+      - helm install replicated-sdk {{.REPLICATED_SDK_CHART}} --namespace {{.REPLICATED_SDK_NAMESPACE}} --create-namespace --wait
+      - echo "Installing wg-easy..."
+      - helm install wg-easy {{.WG_EASY_CHART}} --namespace {{.WG_EASY_NAMESPACE}} --create-namespace --wait
+      - echo "All charts installed successfully!"
+
+  helm-upgrade:
+    desc: Upgrade all Helm charts with latest changes
+    cmds:
+      - echo "Upgrading cert-manager..."
+      - helm upgrade cert-manager {{.CERT_MANAGER_CHART}} --namespace {{.CERT_MANAGER_NAMESPACE}} --wait
+      - echo "Upgrading traefik..."
+      - helm upgrade traefik {{.TRAEFIK_CHART}} --namespace {{.TRAEFIK_NAMESPACE}} --wait
+      - echo "Upgrading replicated-sdk..."
+      - helm upgrade replicated-sdk {{.REPLICATED_SDK_CHART}} --namespace {{.REPLICATED_SDK_NAMESPACE}} --wait
+      - echo "Upgrading wg-easy..."
+      - helm upgrade wg-easy {{.WG_EASY_CHART}} --namespace {{.WG_EASY_NAMESPACE}} --wait
+      - echo "All charts upgraded successfully!"
+
+  helm-uninstall:
+    desc: Uninstall all Helm charts in reverse order
+    cmds:
+      - echo "Uninstalling wg-easy..."
+      - helm uninstall wg-easy --namespace {{.WG_EASY_NAMESPACE}} || true
+      - echo "Uninstalling replicated-sdk..."
+      - helm uninstall replicated-sdk --namespace {{.REPLICATED_SDK_NAMESPACE}} || true
+      - echo "Uninstalling traefik..."
+      - helm uninstall traefik --namespace {{.TRAEFIK_NAMESPACE}} || true
+      - echo "Uninstalling cert-manager..."
+      - helm uninstall cert-manager --namespace {{.CERT_MANAGER_NAMESPACE}} || true
+      - echo "All charts uninstalled successfully!"
+
+  helm-test:
+    desc: Run Helm tests on all installed charts
+    cmds:
+      - echo "Testing cert-manager..."
+      - helm test cert-manager --namespace {{.CERT_MANAGER_NAMESPACE}} || true
+      - echo "Testing traefik..."
+      - helm test traefik --namespace {{.TRAEFIK_NAMESPACE}} || true
+      - echo "Testing replicated-sdk..."
+      - helm test replicated-sdk --namespace {{.REPLICATED_SDK_NAMESPACE}} || true
+      - echo "Testing wg-easy..."
+      - helm test wg-easy --namespace {{.WG_EASY_NAMESPACE}} || true
+      - echo "All chart tests completed!"
+
+  helm-package:
+    desc: Package all Helm charts for release
+    cmds:
+      - echo "Creating release directory if it doesn't exist..."
+      - mkdir -p {{.RELEASE_DIR}}
+      - echo "Packaging all Helm charts..."
+      - |
+        for chart in "{{.WG_EASY_CHART}}" "{{.CERT_MANAGER_CHART}}" "{{.TRAEFIK_CHART}}" "{{.REPLICATED_SDK_CHART}}"; do
+          if [ -d "$chart" ]; then
+            echo "Packaging chart: $chart"
+            helm package "$chart" -d {{.RELEASE_DIR}}
+          else
+            echo "Chart directory not found: $chart"
+          fi
+        done
+      - echo "All charts packaged successfully in {{.RELEASE_DIR}}!"
+
+  # Utility task to update all chart dependencies
+  update-dependencies:
+    desc: Update Helm dependencies for all charts
+    cmds:
+      - echo "Updating dependencies for all charts..."
+      - |
+        for chart in "{{.WG_EASY_CHART}}" "{{.CERT_MANAGER_CHART}}" "{{.TRAEFIK_CHART}}" "{{.REPLICATED_SDK_CHART}}"; do
+          if [ -d "$chart" ]; then
+            echo "Updating dependencies for chart: $chart"
+            helm dependency update "$chart"
+          else
+            echo "Chart directory not found: $chart"
+          fi
+        done
+      - echo "All chart dependencies updated successfully!"
+
+  # Combined workflow tasks
+  lint-and-template:
+    desc: Lint and template all charts in one command
+    deps:
+      - helm-lint
+      - helm-template
+    
+  prepare-release:
+    desc: Prepare all charts for release (lint, update deps, package)
+    deps:
+      - update-dependencies
+      - helm-lint
+      - helm-package
+  
+  # CMX Cluster Management Tasks
+  create-cmx-cluster:
+    desc: Create a CMX cluster using Replicated's Compatibility Matrix
+    summary: |
+      Creates a test Kubernetes cluster using specified parameters:
+      - CLUSTER_NAME: Name for the cluster (default: test-cluster)
+      - DISTRIBUTION: Kubernetes distribution (default: k3s)
+      - K8S_VERSION: Kubernetes version (default: 1.32.2)
+      - DISK_SIZE: Disk size in GB (default: 100)
+      - INSTANCE_TYPE: VM instance type (default: r1.small)
+    cmds:
+      - echo "Creating CMX cluster {{.CLUSTER_NAME}}..."
+      - |
+        replicated cluster create \
+          --name {{.CLUSTER_NAME}} \
+          --distribution {{.DISTRIBUTION}} \
+          --version {{.K8S_VERSION}} \
+          --disk {{.DISK_SIZE}} \
+          --instance-type {{.INSTANCE_TYPE}}
+      - task: wait-for-cluster
+        vars:
+          CLUSTER_NAME: "{{.CLUSTER_NAME}}"
+          TIMEOUT: "{{.TIMEOUT}}"
+      - echo "CMX cluster {{.CLUSTER_NAME}} created successfully!"
+
+  setup-cmx-kubeconfig:
+    desc: Set up the kubeconfig for the CMX cluster
+    summary: |
+      Retrieves and sets up the kubeconfig for the test cluster:
+      - CLUSTER_NAME: Name of the cluster (default: test-cluster)
+      - KUBECONFIG_FILE: Path to save the kubeconfig (default: kubeconfig.yaml)
+    cmds:
+      - echo "Setting up kubeconfig for cluster {{.CLUSTER_NAME}}..."
+      - |
+        # Check if cluster exists, create it if not
+        if ! replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null; then
+          echo "Cluster {{.CLUSTER_NAME}} does not exist. Creating it first..."
+          task create-cmx-cluster CLUSTER_NAME={{.CLUSTER_NAME}}
+        fi
+      - |
+        replicated cluster kubeconfig \
+          --name {{.CLUSTER_NAME}} \
+          --output-path {{.KUBECONFIG_FILE}}
+      - echo "Kubeconfig for {{.CLUSTER_NAME}} saved to {{.KUBECONFIG_FILE}}"
+      - echo "Use 'export KUBECONFIG={{.KUBECONFIG_FILE}}' to use this configuration"
+
+  list-cmx-cluster:
+    desc: List CMX clusters with focus on the current test cluster
+    summary: |
+      Lists all CMX clusters with detailed information about the specified cluster:
+      - CLUSTER_NAME: Name of the cluster to focus on (default: test-cluster)
+    cmds:
+      - echo "Listing all CMX clusters..."
+      - replicated cluster ls
+      - echo "Detailed information for cluster {{.CLUSTER_NAME}}:"
+      - |
+        replicated cluster ls --output json | \
+          jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' || \
+          echo "No cluster found with name {{.CLUSTER_NAME}}"
+
+  verify-cmx-kubeconfig:
+    desc: Verify the kubeconfig for the CMX cluster is working correctly
+    summary: |
+      Tests if the kubeconfig is working correctly by running kubectl commands:
+      - KUBECONFIG_FILE: Path to the kubeconfig file (default: kubeconfig.yaml)
+    cmds:
+      - echo "Verifying kubeconfig {{.KUBECONFIG_FILE}} for cluster {{.CLUSTER_NAME}}..."
+      - |
+        if [ -f "{{.KUBECONFIG_FILE}}" ]; then
+          echo "Testing connection to cluster..."
+          KUBECONFIG={{.KUBECONFIG_FILE}} kubectl cluster-info
+          KUBECONFIG={{.KUBECONFIG_FILE}} kubectl get nodes
+          echo "Kubeconfig is valid and working correctly!"
+        else
+          echo "Kubeconfig file {{.KUBECONFIG_FILE}} not found. Please run setup-cmx-kubeconfig first."
+          exit 1
+        fi
+
+  delete-cmx-cluster:
+    desc: Delete the CMX cluster
+    summary: |
+      Deletes the specified CMX cluster:
+      - CLUSTER_NAME: Name of the cluster to delete (default: test-cluster)
+    cmds:
+      - echo "Deleting CMX cluster {{.CLUSTER_NAME}}..."
+      - |
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        if [ -n "$CLUSTER_ID" ]; then
+          echo "Found cluster {{.CLUSTER_NAME}} with ID $CLUSTER_ID. Deleting..."
+          replicated cluster rm $CLUSTER_ID
+          echo "Cluster {{.CLUSTER_NAME}} deleted successfully!"
+        else
+          echo "No cluster found with name {{.CLUSTER_NAME}}"
+          exit 1
+        fi
+
+  # Helper tasks
+  wait-for-cluster:
+    desc: Wait for cluster to be in running state
+    internal: true
+    silent: false
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      TIMEOUT: '{{.TIMEOUT | default "300"}}'
+    cmds:
+      - |
+        echo "Waiting for cluster {{.CLUSTER_NAME}} (timeout {{.TIMEOUT}}s)..."
+        start=$(date +%s)
+        attempt=1
+        while true; do
+          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status')
+          
+          if [ "$CLUSTER_STATUS" = "running" ]; then
+            elapsed=$(($(date +%s) - start))
+            echo "Cluster {{.CLUSTER_NAME}} is ready! (took $elapsed seconds)"
+            break
+          fi
+          
+          elapsed=$(($(date +%s) - start))
+          if [ $elapsed -ge {{.TIMEOUT}} ]; then
+            echo "Timeout after {{.TIMEOUT}} seconds waiting for cluster to be ready"
+            exit 1
+          fi
+          
+          printf "\rWaiting... %ds elapsed (attempt %d) - Current status: %s   " "$elapsed" "$attempt" "$CLUSTER_STATUS"
+          sleep 5
+          attempt=$((attempt+1))
+        done

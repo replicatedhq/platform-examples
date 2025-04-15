@@ -1,92 +1,117 @@
-# Tools Selection for Helm Chart Workflow
+# Tools Selection Decision Document
 
-This document explains the tools selected for our Helm chart development, testing, and release workflow, along with the rationale behind each choice.
+## Introduction
+
+This document explains the tool selection decisions for the wg-easy Helm chart development workflow, focusing on why certain tools were chosen over alternatives, their trade-offs, best practices, and limitations.
 
 ## Selected Tools
 
-### 1. Replicated CLI
+### Taskfile
 
-**Selected:** Yes
+**Why chosen**: 
+- Task provides a simple, cross-platform way to automate repetitive development tasks
+- Offers a declarative YAML-based approach that's easier to understand than Make
+- Supports dependencies between tasks, allowing for complex workflows
+- Enables parameterization and defaults for flexible task execution
 
-**Rationale:** The Replicated CLI is essential for our workflow as it provides direct integration with the Replicated platform. It enables us to create, inspect, and promote releases, which are core requirements for our Helm chart deployment process.
+**Alternatives considered**:
+- Make: Traditional but less modern, complex syntax, not as cross-platform friendly
+- Bash scripts: Less structured, harder to maintain, lacks built-in dependency handling
+- Just: Similar to Task but with fewer features and smaller community
+- Grunt/Gulp: More complex, JavaScript-based, heavier than needed
 
-**Alternatives:** There are no direct alternatives for Replicated platform integration.
+**Trade-offs**:
+- Requires installation of the Task tool (though it's a single binary)
+- Not as universally available as Make
+- Slightly less performant than pure bash scripts for very simple tasks
 
-### 2. Taskfile
+**Best practices**:
+- Group related tasks in separate YAML files for better organization
+- Use task dependencies rather than chaining commands
+- Provide sensible defaults for all parameters
+- Include good descriptions for all tasks
+- Structure tasks to be composable for different workflows
 
-**Selected:** Yes
+**Limitations**:
+- Learning curve for developers not familiar with the tool
+- Requires separate installation on CI systems
+- Debugging can be more complex than with plain scripts
 
-**Rationale:** Taskfile provides a simple, YAML-based task runner that is cross-platform, making it ideal for orchestrating our workflow. It offers features like dependencies between tasks, custom variables, and parallel execution. Its simplicity and readability make it accessible to all team members.
+### Replicated CLI
 
-**Alternatives:**
-- Make: While powerful, Make has syntax that is less intuitive and has inconsistencies across different operating systems.
-- just: While similar to Taskfile, we chose Taskfile for its more extensive documentation and wider adoption.
+**Why chosen**:
+- Native integration with Replicated platform
+- Comprehensive support for all Replicated operations
+- Consistent interface for application lifecycle management
+- Excellent support for automation via scripting
 
-### 3. Bash Scripts
+**Alternatives considered**:
+- Custom API clients: More complex to develop and maintain
+- Web UI: Not suitable for automation
+- Third-party tools: None available with comparable Replicated integration
 
-**Selected:** Yes
+**Trade-offs**:
+- Tied to Replicated ecosystem
+- Requires authentication setup
 
-**Rationale:** Bash scripts are used for specific automation tasks within our workflow. They provide flexibility for custom logic and seamless integration with command-line tools.
+**Best practices**:
+- Store authentication in environment variables for security
+- Use JSON output for scripting integration
+- Create composable commands for complex operations
+- Leverage the CLI's validation capabilities before release operations
 
-**Alternatives:**
-- PowerShell: Less portable across different operating systems.
-- Python scripts: Would introduce an additional dependency that may not be necessary for simple automation tasks.
+**Limitations**:
+- Only works with Replicated platform
+- Requires keeping CLI version in sync with platform updates
 
-### 4. helmfile
+### Helm/Helmfile
 
-**Selected:** Yes
+**Why chosen**:
+- Helm is the de facto standard for Kubernetes package management
+- Helmfile provides orchestration for multi-chart deployments with proper sequencing
+- Both support templating and value overrides for flexible configuration
+- Strong ecosystem and community support
 
-**Rationale:** helmfile allows us to declaratively configure multiple Helm charts in a single file, making it easier to manage deployments of related charts (wg-easy, cert-manager, traefik, and replicated-sdk). It supports templating and environment-specific configurations, which helps maintain consistency across different environments.
+**Alternatives considered**:
+- Kustomize: More native to Kubernetes, but less powerful for complex deployments
+- kubectl apply: Too basic for managing complex application deployments
+- Operators: More complex, better for runtime operations than deployments
 
-**Alternatives:**
-- Plain Helm commands: Would require more manual steps and lack the declarative approach.
-- Flux/ArgoCD: Too heavyweight for local development workflows.
+**Trade-offs**:
+- Adds abstraction layer over raw Kubernetes manifests
+- Template logic can become complex
+- Potential version compatibility issues
 
-### 5. Terraform
+**Best practices**:
+- Maintain chart dependencies explicitly
+- Use subchart grouping for logically related components
+- Leverage Helm's testing capabilities
+- Follow Helm best practices for chart structure
+- Use Helmfile for orchestrating multi-chart deployments
 
-**Selected:** No
+**Limitations**:
+- Learning curve for Helm templating syntax
+- Debugging rendered templates can be challenging
+- No built-in support for CRD timing issues
 
-**Rationale:** While Terraform is an excellent tool for infrastructure provisioning, our current workflow focuses primarily on application deployment using Helm charts rather than infrastructure provisioning. We may incorporate Terraform in the future if our workflow expands to include infrastructure management.
+## Why Not Terraform
 
-**When it might be used:** If we need to provision cloud resources or manage infrastructure beyond Kubernetes deployments.
+While Terraform was listed as an available tool, it was not selected as a primary tool for this workflow for the following reasons:
 
-## Tools Not Selected
+- **Scope mismatch**: Terraform excels at infrastructure provisioning, but our focus is on application deployment
+- **Overlap with Kubernetes**: Using Terraform for Kubernetes resources creates redundancy with Helm
+- **Complexity**: Adds another tool chain and state management concerns
+- **Learning curve**: Requires additional expertise beyond Kubernetes/Helm knowledge
 
-### 1. just
-
-**Why it wasn't chosen:** While 'just' is a modern command runner alternative to Make with a simpler syntax and cross-platform support, we ultimately chose Taskfile over 'just' for several reasons:
-
-1. **Ecosystem maturity:** Taskfile has a larger user base and more extensive documentation at this time.
-2. **YAML-based configuration:** Taskfile uses YAML which is already widely used in our Kubernetes and Helm workflows, creating consistency across configuration files.
-3. **Feature set:** Taskfile offers task dependencies, includes, and parallel execution in a way that better matches our specific workflow needs.
-4. **Team familiarity:** More team members were already familiar with Taskfile's syntax and usage patterns.
-
-'just' remains a strong alternative that could be reconsidered in the future if our requirements change or if it adds features that would significantly benefit our workflow.
-
-### 2. Terraform
-
-**Why it wasn't chosen:** Terraform is a powerful infrastructure-as-code tool, but was not selected for our current Helm chart workflow for several reasons:
-
-1. **Scope mismatch:** Our workflow primarily focuses on application deployment via Helm charts rather than infrastructure provisioning. Terraform's core strength is managing cloud resources and infrastructure, which is beyond our current scope.
-
-2. **Complexity overhead:** Incorporating Terraform would add significant complexity to what is primarily an application deployment workflow. This conflicts with our key principle of "Progressive Complexity."
-
-3. **Deployment targets:** Our Helm charts are designed to be deployed to existing Kubernetes clusters, which don't require Terraform for management in our current workflow.
-
-4. **Learning curve:** Terraform has a steeper learning curve compared to the other tools in our stack, and would require additional team training for minimal immediate benefit.
-
-5. **State management:** Terraform's state management adds operational complexity that's unnecessary for our current deployment needs.
-
-Terraform would become valuable if we expand our workflow to include:
-- Provisioning Kubernetes clusters on cloud providers
-- Managing related infrastructure (databases, storage, networking)
-- Creating complete environments from scratch
-- Implementing multi-cloud deployment strategies
-
-We may incorporate Terraform in a future iteration as our infrastructure needs become more complex.
+Terraform could be valuable for provisioning the underlying infrastructure (like GCP VMs), but for Helm chart development and testing, the selected tools provide a more streamlined workflow.
 
 ## Conclusion
 
-Our tool selection emphasizes simplicity, cross-platform compatibility, and automation to enable a reproducible workflow for Helm chart development, testing, and releases. The combination of Taskfile for orchestration, Bash for custom logic, helmfile for managing multiple Helm charts, and the Replicated CLI for platform integration provides a balanced approach that minimizes complexity while meeting all our requirements.
+The selected tools (Taskfile, Replicated CLI, and Helm/Helmfile) offer the best combination of features for a progressive development workflow that prioritizes fast feedback, reproducibility, and automation. Each tool addresses specific needs in the workflow while maintaining a balance between power and simplicity.
 
-The tools were chosen based on the key principles of Progressive Complexity, Fast Feedback, Reproducibility, Modular Configuration, and Automation as outlined in our design document. 
+These tools also allow us to implement the key principles outlined in the design document:
+- **Progressive Complexity**: Task dependencies allow starting simple and adding complexity
+- **Fast Feedback**: Helm's templating and testing provide immediate validation
+- **Reproducibility**: Declarative configs ensure consistent environments
+- **Modular Configuration**: Helm values and Replicated config provide clear separation
+- **Automation**: Task automates repetitive operations 

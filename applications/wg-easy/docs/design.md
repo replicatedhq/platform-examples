@@ -28,7 +28,7 @@ Provide a design for the Helm chart with a clear, reproducible workflow for iter
 - **Modular Configuration** – Clear separation of values per component.
 - **Automation** – Minimize repetitive tasks.
 
-## Design Steps
+## Review Steps
 
 1. Review the existing Helm chart and the Replicated CLI commands.
 2. Choose Best Tools based on the complexity of the Helm chart and the Replicated CLI commands.
@@ -39,3 +39,25 @@ Provide a design for the Helm chart with a clear, reproducible workflow for iter
    - What are the trade-offs of the chosen tools
    - What are the best practices for using the chosen tools
    - What are the limitations of the chosen tools
+4. Pause and ask review from the user to confirm this step.
+
+## Create Helm Chart Development Workflow (Taskfile)
+
+1. Create a Taskfile to create those helm chart development tasks for 
+   - helm-lint: lint helm charts including the wg-easy, cert-manager, traefik, and replicated-sdk
+   - helm-template: template the helm charts
+   - helm-install: install the helm charts
+   - helm-upgrade: upgrade the helm charts
+   - helm-uninstall: uninstall the helm charts
+   - helm-test: test the helm charts
+   - helm-package: package the helm charts
+   Save the thinking document to `docs/memory_bank/` folder with the file name `helm-workflow.md`.
+
+## Create CMX Cluster Management Workflow (Taskfile)
+1. Update the Taskfile to add cmx cluster management tasks based on the [Task Reference](task-reference.md) document.
+   - create-cmx-cluster: create a cmx cluster
+   - setup-cmx-kubeconfig: setup the kubeconfig for the cmx cluster
+   - list-cmx-cluster: list the cmx cluster
+   - verify-cmx-kubeconfig: verify the kubeconfig for the cmx cluster
+   - delete-cmx-cluster: delete the cmx cluster
+   Save the thinking document to `docs/memory_bank/` folder with the file name `cmx-cluster-management.md`.
