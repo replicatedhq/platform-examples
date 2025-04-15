@@ -14,6 +14,7 @@ setup:
 
 install:
     @echo "Add DEV customer to n8n-values.yaml..."
+    just set-replicated-values
     @echo "Installing all charts..."
     terraform apply --auto-approve
 

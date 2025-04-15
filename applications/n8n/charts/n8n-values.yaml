@@ -65,3 +65,7 @@ extraManifests:
           memory: "512Mi"
       storage:
         size: 1Gi
+replicated:
+  integration:
+    licenseID: 2vmioMX0kJSNJm8CdNtrvx3rjUl
+    enabled: true
