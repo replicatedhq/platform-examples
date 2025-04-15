@@ -9,11 +9,7 @@ spec:
   allowRollback: true
   #additionalImages:
   #  - jenkins/jenkins:lts
-  additionalNamespaces:
-    - "cert-manager"
-    - "traefik"
-    - "wg-easy"
-    - "*"
+  #additionalNamespaces should be populated by the Task file
   #ports:
   #  - serviceName: wg-easy/web
   #    servicePort: 51821

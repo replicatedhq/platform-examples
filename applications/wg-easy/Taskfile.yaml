@@ -189,6 +189,10 @@ tasks:
       - echo "Copying non-config YAML files to release folder..."
       - find . -path '*/replicated/*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \;
       - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
+
+      # extract namespaces from helmChart files
+      - yq ea '[.spec.namespace] | unique' */replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
+      - mv release/application.yaml.new release/application.yaml
       
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
