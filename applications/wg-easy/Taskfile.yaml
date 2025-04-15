@@ -55,6 +55,9 @@ tasks:
       - task: utils:wait-for-cluster
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
+    preconditions:
+      - command -v replicated
+      - command -v jq
 
   test:
     desc: Run a basic test suite
@@ -85,6 +88,9 @@ tasks:
         fi
     deps:
       - create-cluster
+    preconditions:
+      - command -v helm
+      - command -v jq
 
   update-dependencies:
     desc: Update Helm dependencies for all charts
@@ -98,6 +104,8 @@ tasks:
           helm dependency update "$chart_dir"
         done
       - echo "All dependencies updated!"
+    preconditions:
+      - command -v helm
 
   expose-ports:
     desc: Expose configured ports and capture exposed URLs
@@ -127,6 +135,9 @@ tasks:
           OPERATION: "expose"
     deps:
       - create-cluster
+    preconditions:
+      - command -v replicated
+      - command -v jq
 
   deploy-helm:
     desc: Deploy all charts using helmfile
@@ -151,6 +162,10 @@ tasks:
     deps:
       - setup-kubeconfig
       - expose-ports
+    preconditions:
+      - command -v replicated
+      - command -v jq
+      - command -v helmfile
 
 
   delete-cluster:
@@ -176,6 +191,8 @@ tasks:
           rm "{{.KUBECONFIG_FILE}}"
         fi
       - echo "All matching clusters deleted and kubeconfig cleaned up!"
+    preconditions:
+      - command -v replicated
 
   prepare-release:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
@@ -221,6 +238,10 @@ tasks:
         done
       
       - echo "Release files prepared in ./release/ directory"
+    preconditions:
+      - command -v yq
+      - command -v helm
+      - command -v replicated
       
   release-create:
     desc: Create and promote a release using the Replicated CLI
@@ -238,6 +259,8 @@ tasks:
         echo "Release created and promoted to channel {{.CHANNEL}}"
     deps:
       - prepare-release
+    preconditions:
+      - command -v replicated
 
   create-gcp-vm:
     desc: Create a simple GCP VM instance
@@ -259,6 +282,8 @@ tasks:
           GCP_DISK_TYPE: '{{.GCP_DISK_TYPE}}'
           GCP_IMAGE_FAMILY: '{{.GCP_IMAGE_FAMILY}}'
           GCP_IMAGE_PROJECT: '{{.GCP_IMAGE_PROJECT}}'
+    preconditions:
+      - command -v gcloud
 
   delete-gcp-vm:
     desc: Delete the GCP VM instance for K8s and VPN
@@ -272,6 +297,8 @@ tasks:
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
+    preconditions:
+      - command -v gcloud
 
   setup-embedded-cluster:
     desc: Setup Replicated embedded cluster on the GCP VM
@@ -295,6 +322,8 @@ tasks:
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
+    preconditions:
+      - command -v gcloud
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
