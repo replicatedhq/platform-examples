@@ -901,11 +901,13 @@ tasks:
           echo "Installing Python dependencies directly..."
           # Try to use binary wheels whenever possible
           python -m pip install --upgrade pip wheel setuptools
-          # Install the required packages directly
-          python -m pip install mlflow numpy pandas scikit-learn pytest requests || {
-            echo "❌ Failed to install dependencies. Trying with --only-binary approach..."
-            # Try installing packages that commonly have build issues with binary-only
-            python -m pip install --only-binary=numpy,pandas,pyarrow,scikit-learn mlflow numpy pandas scikit-learn pytest requests
+          # First install pandas with only-binary to avoid compilation issues
+          python -m pip install --only-binary=pandas pandas
+          # Then install the rest of the packages
+          python -m pip install mlflow numpy scikit-learn pytest requests || {
+            echo "❌ Failed to install dependencies. Trying with --only-binary approach for all packages..."
+            # Try installing all packages that commonly have build issues with binary-only
+            python -m pip install --only-binary=:all: mlflow numpy pandas scikit-learn pytest requests
           }
         else
           echo "Running in virtual environment $VIRTUAL_ENV, skipping dependency installation"
