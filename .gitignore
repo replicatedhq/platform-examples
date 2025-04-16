@@ -1,6 +1,7 @@
 # Helm-specific ignores
 **/charts/*.tgz
 **/.specstory/
+**/charts/.rendered-templates/
 
 
 # Ignore Helm dependency directories
@@ -30,3 +31,4 @@ Thumbs.db
 *.pyo
 *.pyd
 __pycache__/
+applications/mlflow/tests/.venv/

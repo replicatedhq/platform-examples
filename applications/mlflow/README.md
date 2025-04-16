@@ -28,36 +28,6 @@ helm registry login registry.replicated.com --username=<license-id>
 helm install mlflow oci://registry.replicated.com/mlflow/stable
 ```
 
-### Embedded Cluster
-
-For customers without an existing Kubernetes cluster, the embedded option provides:
-- Integrated Kubernetes cluster managed by Replicated
-- Simple installation on VMs or bare metal
-- No Kubernetes expertise required
-- Optimized resource usage
-
-```bash
-# Download installer from the provided license URL
-# Run the installer script
-bash ./install.sh
-```
-
-### KOTS Existing Cluster
-
-For customers with existing Kubernetes clusters, the KOTS installation method provides:
-- Admin console for application management
-- Version updates with rollback capability
-- Configuration validation
-- Pre-flight checks to verify environment requirements
-
-```bash
-# Install KOTS CLI
-curl https://kots.io/install | bash
-
-# Install MLflow with KOTS
-kubectl kots install mlflow/stable
-```
-
 ## Documentation
 
 - [MLflow Helm Chart Documentation](./charts/mlflow/README.md) - Installation and configuration details
