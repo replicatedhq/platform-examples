@@ -9,6 +9,9 @@ setup:
     @echo "CUSTOMER_ID=$(replicated customer inspect --customer {{customer_name}} --output json | jq -r '.id')" >> .env
     @echo "LICENSE_ID=$(replicated customer inspect --customer {{customer_name}} --output json | jq -r '.installationId')" >> .env
 
+    @echo "Update sub-charts dependencies..."
+    just helm-dep-update
+
     @echo "Setting up Terraform..."
     terraform init
 

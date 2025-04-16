@@ -61,6 +61,18 @@ just install
 just destroy
 ```
 
+### just setup
+This command will create a Replicated DEV customer, so that we can test integration with Replicated SDK. The newly created customer id + license id will be persisted into `.env` file to be used by other tasks.
+It will then run `helm dependency update` to download subcharts used by `n8n` chart.
+Finally, it will run `terraform init` to initialize the Terraform providers (Helm) used to install charts
+
+### just install
+This command will inject the `license id` created earlier into the `n8n` values so that the Replicated SDK installation will be successful.
+It will then run `terraform apply` to install all the charts specified in the Terraform code.
+
+### just destroy
+This command will delete all installed charts as well as delete the test customer.
+
 ## Evaluation
 
 **What Worked Well:**
