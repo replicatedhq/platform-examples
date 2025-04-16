@@ -5,7 +5,6 @@ metadata:
 spec:
   chart:
     name: replicated-sdk
-    chartVersion: '1.0.0'
   weight: 1
   
   # helmUpgradeFlags specifies additional flags to pass to the `helm upgrade` command.

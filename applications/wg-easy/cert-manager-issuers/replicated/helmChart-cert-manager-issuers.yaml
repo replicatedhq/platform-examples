@@ -5,7 +5,6 @@ metadata:
 spec:
   chart:
     name: cert-manager-issuers
-    chartVersion: '1.0.0'
   weight: 1
   helmUpgradeFlags:
     - --wait

@@ -193,6 +193,9 @@ tasks:
       # extract namespaces from helmChart files
       - yq ea '[.spec.namespace] | unique' */replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
       - mv release/application.yaml.new release/application.yaml
+
+      # set helmChart versions from associated helm Chart.yaml
+      - bash versions.sh
       
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
