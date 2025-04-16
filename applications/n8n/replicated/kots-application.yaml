@@ -1,0 +1,18 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: n8n
+spec:
+  title: n8n
+  icon: https://www.shareicon.net/data/256x256/2016/07/26/802134_workflow_512x512.png
+  allowRollback: true
+  additionalNamespaces:
+    - "traefik-system"
+    - "n8n"
+    - "*"
+  ports:
+   - serviceName: n8n/n8n
+     servicePort: 5678
+     applicationUrl: "http://n8n"
+  statusInformers:
+    - n8n/deployment/n8n

@@ -1,0 +1,9 @@
+dependencies:
+- name: valkey
+  repository: oci://registry-1.docker.io/bitnamicharts
+  version: 2.4.7
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.5.0
+digest: sha256:1eb6a06e563152b56016188710d829b5caab37ba6da16470b0779007779b326f
+generated: "2025-04-10T09:43:54.914664+10:00"
