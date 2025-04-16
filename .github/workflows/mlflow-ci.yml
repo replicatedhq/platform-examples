@@ -37,11 +37,10 @@ jobs:
           version: v3.13.3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: applications/mlflow/tests/requirements.txt
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -234,9 +233,10 @@ jobs:
           version: v3.13.3
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: '3.13'
+          cache: 'pip'
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -382,9 +382,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.12
+          python-version: '3.13.3'
+          cache: 'pip'
 
       - name: Install Task
         uses: arduino/setup-task@v1
