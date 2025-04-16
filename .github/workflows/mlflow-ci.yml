@@ -20,6 +20,7 @@ on:
 
 env:
   APP_SLUG: diamon-mlflow
+  REPLICATED_APP: diamon-mlflow
 
 jobs:
   lint-and-template:

@@ -33,7 +33,8 @@ vars:
     sh: helm show chart ./charts/infra | grep '^version:' | cut -d ' ' -f 2
     
   # Release configuration
-  APP_NAME: diamon-mlflow
+  # APP_NAME can be overridden by setting REPLICATED_APP environment variable 
+  APP_NAME: '{{.REPLICATED_APP | default "diamon-mlflow"}}'
   YAML_DIR: "./kots"
 
 # Default task shows help
