@@ -795,6 +795,205 @@ tasks:
     cmds:
       - echo "All tests completed successfully"
 
+  # Documentation generation tasks
+  docs:helm:generate:
+    desc: Generate Helm chart documentation from templates
+    deps: [add:repos:helm, update:deps:helm]
+    cmds:
+      - echo "Generating Helm chart documentation..."
+      - |
+        # Make sure helm-docs is installed
+        if ! command -v helm-docs &> /dev/null; then
+          echo "❌ helm-docs is not installed. Please install it from https://github.com/norwoodj/helm-docs"
+          exit 1
+        fi
+        
+        # Run helm-docs for each chart
+        for chart in {{.CHARTS}}; do
+          echo "Generating documentation for $chart chart..."
+          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl
+        done
+        
+        echo "✅ Helm chart documentation generated successfully."
+
+  docs:helm:check:
+    desc: Check if Helm chart documentation is up to date
+    deps: [add:repos:helm, update:deps:helm]
+    cmds:
+      - echo "Checking if Helm chart documentation is up to date..."
+      - |
+        # Make sure helm-docs is installed
+        if ! command -v helm-docs &> /dev/null; then
+          echo "❌ helm-docs is not installed. Please install it from https://github.com/norwoodj/helm-docs"
+          exit 1
+        fi
+        
+        docs_outdated=false
+        
+        # For each chart, generate docs to a temp dir and compare with current docs
+        for chart in {{.CHARTS}}; do
+          echo "Checking documentation for $chart chart..."
+          
+          # Create temp directory
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          
+          # Copy current README.md to temp dir
+          readme_path="{{.CHART_DIR}}/$chart/README.md"
+          tmp_readme="$tmp_dir/README.md"
+          
+          if [ -f "$readme_path" ]; then
+            cp "$readme_path" "$tmp_readme"
+          else
+            echo "⚠️ README.md not found for $chart chart. This check will only be useful after docs are generated."
+            touch "$tmp_readme"  # Create empty file for comparison
+          fi
+          
+          # Generate fresh docs
+          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir"
+          
+          # Compare with current docs
+          if [ -f "$readme_path" ] && ! diff -q "$readme_path" "$tmp_readme" > /dev/null; then
+            echo "❌ Documentation for $chart chart is outdated. Run 'task docs:helm:generate' to update."
+            docs_outdated=true
+          else
+            echo "✅ Documentation for $chart chart is up to date."
+          fi
+        done
+        
+        # Exit with error if any docs are outdated
+        if [ "$docs_outdated" = true ]; then
+          echo "❌ Some chart documentation files are outdated. Run 'task docs:helm:generate' to update them."
+          exit 1
+        else
+          echo "✅ All chart documentation is up to date."
+        fi
+
+  docs:kots:summary:
+    desc: Generate a summary of KOTS manifest files for platform engineers
+    cmds:
+      - echo "Generating KOTS manifest summary in docs/KOTS_MANIFEST_GUIDE.md..."
+      - |
+        # Create docs directory if it doesn't exist
+        mkdir -p docs
+        
+        # Generate the summary document
+        cat > docs/KOTS_MANIFEST_GUIDE.md << 'EOF'
+        # MLflow KOTS Manifest Guide
+        
+        This document provides a technical overview of the Replicated KOTS manifests used to package and deliver the MLflow application.
+        
+        ## Overview
+        
+        The manifests in the `applications/mlflow/kots` directory define how MLflow is packaged, configured, and deployed using the Replicated platform.
+        
+        ## Key Files and Their Purpose
+        
+        ### kots-app.yaml
+        
+        Defines the core application properties:
+        - Application metadata (name, icon, description)
+        - Status informers for monitoring deployment health
+        - Port definitions for services
+        - Release notes handling
+        
+        ### kots-config.yaml
+        
+        Contains all user-configurable settings presented during installation:
+        - Database configuration (embedded PostgreSQL or external)
+        - S3 storage settings (embedded MinIO or external S3)
+        - Networking and ingress configuration
+        - Resource allocation settings
+        
+        Each configuration option includes:
+        - Type (string, boolean, password, etc.)
+        - Default values
+        - Validation rules
+        - Help text for users
+        - Dependencies/when conditions
+        
+        ### mlflow-chart.yaml
+        
+        A HelmChart custom resource that:
+        - References the MLflow Helm chart
+        - Maps configuration values from user inputs to Helm values
+        - Defines conditional logic for different deployment scenarios
+        - Uses templating functions to insert configuration values
+        
+        ### infra-chart.yaml
+        
+        Similar to mlflow-chart.yaml but for infrastructure components:
+        - Configures supporting services (databases, object storage)
+        - Typically deployed before the main application
+        
+        ### kots-preflight.yaml
+        
+        Defines preflight checks to validate the environment before installation:
+        - Kubernetes version compatibility
+        - Resource availability (CPU, memory)
+        - Namespace access permissions
+        - Storage class availability
+        
+        ### k8s-app.yaml
+        
+        Kubernetes Application custom resource for discovery and management.
+        
+        ### ec.yaml
+        
+        EntitlementSpec that controls:
+        - License entitlements and limits
+        - Feature flags based on license tier
+        - Usage restrictions
+        
+        ## Best Practices for Modifications
+        
+        When making changes to these files:
+        
+        1. **Version Consistency**: Update both Helm chart versions and kots-chart references
+        2. **Testing**: Test with both new installations and upgrades
+        3. **Config Options**: When adding new config options:
+           - Provide meaningful default values
+           - Include clear help text
+           - Consider when dependencies for conditional display
+        4. **Templates**: Use consistent templating patterns
+        5. **Preflight Checks**: Update preflight checks when requirements change
+        
+        ## Common Tasks
+        
+        ### Adding a New Configuration Option
+        
+        1. Add the option to `kots-config.yaml` with appropriate metadata
+        2. Reference the value in `mlflow-chart.yaml` using template functions
+        3. Update preflight checks if the option affects requirements
+        
+        ### Updating Helm Chart Versions
+        
+        1. Update the chartVersion in both infra-chart.yaml and mlflow-chart.yaml 
+        2. Run `task update:versions:chart` to ensure consistency
+        3. Test both installation and upgrade scenarios
+        
+        ### Adding Support for a New Feature
+        
+        1. First, implement the feature in the Helm chart
+        2. Add any new configuration options to kots-config.yaml
+        3. Connect the configuration to the Helm values in the chart files
+        4. Optionally add preflight checks for any new requirements
+        5. Test with both embedded and external dependencies
+        
+        ## Troubleshooting
+        
+        Common issues when working with these files:
+        
+        - **Template Rendering Errors**: Check template syntax in .yaml files
+        - **Preflight Check Failures**: Ensure requirements are correctly specified
+        - **Configuration Mismatches**: Verify config option names match between files
+        - **Upgrade Issues**: Test upgrades from earlier versions
+        
+        For more detailed information, refer to the [Replicated KOTS documentation](https://docs.replicated.com/vendor/packaging-kots-apps).
+        EOF
+        
+        echo "✅ KOTS manifest summary generated in docs/KOTS_MANIFEST_GUIDE.md"
+
   # Version extraction
   extract:version:chart:
     desc: Extract and print the MLflow chart version

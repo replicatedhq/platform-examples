@@ -705,12 +705,43 @@ jobs:
 ```
 {{- end -}}
 
+{{- define "custom.understanding.platform" -}}
+### Understanding Platform Integration Files
+
+This section describes the KOTS manifest files used for platform integration in the `applications/mlflow/kots` directory. These files enable MLflow to be deployed through the Replicated platform.
+
+#### KOTS Manifest Files
+
+| File | Description |
+| ---- | ----------- |
+| `kots-app.yaml` | Defines the application metadata for KOTS, including title, icon, status informers, and ports. |
+| `kots-config.yaml` | Contains all configurable options presented to the user during installation, organized in groups like database settings, S3 storage, and networking configuration. |
+| `mlflow-chart.yaml` | A HelmChart custom resource that integrates the MLflow Helm chart with KOTS, connecting user configuration options to Helm values. |
+| `infra-chart.yaml` | A HelmChart custom resource for infrastructure components that MLflow depends on. |
+| `kots-preflight.yaml` | Defines preflight checks that run before installation to validate the environment meets requirements. |
+| `kots-support-bundle.yaml` | Configures support bundle collection for troubleshooting. |
+| `k8s-app.yaml` | Kubernetes Application custom resource definition. |
+| `ec.yaml` | EntitlementSpec that defines license entitlements and limits. |
+
+#### Integration Pattern
+
+These files work together to create an integrated experience:
+
+1. The user configures settings through the options defined in `kots-config.yaml`
+2. The values are injected into the Helm charts via template functions in `mlflow-chart.yaml` and `infra-chart.yaml`
+3. Preflight checks in `kots-preflight.yaml` ensure the environment is properly set up
+4. Deployment status is tracked via the informers defined in `kots-app.yaml`
+
+When making changes to the MLflow Helm chart, corresponding updates may be needed in the KOTS manifests to ensure proper integration.
+{{- end -}}
+
 {{- define "custom.config.all" -}}
 {{- template "custom.config.resources" . -}}
 {{- template "custom.config.persistence" . -}}
 {{- template "custom.config.security" . -}}
 {{- template "custom.config.monitoring" . -}}
 {{- template "custom.config.ha" . -}}
+{{- template "custom.understanding.platform" . -}}
 {{- template "chart.valuesTable" . -}}
 {{- end -}}
 
@@ -733,6 +764,8 @@ jobs:
 {{ template "custom.config.monitoring" . }}
 
 {{ template "custom.config.ha" . }}
+
+{{ template "custom.understanding.platform" . }}
 
 {{ template "chart.valuesTable" . }}
 
