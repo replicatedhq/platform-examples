@@ -1,0 +1,1093 @@
+version: '3'
+
+# MLflow CI and Local Testing Taskfile
+# This file centralizes all testing and CI tasks for the MLflow application
+
+# Common variables
+vars:
+  # Directory structure
+  CHART_DIR: ./charts
+  KOTS_DIR: ./kots
+  TESTS_DIR: ./tests
+  
+  # Testing configuration
+  NAMESPACE: mlflow
+  PORT: 5000
+  
+  # Chart configuration
+  CHARTS: mlflow infra
+  
+  # Environment detection
+  CI:
+    sh: echo "${CI:-false}"
+  
+  # Resource-related parameters (adjustable for local/CI environments)
+  TIMEOUT: '{{if eq .CI "true"}}5m{{else}}3m{{end}}'
+  WAIT_RETRIES: '{{if eq .CI "true"}}30{{else}}15{{end}}'
+  RETRY_INTERVAL: '10'
+  
+  # Helm chart versions (dynamically determined)
+  MLFLOW_VERSION:
+    sh: helm show chart ./charts/mlflow | grep '^version:' | cut -d ' ' -f 2
+  INFRA_VERSION:
+    sh: helm show chart ./charts/infra | grep '^version:' | cut -d ' ' -f 2
+    
+  # Release configuration
+  # APP_NAME can be overridden by setting REPLICATED_APP environment variable 
+  APP_NAME: '{{.REPLICATED_APP | default "diamon-mlflow"}}'
+  YAML_DIR: "./kots"
+
+# Default task shows help
+tasks:
+  default:
+    desc: Show help information about available tasks
+    cmds:
+      - echo "MLflow CI and Testing Tasks"
+      - echo "=========================="
+      - task --list
+    silent: true
+
+  # Version checking task
+  check:versions:
+    desc: Check if versions match between Chart.yaml files and HelmChart manifests
+    cmds:
+      - echo "Checking chart versions consistency..."
+      - |
+        # For each available chart, check that versions match
+        all_match=true
+        
+        for chart in {{.CHARTS}}; do
+          echo "Checking $chart chart..."
+          
+          # Get the Chart.yaml path
+          chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
+          
+          # Get the HelmChart resource path
+          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          
+          # Check if both files exist
+          if [ ! -f "$chart_yaml" ]; then
+            echo "❌ Chart.yaml not found: $chart_yaml"
+            all_match=false
+            continue
+          fi
+          
+          if [ ! -f "$helmchart" ]; then
+            echo "❌ HelmChart resource not found: $helmchart"
+            all_match=false
+            continue
+          fi
+          
+          # Get versions from both files
+          chart_yaml_version=$(yq e '.version' "$chart_yaml")
+          helmchart_version=$(yq e '.spec.chart.chartVersion' "$helmchart")
+          
+          # Check if versions could be extracted
+          if [ -z "$chart_yaml_version" ]; then
+            echo "❌ Could not extract version from Chart.yaml: $chart_yaml"
+            all_match=false
+            continue
+          fi
+          
+          if [ -z "$helmchart_version" ]; then
+            echo "❌ Could not extract chartVersion from HelmChart: $helmchart"
+            all_match=false
+            continue
+          fi
+          
+          # Compare versions
+          if [ "$chart_yaml_version" = "$helmchart_version" ]; then
+            echo "✅ Versions match for $chart: $chart_yaml_version"
+          else
+            echo "❌ Version mismatch for $chart:"
+            echo "   Chart.yaml version: $chart_yaml_version"
+            echo "   HelmChart version: $helmchart_version"
+            all_match=false
+          fi
+        done
+        
+        # Exit with error if any versions don't match
+        if [ "$all_match" = true ]; then
+          echo "✅ All chart versions match between Chart.yaml and HelmChart resources."
+        else
+          echo "❌ Version mismatches found! Please run 'task update:versions' to synchronize them."
+          exit 1
+        fi
+
+  # Repository setup - renamed
+  add:repos:helm:
+    desc: Add required Helm repositories
+    cmds:
+      - helm repo add cnpg https://cloudnative-pg.github.io/charts
+      - helm repo add minio https://operator.min.io/
+      - helm repo update
+  
+  # Dependency update - renamed
+  update:deps:helm:
+    desc: Update Helm chart dependencies
+    deps: [add:repos:helm]
+    cmds:
+      - echo "Updating Helm chart dependencies..."
+      - for: { var: CHARTS }
+        cmd: |
+          echo "Updating dependencies for {{.ITEM}} chart..."
+          helm dependency update {{.CHART_DIR}}/{{.ITEM}}
+      - echo "Helm chart dependencies updated successfully."
+
+  # Chart linting
+  lint:
+    desc: Lint Helm charts
+    deps: [add:repos:helm, update:deps:helm]
+    cmds:
+      - echo "Linting Helm charts..."
+      - for: { var: CHARTS }
+        cmd: |
+          echo "Linting {{.ITEM}} chart..."
+          helm lint {{.CHART_DIR}}/{{.ITEM}}
+      - echo "Linting completed successfully."
+
+  # Template rendering
+  template:
+    desc: Template Helm charts with Replicated SDK disabled and output to stdout
+    deps: [add:repos:helm, update:deps:helm]
+    cmds:
+      - echo "Templating Helm charts with Replicated SDK disabled..."
+      - for: { var: CHARTS }
+        cmd: |
+          echo "=== Rendering templates for {{.ITEM}} chart ==="
+          echo "==============================================="
+          helm template {{.CHART_DIR}}/{{.ITEM}} --debug
+          echo ""
+          echo "=== End of templates for {{.ITEM}} chart ==="
+          echo ""
+      - echo "All chart templates have been output to stdout."
+
+  # Version update for packaged charts
+  update:versions:chart:
+    desc: Update chart version references in KOTS manifests
+    cmds:
+      - for: { var: CHARTS }
+        cmd: |
+          sed -i 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: {{if eq .ITEM "mlflow"}}{{.MLFLOW_VERSION}}{{else}}{{.INFRA_VERSION}}{{end}}|g' {{.KOTS_DIR}}/{{.ITEM}}-chart.yaml
+      - echo "Chart versions updated in KOTS manifests."
+      - cmd: task check:versions || echo "⚠️ Version check failed after update. Please verify manually."
+
+  # Packaging tasks
+  package:charts:
+    desc: Package Helm charts for distribution
+    deps: [add:repos:helm, update:deps:helm, update:versions:chart]
+    cmds:
+      - echo "Packaging Helm charts..."
+      - for: { var: CHARTS }
+        cmd: |
+          echo "Packaging {{.ITEM}} chart..."
+          helm package {{.CHART_DIR}}/{{.ITEM}} -u -d {{.KOTS_DIR}}
+      - echo "Charts packaged successfully in {{.KOTS_DIR}} directory."
+
+  # Release creation
+  create:release:
+    desc: Create a release in Replicated
+    deps: [check:versions, package:charts]
+    vars:
+      VERSION: '{{.VERSION | default .MLFLOW_VERSION}}'
+      REPLICATED_CHANNEL: '{{.REPLICATED_CHANNEL | default ""}}'
+    cmds:
+      - echo "Creating release version {{.VERSION}} for app {{.APP_NAME}}..."
+      - |
+        if [ -z "{{.REPLICATED_CHANNEL}}" ]; then
+          echo "❌ Error: No channel specified. Please provide a channel with REPLICATED_CHANNEL=your-channel-name"
+          exit 1
+        fi
+        
+        echo "Creating release for app {{.APP_NAME}} in channel {{.REPLICATED_CHANNEL}} with version {{.VERSION}}"
+        replicated release create \
+          --yaml-dir {{.YAML_DIR}} \
+          --promote {{.REPLICATED_CHANNEL}} \
+          --ensure-channel \
+          --version {{.VERSION}} \
+          --release-notes "{{.RELEASE_NOTES}}" \
+          --app {{.APP_NAME}}
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ Release {{.VERSION}} created successfully and promoted to channel {{.REPLICATED_CHANNEL}}"
+        else
+          echo "❌ Failed to create release"
+          exit 1
+        fi
+
+  # Namespace setup
+  setup:namespaces:
+    desc: Create and setup required namespaces
+    cmds:
+      - echo "Setting up required namespaces..."
+      - kubectl create namespace {{.NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
+      - echo "Namespace setup complete"
+
+  # Registry authentication/setup
+  login:registry:
+    desc: Login to Replicated registry (requires REPLICATED_LICENSE_ID env var)
+    cmds:
+      - echo "Authenticating with Replicated registry..."
+      - |
+        if [ -z "$REPLICATED_LICENSE_ID" ]; then
+          echo "ERROR: REPLICATED_LICENSE_ID environment variable must be set"
+          exit 1
+        fi
+        helm registry login registry.replicated.com \
+          --username="$REPLICATED_LICENSE_ID" \
+          --password="$REPLICATED_LICENSE_ID"
+      - echo "Registry login successful."
+
+  # Customer license ID retrieval
+  get:license-id:customer:
+    desc: Extract license ID from a customer (requires REPLICATED_API_TOKEN and customer name)
+    cmds:
+      - echo "Extracting license ID for customer {{.CUSTOMER_NAME}}..."
+      - |
+        # Validate required environment variables
+        if [ -z "$REPLICATED_API_TOKEN" ]; then
+          echo "ERROR: REPLICATED_API_TOKEN environment variable must be set"
+          exit 1
+        fi
+        
+        if [ -z "{{.CUSTOMER_NAME}}" ]; then
+          echo "ERROR: CUSTOMER_NAME parameter is required"
+          exit 1
+        fi
+        
+        # Run vendor-cli to inspect the customer and get the installation ID as JSON
+        echo "Running vendor-cli to inspect customer..."
+        CUSTOMER_JSON=$(docker run --rm \
+          -e REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN \
+          -e REPLICATED_APP={{.APP_NAME}} \
+          replicated/vendor-cli:latest \
+          customer inspect --customer "{{.CUSTOMER_NAME}}" --output json)
+        
+        # Use jq to properly extract the installationId
+        INSTALLATION_ID=$(echo "$CUSTOMER_JSON" | jq -r '.installationId')
+        
+        # Check if we got a valid ID
+        if [ -z "$INSTALLATION_ID" ] || [ "$INSTALLATION_ID" = "null" ]; then
+          echo "Failed to extract installationId from customer JSON"
+          echo "JSON structure:" 
+          echo "$CUSTOMER_JSON" | jq 'del(.installationId)' # Print JSON without the license ID
+          exit 1
+        fi
+        
+        # Print the license ID so it can be captured
+        echo "$INSTALLATION_ID"
+
+  # Download customer license
+  download:license:customer:
+    desc: Download license for a customer (requires REPLICATED_API_TOKEN and customer name)
+    cmds:
+      - echo "Downloading license for customer {{.CUSTOMER_NAME}}..."
+      - |
+        # Validate required environment variables
+        if [ -z "$REPLICATED_API_TOKEN" ]; then
+          echo "ERROR: REPLICATED_API_TOKEN environment variable must be set"
+          exit 1
+        fi
+        
+        if [ -z "{{.CUSTOMER_NAME}}" ]; then
+          echo "ERROR: CUSTOMER_NAME parameter is required"
+          exit 1
+        fi
+        
+        # Create a temporary directory for the license if it doesn't exist
+        mkdir -p /tmp/replicated
+        OUTPUT_FILE="/tmp/replicated/license-download-output.txt"
+        LICENSE_FILE="/tmp/replicated/license.yaml"
+        
+        # Run vendor-cli to download the customer license to a temporary file first
+        echo "Running vendor-cli to download license..."
+        TMP_LICENSE_FILE=$(mktemp)
+        set +e
+        docker run --rm \
+          -e REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN \
+          -e REPLICATED_APP={{.APP_NAME}} \
+          replicated/vendor-cli:latest \
+          customer download-license --customer "{{.CUSTOMER_NAME}}" > "$TMP_LICENSE_FILE" 2>$OUTPUT_FILE
+        DOWNLOAD_EXIT_CODE=$?
+        set -e
+        
+        if [ $DOWNLOAD_EXIT_CODE -ne 0 ]; then
+          echo "ERROR: Failed to download license for customer {{.CUSTOMER_NAME}}"
+          echo "Error output:"
+          cat $OUTPUT_FILE
+          rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+          exit 1
+        fi
+        
+        # Check if the file is empty
+        if [ ! -s "$TMP_LICENSE_FILE" ]; then
+          echo "ERROR: Downloaded license file is empty"
+          cat $OUTPUT_FILE
+          rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+          exit 1
+        fi
+        
+        # Verify the license file is valid YAML
+        if command -v yq >/dev/null 2>&1; then
+          echo "Validating license file is proper YAML..."
+          if ! yq eval . "$TMP_LICENSE_FILE" > /dev/null 2>&1; then
+            echo "ERROR: Downloaded license file is not valid YAML"
+            echo "License file content:"
+            cat "$TMP_LICENSE_FILE"
+            rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+            exit 1
+          fi
+        else
+          echo "WARNING: yq not found, skipping YAML validation"
+        fi
+        
+        # Remove any extra output or text before the YAML content
+        # This extracts content between first '---' and the end of file
+        if grep -q "^---" "$TMP_LICENSE_FILE"; then
+          echo "License appears to be in YAML format with document marker, extracting YAML content..."
+          sed -n '/^---/,$p' "$TMP_LICENSE_FILE" > "$LICENSE_FILE"
+        else
+          # If no '---' marker is found, check for '{' to identify JSON
+          if grep -q "{" "$TMP_LICENSE_FILE"; then
+            echo "License appears to be in JSON format, converting to YAML..."
+            if command -v yq >/dev/null 2>&1; then
+              cat "$TMP_LICENSE_FILE" | yq eval -P > "$LICENSE_FILE"
+            else
+              echo "ERROR: Cannot convert JSON to YAML without yq"
+              cat "$TMP_LICENSE_FILE"
+              rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+              exit 1
+            fi
+          else
+            # If neither YAML nor JSON markers are found, just copy the file
+            echo "No YAML document marker or JSON found. Copying file as-is..."
+            cat "$TMP_LICENSE_FILE" > "$LICENSE_FILE"
+          fi
+        fi
+        
+        # Log some debug information
+        echo "License file content (first 5 lines):"
+        head -n 5 "$LICENSE_FILE"
+        
+        # Verify file exists and has content
+        if [ ! -s "$LICENSE_FILE" ]; then
+          echo "ERROR: Final license file is empty after processing"
+          rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+          exit 1
+        fi
+        
+        echo "License successfully downloaded to $LICENSE_FILE"
+        rm -f $OUTPUT_FILE "$TMP_LICENSE_FILE"
+
+  # Cleanup tasks
+  clean:files:charts:
+    desc: Clean packaged charts from KOTS directory
+    cmds:
+      - rm -f {{.KOTS_DIR}}/*.tgz
+      - echo "Chart packages cleaned from {{.KOTS_DIR}}"
+
+  # Main clean task
+  clean:all:
+    desc: Clean all generated files
+    deps: [clean:files:charts]
+    cmds:
+      - echo "All generated files cleaned successfully"
+
+  # Helm test task
+  test:install:helm:
+    desc: Run Helm installation test from Replicated registry
+    deps: [login:registry, setup:namespaces]
+    cmds:
+      - echo "Running Helm installation test with custom values..."
+      - |
+        # Determine OCI URL - prefer direct OCI_URL if provided, otherwise construct from app/channel
+        if [ -n "$OCI_URL" ]; then
+          echo "Using provided OCI URL: $OCI_URL"
+        else
+          echo "No direct OCI_URL provided. Constructing from REPLICATED_APP and REPLICATED_CHANNEL"
+          echo "Note: This requires REPLICATED_APP and REPLICATED_CHANNEL env vars."
+          if [ -z "$REPLICATED_APP" ] || [ -z "$REPLICATED_CHANNEL" ]; then
+            echo "ERROR: REPLICATED_APP and REPLICATED_CHANNEL must be set"
+            exit 1
+          fi
+          OCI_URL="oci://registry.replicated.com/$REPLICATED_APP/$REPLICATED_CHANNEL"
+          echo "Constructed OCI URL: $OCI_URL"
+        fi
+        
+        # Validate OCI_URL is set and not empty
+        if [ -z "$OCI_URL" ]; then
+          echo "ERROR: OCI_URL is empty. Check that REPLICATED_APP and REPLICATED_CHANNEL are correctly set."
+          echo "REPLICATED_APP=$REPLICATED_APP"
+          echo "REPLICATED_CHANNEL=$REPLICATED_CHANNEL"
+          exit 1
+        fi
+        
+        # Prepare values arguments if provided
+        MLFLOW_VALUES_ARGS=""
+        if [ -n "$MLFLOW_VALUES" ]; then
+          echo "Using MLflow values file: $MLFLOW_VALUES"
+          # Check if values file exists
+          if [ ! -f "$MLFLOW_VALUES" ]; then
+            echo "ERROR: Values file '$MLFLOW_VALUES' does not exist"
+            exit 1
+          fi
+          MLFLOW_VALUES_ARGS="--values $MLFLOW_VALUES"
+          echo "Values args: $MLFLOW_VALUES_ARGS"
+        else
+          echo "No custom values file provided. Using default values."
+        fi
+        
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
+        
+        # Install infra chart from Replicated registry
+        echo "Installing infra chart from Replicated registry..."
+        echo "Chart path: $OCI_URL/infra"
+        helm upgrade --install infra $OCI_URL/infra \
+          --namespace {{.NAMESPACE}} \
+          --wait --timeout {{.TIMEOUT}} --debug || { 
+          echo "ERROR: Failed to install infra chart from $OCI_URL/infra"
+          echo "Please check that registry login was successful and the chart exists in the registry."
+          exit 1
+        }
+        
+        # Install MLflow chart from Replicated registry with custom values
+        echo "Installing mlflow chart from Replicated registry with custom values..."
+        echo "Chart path: $OCI_URL/mlflow"
+        echo "Using values args: $MLFLOW_VALUES_ARGS"
+        helm upgrade --install mlflow $OCI_URL/mlflow \
+          --namespace {{.NAMESPACE}} \
+          $MLFLOW_VALUES_ARGS \
+          --wait --timeout {{.TIMEOUT}} --debug || { 
+          echo "ERROR: Failed to install mlflow chart from $OCI_URL/mlflow"
+          echo "Please check that registry login was successful and the chart exists in the registry."
+          exit 1
+        }
+        
+        echo "Helm installation with custom values completed successfully."
+      - task: forward:port
+
+  # KOTS test task
+  test:install:kots:
+    desc: Run KOTS installation test
+    deps: [setup:namespaces]
+    cmds:
+      - echo "Running KOTS installation test..."
+      - |
+        if [ -z "$REPLICATED_LICENSE_ID" ]; then
+          echo "ERROR: REPLICATED_LICENSE_ID environment variable must be set"
+          exit 1
+        fi
+
+        if [ -z "$REPLICATED_APP" ]; then
+          echo "ERROR: REPLICATED_APP environment variable must be set"
+          exit 1
+        fi
+
+        if [ -z "$REPLICATED_CHANNEL" ]; then
+          echo "ERROR: REPLICATED_CHANNEL environment variable must be set"
+          exit 1
+        fi
+        
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
+        
+        # Create directory for license file if it doesn't exist
+        mkdir -p /tmp/replicated
+        LICENSE_FILE="/tmp/replicated/license.yaml"
+        
+        # Validate license file exists and has content
+        if [ ! -f "$LICENSE_FILE" ] || [ ! -s "$LICENSE_FILE" ]; then
+          echo "ERROR: License file does not exist or is empty at $LICENSE_FILE"
+          echo "Please download the license file using the customer:download-license task first"
+          exit 1
+        fi
+        
+        # Verify license file is valid YAML
+        if command -v yq >/dev/null 2>&1; then
+          echo "Validating license file is proper YAML before installation..."
+          if ! yq eval . "$LICENSE_FILE" > /dev/null 2>&1; then
+            echo "ERROR: License file is not valid YAML"
+            echo "License file content:"
+            cat "$LICENSE_FILE" | head -n 10
+            exit 1
+          else
+            echo "✅ License file is valid YAML"
+          fi
+        else
+          echo "WARNING: yq not found, skipping YAML validation"
+        fi
+        
+        echo "Installing latest KOTS version..."
+        curl https://kots.io/install | bash
+        
+        echo "License file at $LICENSE_FILE (first 5 lines):"
+        head -n 5 "$LICENSE_FILE"
+        
+        echo "Installing application from Replicated..."
+        echo "App: $REPLICATED_APP"
+        echo "Channel: $REPLICATED_CHANNEL"
+        echo "Using license file: $LICENSE_FILE"
+        
+        # Run KOTS install with detailed output
+        set -x
+        kubectl kots install $REPLICATED_APP/$REPLICATED_CHANNEL \
+          --shared-password=replicatedmlflow \
+          --license-file="$LICENSE_FILE" \
+          --namespace=default \
+          --wait-duration=10m \
+          --skip-preflights
+        set +x
+        
+        # Check if installation succeeded
+        if [ $? -ne 0 ]; then
+          echo "❌ KOTS installation failed"
+          echo "Checking app status:"
+          kubectl get app -n default
+          echo "Checking pods:"
+          kubectl get pods -n default
+          echo "Checking pod logs:"
+          kubectl logs -n default -l app=kotsadm --tail=50
+          exit 1
+        fi
+        
+        echo "✅ KOTS installation completed. Setting up port forwarding for testing..."
+      - task: forward:port
+
+  # Port forwarding task - now broken into smaller sub-tasks
+  find:mlflow:service:
+    desc: Find the MLflow service in the namespace
+    internal: true
+    cmds:
+      - echo "Looking for MLflow service in namespace {{.NAMESPACE}}..."
+      - |
+        # Wait for the MLflow service to be created
+        echo "Waiting for MLflow service to be created..."
+        MAX_RETRIES={{.WAIT_RETRIES}}
+        RETRY_INTERVAL={{.RETRY_INTERVAL}}
+        RETRY_COUNT=0
+        SERVICE_FOUND=false
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          echo "Check $((RETRY_COUNT+1))/$MAX_RETRIES: Looking for MLflow service..."
+          if kubectl get svc mlflow -n {{.NAMESPACE}} --no-headers 2>/dev/null; then
+            echo "✅ MLflow service found!"
+            SERVICE_FOUND=true
+            break
+          else
+            echo "MLflow service not found yet. Waiting $RETRY_INTERVAL seconds..."
+            RETRY_COUNT=$((RETRY_COUNT+1))
+            sleep $RETRY_INTERVAL
+          fi
+        done
+        
+        if [ "$SERVICE_FOUND" != "true" ]; then
+          echo "❌ ERROR: MLflow service not found after $((MAX_RETRIES * RETRY_INTERVAL)) seconds."
+          echo "Showing all available services in the namespace:"
+          kubectl get svc -n {{.NAMESPACE}}
+          echo "Showing pod status in the namespace:"
+          kubectl get pods -n {{.NAMESPACE}}
+          echo "Showing pod details:"
+          kubectl describe pods -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow
+          exit 1
+        fi
+        
+        # Verify the services are present
+        echo "Verifying MLflow service exists..."
+        kubectl get svc -n {{.NAMESPACE}}
+        echo "✅ MLflow service verification completed."
+
+  wait:mlflow:pods:
+    desc: Wait for MLflow pods to be ready
+    internal: true
+    cmds:
+      - echo "Checking MLflow pod status..."
+      - |
+        # Check pod status and wait for them to be running
+        echo "Checking pod status..."
+        kubectl get pods -n {{.NAMESPACE}}
+        
+        echo "Waiting for MLflow pods to be running..."
+        kubectl wait --for=condition=Ready pods --selector=app.kubernetes.io/name=mlflow -n {{.NAMESPACE}} --timeout={{.TIMEOUT}} || {
+          echo "WARNING: Timed out waiting for pods to be ready, will try port-forwarding anyway"
+          kubectl describe pods -n {{.NAMESPACE}}
+        }
+        echo "✅ Pod readiness check completed."
+
+  setup:port:forward:
+    desc: Set up port forwarding to MLflow service
+    internal: true
+    cmds:
+      - echo "Setting up port forwarding to MLflow service..."
+      - |
+        SERVICE_NAME=$(kubectl get svc -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow -o name | head -n 1)
+        if [ -z "$SERVICE_NAME" ]; then
+          echo "ERROR: Could not find MLflow service with label app.kubernetes.io/name=mlflow"
+          exit 1
+        fi
+        
+        echo "Setting up port forwarding to $SERVICE_NAME..."
+        # Set up port forwarding in the background with logs
+        echo "Setting up port forwarding using nohup..."
+        PORT_FORWARD_LOG="/tmp/port-forward-mlflow-$$.log"
+        nohup kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
+        PORT_FORWARD_PID=$!
+        
+        # Give port-forward a moment to start
+        sleep 2
+        
+        # Verify the PID was captured properly
+        if [ -z "$PORT_FORWARD_PID" ] || [ "$PORT_FORWARD_PID" = "0" ]; then
+          echo "ERROR: Failed to capture port-forward process PID"
+          echo "Attempting alternate port forwarding method..."
+          
+          # Alternative approach - use a fixed port file to track the PID
+          PID_FILE="/tmp/mlflow-portforward.pid"
+          rm -f $PID_FILE
+          
+          # Use a background task with PID file
+          (
+            kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
+            echo $! > $PID_FILE
+            wait
+          ) &
+          
+          # Wait a moment and check if the PID file was created
+          sleep 3
+          if [ -f $PID_FILE ]; then
+            PORT_FORWARD_PID=$(cat $PID_FILE)
+            echo "Port forwarding set up with alternate method, PID: $PORT_FORWARD_PID"
+          else
+            echo "ERROR: Both port forwarding methods failed. Continuing anyway..."
+            # Continue anyway and rely on curl checks to verify connectivity
+            PORT_FORWARD_PID=""
+          fi
+        else
+          echo "Port forwarding set up with PID: $PORT_FORWARD_PID"
+        fi
+        
+        # Save the PID to a file for other tasks to use
+        echo $PORT_FORWARD_PID > /tmp/mlflow-port-forward-main.pid
+        echo "✅ Port forwarding initialized."
+
+  check:port:forward:
+    desc: Check if port forwarding is working and restart if needed
+    internal: true
+    cmds:
+      - echo "Checking port forwarding status..."
+      - |
+        # Read PID from file if it exists
+        PORT_FORWARD_LOG="/tmp/port-forward-mlflow-$$.log"
+        if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+          PORT_FORWARD_PID=$(cat /tmp/mlflow-port-forward-main.pid)
+        else
+          echo "WARNING: No PID file found for port forwarding process"
+          PORT_FORWARD_PID=""
+        fi
+        
+        # Give port-forward more time to establish
+        echo "Waiting for port-forward to establish..."
+        sleep 5
+        
+        # Only check process if we have a PID
+        if [ -n "$PORT_FORWARD_PID" ]; then
+          # Check if port-forward process is still running
+          if ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
+            echo "WARNING: Port forwarding process with PID $PORT_FORWARD_PID is not running"
+            echo "Port forwarding log:"
+            cat $PORT_FORWARD_LOG || echo "No log file found"
+            echo "Will try to restart port forwarding..."
+            
+            # Get service name again
+            SERVICE_NAME=$(kubectl get svc -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow -o name | head -n 1)
+            if [ -z "$SERVICE_NAME" ]; then
+              echo "ERROR: Could not find MLflow service to restart port forwarding"
+              echo "Will try to connect anyway..."
+            else
+              # Restart port forwarding
+              echo "Attempting to restart port forwarding..."
+              nohup kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
+              PORT_FORWARD_PID=$!
+              echo $PORT_FORWARD_PID > /tmp/mlflow-port-forward-main.pid
+              sleep 3
+              
+              if [ -z "$PORT_FORWARD_PID" ] || [ "$PORT_FORWARD_PID" = "0" ]; then
+                echo "WARNING: Failed to capture restarted port-forward process PID"
+                echo "Will continue without checking process status"
+              else
+                echo "Restarted port forwarding with PID: $PORT_FORWARD_PID"
+              fi
+              
+              sleep 5 # Give the new port-forward time to establish
+            fi
+          else
+            echo "✅ Port forwarding process is running with PID: $PORT_FORWARD_PID"
+          fi
+        fi
+        echo "✅ Port forwarding check completed."
+
+  test:connectivity:
+    desc: Test connectivity to MLflow service
+    internal: true
+    cmds:
+      - echo "Testing connectivity to MLflow on localhost:{{.PORT}}..."
+      - |
+        # Basic connectivity check
+        MAX_CONN_RETRIES=5
+        CONN_RETRY_COUNT=0
+        CONN_SUCCESS=false
+        
+        while [ $CONN_RETRY_COUNT -lt $MAX_CONN_RETRIES ]; do
+          CONN_RETRY_COUNT=$((CONN_RETRY_COUNT+1))
+          echo "Connection attempt $CONN_RETRY_COUNT/$MAX_CONN_RETRIES..."
+          
+          # Try curling the MLflow endpoint
+          if curl -s -o /dev/null -w "%{http_code}" http://localhost:{{.PORT}}/ > /dev/null 2>&1; then
+            echo "✅ Successfully connected to MLflow service!"
+            CONN_SUCCESS=true
+            break
+          else
+            echo "Connection attempt $CONN_RETRY_COUNT failed, retrying in 5 seconds..."
+            
+            # Check if port-forward is still running
+            if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+              PORT_FORWARD_PID=$(cat /tmp/mlflow-port-forward-main.pid)
+              if [ -n "$PORT_FORWARD_PID" ] && ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
+                echo "WARNING: Port forwarding process with PID $PORT_FORWARD_PID is not running"
+                echo "Port forwarding log:"
+                cat /tmp/port-forward-mlflow-$$.log || echo "No log file found"
+                echo "Will try to connect anyway..."
+              fi
+            fi
+            
+            sleep 5
+          fi
+        done
+        
+        if [ "$CONN_SUCCESS" != "true" ]; then
+          echo "WARNING: Could not connect to MLflow service after $MAX_CONN_RETRIES attempts."
+          echo "This may indicate issues with the service or port forwarding."
+          
+          if [ -f "/tmp/port-forward-mlflow-$$.log" ]; then
+            echo "Port forwarding log:"
+            cat /tmp/port-forward-mlflow-$$.log
+          fi
+          
+          echo "Pod logs:"
+          kubectl logs -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow --tail=20 || true
+          echo "Continuing anyway, but tests may fail."
+        fi
+        echo "✅ Connectivity test completed."
+
+  forward:port:
+    desc: Setup port forwarding to MLflow service for testing
+    internal: true
+    deps: [find:mlflow:service, wait:mlflow:pods]
+    cmds:
+      - echo "Setting up port forwarding to MLflow service..."
+      - task: setup:port:forward
+      - task: check:port:forward
+      - task: test:connectivity
+      - echo "✅ Port forwarding setup completed successfully."
+
+  cleanup:port:forward:
+    desc: Clean up port forwarding processes
+    cmds:
+      - echo "Cleaning up port forwarding processes..."
+      - |
+        # Check if PID file exists
+        if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+          PID=$(cat /tmp/mlflow-port-forward-main.pid)
+          
+          # Check if process is running and kill it
+          if [ -n "$PID" ] && ps -p $PID > /dev/null 2>&1; then
+            echo "Terminating port forwarding process with PID: $PID"
+            kill $PID
+            if [ $? -eq 0 ]; then
+              echo "✅ Port forwarding process terminated successfully"
+            else
+              echo "❌ Failed to terminate port forwarding process"
+            fi
+          else
+            echo "No running port forwarding process found with PID: $PID"
+          fi
+          
+          # Remove PID file
+          rm -f /tmp/mlflow-port-forward-main.pid
+          echo "Removed PID file"
+        else
+          echo "No port forwarding PID file found"
+        fi
+        
+        # Clean up any log files
+        rm -f /tmp/port-forward-mlflow-*.log
+        
+        # Check for any lingering port-forward processes
+        echo "Checking for lingering port-forward processes on port {{.PORT}}..."
+        RUNNING_FORWARDS=$(ps aux | grep "port-forward.*:{{.PORT}}" | grep -v grep || true)
+        if [ -n "$RUNNING_FORWARDS" ]; then
+          echo "Found running port-forward processes:"
+          echo "$RUNNING_FORWARDS"
+          echo "Attempting to kill these processes..."
+          
+          # Extract PIDs and kill
+          ps aux | grep "port-forward.*:{{.PORT}}" | grep -v grep | awk '{print $2}' | xargs -r kill
+          echo "✅ Lingering port-forward processes terminated"
+        else
+          echo "No lingering port-forward processes found"
+        fi
+        
+        echo "✅ Port forwarding cleanup completed"
+
+  # Local installation task (renamed from test:install:local)
+  install:helm:local:
+    desc: Install MLflow with local Helm charts for development (with Replicated SDK disabled)
+    deps: [add:repos:helm, setup:namespaces]
+    cmds:
+      - echo "Installing MLflow with local Helm charts (Replicated SDK disabled)..."
+      - |
+        # Prepare values arguments if provided
+        MLFLOW_VALUES_ARGS=""
+        if [ -n "$MLFLOW_VALUES" ]; then
+          echo "Using MLflow values file: $MLFLOW_VALUES"
+          # Check if values file exists
+          if [ ! -f "$MLFLOW_VALUES" ]; then
+            echo "ERROR: Values file '$MLFLOW_VALUES' does not exist"
+            exit 1
+          fi
+          MLFLOW_VALUES_ARGS="--values $MLFLOW_VALUES"
+          echo "Values args: $MLFLOW_VALUES_ARGS"
+        else
+          echo "No custom values file provided. Using default values."
+        fi
+        
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
+        
+        # Install infra chart from local directory
+        echo "Installing infra chart from local directory..."
+        helm upgrade --install infra {{.CHART_DIR}}/infra \
+          --namespace {{.NAMESPACE}} \
+          --wait --timeout {{.TIMEOUT}} --debug || { 
+          echo "ERROR: Failed to install infra chart from {{.CHART_DIR}}/infra"
+          exit 1
+        }
+        
+        # Install MLflow chart from local directory with custom values
+        # Note: We explicitly disable the Replicated SDK for local development to avoid
+        # dependencies on the Replicated platform during development
+        echo "Installing mlflow chart from local directory (Replicated SDK disabled)..."
+        echo "Using values args: $MLFLOW_VALUES_ARGS"
+        helm upgrade --install mlflow {{.CHART_DIR}}/mlflow \
+          --namespace {{.NAMESPACE}} \
+          --set replicated.enabled=false \
+          $MLFLOW_VALUES_ARGS \
+          --wait --timeout {{.TIMEOUT}} --debug || { 
+          echo "ERROR: Failed to install mlflow chart from {{.CHART_DIR}}/mlflow"
+          exit 1
+        }
+        
+        echo "Local Helm installation completed successfully."
+      - task: forward:port
+
+  # App test task
+  run:tests:app:
+    desc: Run application tests against the running MLflow service
+    cmds:
+      - echo "Running application tests against MLflow on localhost:{{.PORT}}..."
+      - |
+        # Check if running inside a virtual environment already
+        if [ -z "$VIRTUAL_ENV" ]; then
+          echo "Installing Python dependencies directly..."
+          # Try to use binary wheels whenever possible
+          python -m pip install --upgrade pip wheel setuptools
+          # Install the required packages directly
+          python -m pip install mlflow numpy pandas scikit-learn pytest requests
+        else
+          echo "Running in virtual environment $VIRTUAL_ENV, skipping dependency installation"
+        fi
+        
+        echo "Running MLflow application tests"
+        python {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} \
+          --protocol http \
+          --connection-timeout 180 \
+          --debug
+
+  # All tests task
+  run:tests:all:
+    desc: Run all tests
+    deps: [test:install:helm, run:tests:app]
+    cmds:
+      - echo "All tests completed successfully"
+      - task: cleanup:port:forward
+
+  # Alternative test task with venv
+  run:tests:app:venv:
+    desc: Run application tests using a virtual environment for better isolation
+    cmds:
+      - echo "Running application tests in a virtual environment..."
+      - |
+        # Set up test env directory
+        TEST_ENV_DIR="{{.TESTS_DIR}}/.venv"
+        
+        # Clean up any existing venv if requested
+        if [ "${CLEAN_VENV:-no}" = "yes" ]; then
+          echo "Cleaning up existing virtual environment..."
+          rm -rf "$TEST_ENV_DIR"
+        fi
+        
+        # Create virtual environment if it doesn't exist
+        if [ ! -d "$TEST_ENV_DIR" ]; then
+          echo "Setting up new virtual environment..."
+          python -m venv "$TEST_ENV_DIR"
+        fi
+        
+        # Determine the correct activation script based on shell
+        if [ -f "$TEST_ENV_DIR/bin/activate" ]; then
+          ACTIVATE_SCRIPT="$TEST_ENV_DIR/bin/activate"
+        elif [ -f "$TEST_ENV_DIR/Scripts/activate" ]; then
+          ACTIVATE_SCRIPT="$TEST_ENV_DIR/Scripts/activate"
+        else
+          echo "❌ Unable to find activation script for virtual environment"
+          exit 1
+        fi
+        
+        # Create a temporary script to run in the activated environment
+        TMP_SCRIPT=$(mktemp)
+        cat > "$TMP_SCRIPT" << 'EOF'
+        set -e
+        echo "Using Python: $(which python)"
+        echo "Python version: $(python --version)"
+        echo "Upgrading pip, setuptools, and wheel..."
+        python -m pip install --upgrade pip setuptools wheel
+        
+        echo "Installing dependencies with retry..."
+        MAX_RETRIES=2
+        RETRY_COUNT=0
+        SUCCESS=false
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; do
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          echo "Attempt $RETRY_COUNT/$MAX_RETRIES: Installing dependencies..."
+          
+          if python -m pip install --no-cache-dir -r ./tests/requirements.txt; then
+            SUCCESS=true
+          else
+            echo "Installation failed, trying with binary-only approach..."
+            if python -m pip install --only-binary=:all: -r ./tests/requirements.txt; then
+              SUCCESS=true
+            else
+              echo "Binary-only installation failed too."
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Will retry in 5 seconds..."
+                sleep 5
+              fi
+            fi
+          fi
+        done
+        
+        if [ "$SUCCESS" != "true" ]; then
+          echo "❌ Failed to install dependencies after $MAX_RETRIES attempts"
+          exit 1
+        fi
+        
+        echo "Running MLflow application tests"
+        python ./tests/mlflow_test.py localhost:5000 --protocol http --connection-timeout 180 --debug
+        EOF
+        
+        # Make the script executable
+        chmod +x "$TMP_SCRIPT"
+        
+        # Run the script within the activated environment
+        echo "Activating virtual environment and running tests..."
+        source "$ACTIVATE_SCRIPT" && bash "$TMP_SCRIPT"
+        
+        # Clean up
+        rm -f "$TMP_SCRIPT"
+      
+  # Task to clean the virtual environment
+  clean:venv:
+    desc: Clean up the Python virtual environment used for testing
+    cmds:
+      - echo "Cleaning up Python virtual environment..."
+      - rm -rf "{{.TESTS_DIR}}/.venv"
+      - echo "✅ Python virtual environment cleaned"
+
+  # Documentation generation tasks
+  docs:helm:generate:
+    desc: Generate Helm chart documentation from templates
+    cmds:
+      - echo "Generating Helm chart documentation..."
+      - |
+        # Make sure helm-docs is installed
+        if ! command -v helm-docs &> /dev/null; then
+          echo "❌ helm-docs is not installed. Please install it from https://github.com/norwoodj/helm-docs"
+          exit 1
+        fi
+        
+        # Run helm-docs for each chart
+        for chart in {{.CHARTS}}; do
+          echo "Generating documentation for $chart chart..."
+          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl
+        done
+        
+        echo "✅ Helm chart documentation generated successfully."
+
+  docs:helm:check:
+    desc: Check if Helm chart documentation is up to date
+    cmds:
+      - echo "Checking if Helm chart documentation is up to date..."
+      - |
+        # Make sure helm-docs is installed
+        if ! command -v helm-docs &> /dev/null; then
+          echo "❌ helm-docs is not installed. Please install it from https://github.com/norwoodj/helm-docs"
+          exit 1
+        fi
+        
+        docs_outdated=false
+        
+        # For each chart, generate docs to a temp dir and compare with current docs
+        for chart in {{.CHARTS}}; do
+          echo "Checking documentation for $chart chart..."
+          
+          # Create temp directory
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+          
+          # Copy current README.md to temp dir
+          readme_path="{{.CHART_DIR}}/$chart/README.md"
+          tmp_readme="$tmp_dir/README.md"
+          
+          if [ -f "$readme_path" ]; then
+            cp "$readme_path" "$tmp_readme"
+          else
+            echo "⚠️ README.md not found for $chart chart. This check will only be useful after docs are generated."
+            touch "$tmp_readme"  # Create empty file for comparison
+          fi
+          
+          # Generate fresh docs
+          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir"
+          
+          # Compare with current docs
+          if [ -f "$readme_path" ] && ! diff -q "$readme_path" "$tmp_readme" > /dev/null; then
+            echo "❌ Documentation for $chart chart is outdated. Run 'task docs:helm:generate' to update."
+            docs_outdated=true
+          else
+            echo "✅ Documentation for $chart chart is up to date."
+          fi
+        done
+        
+        # Exit with error if any docs are outdated
+        if [ "$docs_outdated" = true ]; then
+          echo "❌ Some chart documentation files are outdated. Run 'task docs:helm:generate' to update them."
+          exit 1
+        else
+          echo "✅ All chart documentation is up to date."
+        fi
+  # Version extraction
+  extract:version:chart:
+    desc: Extract and print the MLflow chart version
+    cmds:
+      - |
+        echo "{{.MLFLOW_VERSION}}"
+    silent: true

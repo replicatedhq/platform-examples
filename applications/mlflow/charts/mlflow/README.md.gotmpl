@@ -1,0 +1,204 @@
+{{- define "custom.repository.organization" -}}
+replicatedhq
+{{- end -}}
+
+{{- define "custom.repository.url" -}}
+https://github.com/replicatedhq/platform-examples
+{{- end -}}
+
+{{- define "custom.helm.url" -}}
+https://github.com/replicatedhq/platform-examples/tree/main/applications/mlflow
+{{- end -}}
+
+{{- define "custom.helm.path" -}}
+{{ template "custom.repository.organization" . }}/{{ template "chart.name" . }}
+{{- end -}}
+
+{{- define "custom.notes" -}}
+{{- end -}}
+
+{{- define "custom.requirements" -}}
+## Requirements
+
+{{ template "chart.kubeVersionLine" . }}
+{{- end -}}
+
+{{- define "custom.dependencies" -}}
+## Dependencies
+
+{{ template "chart.requirementsTable" . }}
+{{- end -}}
+
+{{- define "custom.install" -}}
+## Installing the Chart
+
+### Prerequisites
+- Kubernetes cluster running version 1.19+
+- Helm 3.0+
+- Persistent storage provisioner (for PostgreSQL and MinIO)
+
+### Quick Start
+
+```bash
+# Add the Replicated registry (if using Replicated)
+helm registry login registry.replicated.com --username=<your-license-id>
+
+# Install the chart
+helm install mlflow oci://registry.replicated.com/your-app/your-channel/mlflow
+```
+
+### From Local Chart
+
+```bash
+# Clone the repository
+git clone https://github.com/replicatedhq/platform-examples.git
+cd platform-examples/applications/mlflow
+
+# Install dependencies
+helm dependency update ./charts/mlflow
+
+# Install the chart
+helm install mlflow ./charts/mlflow --namespace mlflow --create-namespace
+```
+{{- end -}}
+
+{{- define "custom.usage" -}}
+## Usage
+
+### Accessing MLflow
+
+After deploying MLflow, you can access the web UI by port-forwarding the service:
+
+```bash
+kubectl port-forward -n mlflow svc/mlflow 5000:5000
+```
+
+Then navigate to http://localhost:5000 in your browser.
+{{- end -}}
+
+{{- define "custom.features" -}}
+## Features
+
+- **Tracking Server**: Central interface for logging parameters, metrics, and artifacts
+- **Model Registry**: Repository for managing the full lifecycle of MLflow Models
+- **PostgreSQL**: Persistent storage for experiment and run data
+- **MinIO**: S3-compatible storage for model artifacts
+- **Replicated Integration**: Support for distribution through the Replicated platform
+{{- end -}}
+
+{{- define "custom.configuration" -}}
+## Configuration
+
+{{ template "custom.config.introduction" . }}
+
+For detailed configuration options, see the [Configuration Reference](./README_CONFIG.md).
+
+### Basic Configuration
+
+#### Minimum Configuration
+
+```yaml
+# Minimal configuration example
+postgresql:
+  auth:
+    password: "securePassword"  # Required for security
+minio:
+  auth:
+    rootPassword: "securePassword"  # Required for security
+```
+
+#### Common Configuration Options
+
+```yaml
+# Common options
+mlflow:
+  # Set resources for MLflow server
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  # Configure basic authentication
+  auth:
+    enabled: true
+    username: admin
+    password: password
+```
+
+For complete configuration options including external services, security settings, and advanced features, see the [Configuration Reference](./README_CONFIG.md).
+{{- end -}}
+
+{{- define "custom.uninstall" -}}
+## Uninstalling the Chart
+
+```bash
+helm uninstall mlflow -n mlflow
+```
+{{- end -}}
+
+{{- define "custom.support" -}}
+## Support
+
+For support with this chart, please visit the [Replicated Community](https://community.replicated.com/).
+{{- end -}}
+
+{{- define "custom.changelogLink" -}}
+## Changelog
+
+The changelog for this chart is maintained in [README_CHANGELOG.md](./README_CHANGELOG.md).
+{{- end -}}
+
+{{- define "chart.valuesSection" -}}
+## Values
+
+The configuration values for this chart are documented in a separate file due to their size and complexity.
+See [Configuration Reference](./README_CONFIG.md) for detailed descriptions of all available options.
+{{- end -}}
+
+{{- define "chart.versionFooter" -}}
+## Version
+
+Helm Chart version: {{ .Version }}
+{{- end -}}
+
+{{ template "chart.header" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+## Introduction
+
+MLflow is an open-source platform for managing the machine learning lifecycle, including:
+- Experiment tracking: Record and compare parameters, data, code, and results
+- Model registry: Store, annotate, discover, and manage models in a central repository
+- Model serving: Deploy models in diverse serving environments
+
+This Helm chart deploys MLflow with a PostgreSQL database for tracking and MinIO for artifact storage.
+
+{{ template "custom.notes" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "custom.requirements" . }}
+
+{{ template "custom.dependencies" . }}
+
+{{ template "custom.install" . }}
+
+{{ template "custom.usage" . }}
+
+{{ template "custom.features" . }}
+
+{{ template "custom.configuration" . }}
+
+{{ template "custom.uninstall" . }}
+
+{{ template "custom.changelogLink" . }}
+
+{{ template "custom.support" . }}
+
+{{ template "helm-docs.versionFooter" . }}
