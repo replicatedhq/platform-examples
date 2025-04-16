@@ -436,6 +436,9 @@ tasks:
           echo "No custom values file provided. Using default values."
         fi
         
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
+        
         # Install infra chart from Replicated registry
         echo "Installing infra chart from Replicated registry..."
         echo "Chart path: $OCI_URL/infra"
@@ -484,6 +487,9 @@ tasks:
           echo "ERROR: REPLICATED_CHANNEL environment variable must be set"
           exit 1
         fi
+        
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
         
         # Create directory for license file if it doesn't exist
         mkdir -p /tmp/replicated
@@ -547,12 +553,12 @@ tasks:
         echo "✅ KOTS installation completed. Setting up port forwarding for testing..."
       - task: forward:port
 
-  # Port forwarding task
-  forward:port:
-    desc: Setup port forwarding to MLflow service for testing
+  # Port forwarding task - now broken into smaller sub-tasks
+  find:mlflow:service:
+    desc: Find the MLflow service in the namespace
     internal: true
     cmds:
-      - echo "Setting up port forwarding to MLflow service..."
+      - echo "Looking for MLflow service in namespace {{.NAMESPACE}}..."
       - |
         # Wait for the MLflow service to be created
         echo "Waiting for MLflow service to be created..."
@@ -588,7 +594,14 @@ tasks:
         # Verify the services are present
         echo "Verifying MLflow service exists..."
         kubectl get svc -n {{.NAMESPACE}}
-        
+        echo "✅ MLflow service verification completed."
+
+  wait:mlflow:pods:
+    desc: Wait for MLflow pods to be ready
+    internal: true
+    cmds:
+      - echo "Checking MLflow pod status..."
+      - |
         # Check pod status and wait for them to be running
         echo "Checking pod status..."
         kubectl get pods -n {{.NAMESPACE}}
@@ -598,7 +611,14 @@ tasks:
           echo "WARNING: Timed out waiting for pods to be ready, will try port-forwarding anyway"
           kubectl describe pods -n {{.NAMESPACE}}
         }
-        
+        echo "✅ Pod readiness check completed."
+
+  setup:port:forward:
+    desc: Set up port forwarding to MLflow service
+    internal: true
+    cmds:
+      - echo "Setting up port forwarding to MLflow service..."
+      - |
         SERVICE_NAME=$(kubectl get svc -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow -o name | head -n 1)
         if [ -z "$SERVICE_NAME" ]; then
           echo "ERROR: Could not find MLflow service with label app.kubernetes.io/name=mlflow"
@@ -608,7 +628,6 @@ tasks:
         echo "Setting up port forwarding to $SERVICE_NAME..."
         # Set up port forwarding in the background with logs
         echo "Setting up port forwarding using nohup..."
-        # Use nohup to ensure the process runs in the background even if the parent process exits
         PORT_FORWARD_LOG="/tmp/port-forward-mlflow-$$.log"
         nohup kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
         PORT_FORWARD_PID=$!
@@ -646,6 +665,25 @@ tasks:
           echo "Port forwarding set up with PID: $PORT_FORWARD_PID"
         fi
         
+        # Save the PID to a file for other tasks to use
+        echo $PORT_FORWARD_PID > /tmp/mlflow-port-forward-main.pid
+        echo "✅ Port forwarding initialized."
+
+  check:port:forward:
+    desc: Check if port forwarding is working and restart if needed
+    internal: true
+    cmds:
+      - echo "Checking port forwarding status..."
+      - |
+        # Read PID from file if it exists
+        PORT_FORWARD_LOG="/tmp/port-forward-mlflow-$$.log"
+        if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+          PORT_FORWARD_PID=$(cat /tmp/mlflow-port-forward-main.pid)
+        else
+          echo "WARNING: No PID file found for port forwarding process"
+          PORT_FORWARD_PID=""
+        fi
+        
         # Give port-forward more time to establish
         echo "Waiting for port-forward to establish..."
         sleep 5
@@ -657,34 +695,43 @@ tasks:
             echo "WARNING: Port forwarding process with PID $PORT_FORWARD_PID is not running"
             echo "Port forwarding log:"
             cat $PORT_FORWARD_LOG || echo "No log file found"
-            echo "Will try to connect anyway..."
-          fi
-        fi
-        
-        # Check if port-forward is still running
-        if [ -n "$PORT_FORWARD_PID" ] && ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-          echo "ERROR: Port forwarding process died during connection attempts."
-          echo "Port forwarding log:"
-          cat $PORT_FORWARD_LOG || echo "No log file found"
-          
-          # Restart port forwarding as a fallback
-          echo "Attempting to restart port forwarding..."
-          nohup kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
-          PORT_FORWARD_PID=$!
-          sleep 3
-          
-          if [ -z "$PORT_FORWARD_PID" ] || [ "$PORT_FORWARD_PID" = "0" ]; then
-            echo "WARNING: Failed to capture restarted port-forward process PID"
-            echo "Will continue without checking process status"
+            echo "Will try to restart port forwarding..."
+            
+            # Get service name again
+            SERVICE_NAME=$(kubectl get svc -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow -o name | head -n 1)
+            if [ -z "$SERVICE_NAME" ]; then
+              echo "ERROR: Could not find MLflow service to restart port forwarding"
+              echo "Will try to connect anyway..."
+            else
+              # Restart port forwarding
+              echo "Attempting to restart port forwarding..."
+              nohup kubectl port-forward -n {{.NAMESPACE}} $SERVICE_NAME {{.PORT}}:5000 > $PORT_FORWARD_LOG 2>&1 &
+              PORT_FORWARD_PID=$!
+              echo $PORT_FORWARD_PID > /tmp/mlflow-port-forward-main.pid
+              sleep 3
+              
+              if [ -z "$PORT_FORWARD_PID" ] || [ "$PORT_FORWARD_PID" = "0" ]; then
+                echo "WARNING: Failed to capture restarted port-forward process PID"
+                echo "Will continue without checking process status"
+              else
+                echo "Restarted port forwarding with PID: $PORT_FORWARD_PID"
+              fi
+              
+              sleep 5 # Give the new port-forward time to establish
+            fi
           else
-            echo "Restarted port forwarding with PID: $PORT_FORWARD_PID"
+            echo "✅ Port forwarding process is running with PID: $PORT_FORWARD_PID"
           fi
-          
-          sleep 5 # Give the new port-forward time to establish
         fi
-        
+        echo "✅ Port forwarding check completed."
+
+  test:connectivity:
+    desc: Test connectivity to MLflow service
+    internal: true
+    cmds:
+      - echo "Testing connectivity to MLflow on localhost:{{.PORT}}..."
+      - |
         # Basic connectivity check
-        echo "Checking connectivity to MLflow on localhost:{{.PORT}}..."
         MAX_CONN_RETRIES=5
         CONN_RETRY_COUNT=0
         CONN_SUCCESS=false
@@ -695,18 +742,21 @@ tasks:
           
           # Try curling the MLflow endpoint
           if curl -s -o /dev/null -w "%{http_code}" http://localhost:{{.PORT}}/ > /dev/null 2>&1; then
-            echo "Successfully connected to MLflow service!"
+            echo "✅ Successfully connected to MLflow service!"
             CONN_SUCCESS=true
             break
           else
             echo "Connection attempt $CONN_RETRY_COUNT failed, retrying in 5 seconds..."
             
             # Check if port-forward is still running
-            if [ -n "$PORT_FORWARD_PID" ] && ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
-              echo "WARNING: Port forwarding process with PID $PORT_FORWARD_PID is not running"
-              echo "Port forwarding log:"
-              cat $PORT_FORWARD_LOG || echo "No log file found"
-              echo "Will try to connect anyway..."
+            if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+              PORT_FORWARD_PID=$(cat /tmp/mlflow-port-forward-main.pid)
+              if [ -n "$PORT_FORWARD_PID" ] && ! ps -p $PORT_FORWARD_PID > /dev/null 2>&1; then
+                echo "WARNING: Port forwarding process with PID $PORT_FORWARD_PID is not running"
+                echo "Port forwarding log:"
+                cat /tmp/port-forward-mlflow-$$.log || echo "No log file found"
+                echo "Will try to connect anyway..."
+              fi
             fi
             
             sleep 5
@@ -716,14 +766,77 @@ tasks:
         if [ "$CONN_SUCCESS" != "true" ]; then
           echo "WARNING: Could not connect to MLflow service after $MAX_CONN_RETRIES attempts."
           echo "This may indicate issues with the service or port forwarding."
-          echo "Port forwarding log:"
-          cat $PORT_FORWARD_LOG
+          
+          if [ -f "/tmp/port-forward-mlflow-$$.log" ]; then
+            echo "Port forwarding log:"
+            cat /tmp/port-forward-mlflow-$$.log
+          fi
+          
           echo "Pod logs:"
           kubectl logs -n {{.NAMESPACE}} -l app.kubernetes.io/name=mlflow --tail=20 || true
           echo "Continuing anyway, but tests may fail."
         fi
+        echo "✅ Connectivity test completed."
+
+  forward:port:
+    desc: Setup port forwarding to MLflow service for testing
+    internal: true
+    deps: [find:mlflow:service, wait:mlflow:pods]
+    cmds:
+      - echo "Setting up port forwarding to MLflow service..."
+      - task: setup:port:forward
+      - task: check:port:forward
+      - task: test:connectivity
+      - echo "✅ Port forwarding setup completed successfully."
+
+  cleanup:port:forward:
+    desc: Clean up port forwarding processes
+    cmds:
+      - echo "Cleaning up port forwarding processes..."
+      - |
+        # Check if PID file exists
+        if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+          PID=$(cat /tmp/mlflow-port-forward-main.pid)
+          
+          # Check if process is running and kill it
+          if [ -n "$PID" ] && ps -p $PID > /dev/null 2>&1; then
+            echo "Terminating port forwarding process with PID: $PID"
+            kill $PID
+            if [ $? -eq 0 ]; then
+              echo "✅ Port forwarding process terminated successfully"
+            else
+              echo "❌ Failed to terminate port forwarding process"
+            fi
+          else
+            echo "No running port forwarding process found with PID: $PID"
+          fi
+          
+          # Remove PID file
+          rm -f /tmp/mlflow-port-forward-main.pid
+          echo "Removed PID file"
+        else
+          echo "No port forwarding PID file found"
+        fi
         
-        echo "Port forwarding setup completed."
+        # Clean up any log files
+        rm -f /tmp/port-forward-mlflow-*.log
+        
+        # Check for any lingering port-forward processes
+        echo "Checking for lingering port-forward processes on port {{.PORT}}..."
+        RUNNING_FORWARDS=$(ps aux | grep "port-forward.*:{{.PORT}}" | grep -v grep || true)
+        if [ -n "$RUNNING_FORWARDS" ]; then
+          echo "Found running port-forward processes:"
+          echo "$RUNNING_FORWARDS"
+          echo "Attempting to kill these processes..."
+          
+          # Extract PIDs and kill
+          ps aux | grep "port-forward.*:{{.PORT}}" | grep -v grep | awk '{print $2}' | xargs -r kill
+          echo "✅ Lingering port-forward processes terminated"
+        else
+          echo "No lingering port-forward processes found"
+        fi
+        
+        echo "✅ Port forwarding cleanup completed"
 
   # Local installation task (renamed from test:install:local)
   install:helm:local:
@@ -746,6 +859,9 @@ tasks:
         else
           echo "No custom values file provided. Using default values."
         fi
+        
+        # Clean up any existing port forwarding first
+        task cleanup:port:forward || true
         
         # Install infra chart from local directory
         echo "Installing infra chart from local directory..."
@@ -794,11 +910,11 @@ tasks:
     deps: [test:install:helm, run:tests:app]
     cmds:
       - echo "All tests completed successfully"
+      - task: cleanup:port:forward
 
   # Documentation generation tasks
   docs:helm:generate:
     desc: Generate Helm chart documentation from templates
-    deps: [add:repos:helm, update:deps:helm]
     cmds:
       - echo "Generating Helm chart documentation..."
       - |
@@ -818,7 +934,6 @@ tasks:
 
   docs:helm:check:
     desc: Check if Helm chart documentation is up to date
-    deps: [add:repos:helm, update:deps:helm]
     cmds:
       - echo "Checking if Helm chart documentation is up to date..."
       - |
@@ -868,136 +983,10 @@ tasks:
         else
           echo "✅ All chart documentation is up to date."
         fi
-
-  docs:kots:summary:
-    desc: Generate a summary of KOTS manifest files for platform engineers
-    cmds:
-      - echo "Generating KOTS manifest summary in docs/KOTS_MANIFEST_GUIDE.md..."
-      - |
-        # Create docs directory if it doesn't exist
-        mkdir -p docs
-        
-        # Generate the summary document
-        cat > docs/KOTS_MANIFEST_GUIDE.md << 'EOF'
-        # MLflow KOTS Manifest Guide
-        
-        This document provides a technical overview of the Replicated KOTS manifests used to package and deliver the MLflow application.
-        
-        ## Overview
-        
-        The manifests in the `applications/mlflow/kots` directory define how MLflow is packaged, configured, and deployed using the Replicated platform.
-        
-        ## Key Files and Their Purpose
-        
-        ### kots-app.yaml
-        
-        Defines the core application properties:
-        - Application metadata (name, icon, description)
-        - Status informers for monitoring deployment health
-        - Port definitions for services
-        - Release notes handling
-        
-        ### kots-config.yaml
-        
-        Contains all user-configurable settings presented during installation:
-        - Database configuration (embedded PostgreSQL or external)
-        - S3 storage settings (embedded MinIO or external S3)
-        - Networking and ingress configuration
-        - Resource allocation settings
-        
-        Each configuration option includes:
-        - Type (string, boolean, password, etc.)
-        - Default values
-        - Validation rules
-        - Help text for users
-        - Dependencies/when conditions
-        
-        ### mlflow-chart.yaml
-        
-        A HelmChart custom resource that:
-        - References the MLflow Helm chart
-        - Maps configuration values from user inputs to Helm values
-        - Defines conditional logic for different deployment scenarios
-        - Uses templating functions to insert configuration values
-        
-        ### infra-chart.yaml
-        
-        Similar to mlflow-chart.yaml but for infrastructure components:
-        - Configures supporting services (databases, object storage)
-        - Typically deployed before the main application
-        
-        ### kots-preflight.yaml
-        
-        Defines preflight checks to validate the environment before installation:
-        - Kubernetes version compatibility
-        - Resource availability (CPU, memory)
-        - Namespace access permissions
-        - Storage class availability
-        
-        ### k8s-app.yaml
-        
-        Kubernetes Application custom resource for discovery and management.
-        
-        ### ec.yaml
-        
-        EntitlementSpec that controls:
-        - License entitlements and limits
-        - Feature flags based on license tier
-        - Usage restrictions
-        
-        ## Best Practices for Modifications
-        
-        When making changes to these files:
-        
-        1. **Version Consistency**: Update both Helm chart versions and kots-chart references
-        2. **Testing**: Test with both new installations and upgrades
-        3. **Config Options**: When adding new config options:
-           - Provide meaningful default values
-           - Include clear help text
-           - Consider when dependencies for conditional display
-        4. **Templates**: Use consistent templating patterns
-        5. **Preflight Checks**: Update preflight checks when requirements change
-        
-        ## Common Tasks
-        
-        ### Adding a New Configuration Option
-        
-        1. Add the option to `kots-config.yaml` with appropriate metadata
-        2. Reference the value in `mlflow-chart.yaml` using template functions
-        3. Update preflight checks if the option affects requirements
-        
-        ### Updating Helm Chart Versions
-        
-        1. Update the chartVersion in both infra-chart.yaml and mlflow-chart.yaml 
-        2. Run `task update:versions:chart` to ensure consistency
-        3. Test both installation and upgrade scenarios
-        
-        ### Adding Support for a New Feature
-        
-        1. First, implement the feature in the Helm chart
-        2. Add any new configuration options to kots-config.yaml
-        3. Connect the configuration to the Helm values in the chart files
-        4. Optionally add preflight checks for any new requirements
-        5. Test with both embedded and external dependencies
-        
-        ## Troubleshooting
-        
-        Common issues when working with these files:
-        
-        - **Template Rendering Errors**: Check template syntax in .yaml files
-        - **Preflight Check Failures**: Ensure requirements are correctly specified
-        - **Configuration Mismatches**: Verify config option names match between files
-        - **Upgrade Issues**: Test upgrades from earlier versions
-        
-        For more detailed information, refer to the [Replicated KOTS documentation](https://docs.replicated.com/vendor/packaging-kots-apps).
-        EOF
-        
-        echo "✅ KOTS manifest summary generated in docs/KOTS_MANIFEST_GUIDE.md"
-
   # Version extraction
   extract:version:chart:
     desc: Extract and print the MLflow chart version
     cmds:
       - |
         echo "{{.MLFLOW_VERSION}}"
-    silent: true 
+    silent: true
