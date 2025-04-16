@@ -195,7 +195,19 @@ tasks:
       - mv release/application.yaml.new release/application.yaml
 
       # set helmChart versions from associated helm Chart.yaml
-      - bash versions.sh
+      - echo "Setting helmChart versions..."
+      - |
+        while read directory; do
+
+          echo $directory
+          parent=$(basename $(dirname $directory))
+
+          helmChartName="helmChart-$parent.yaml"
+          export version=$(yq -r '.version' $parent/Chart.yaml )
+
+          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $directory/$helmChartName | tee release/$helmChartName
+
+        done < <(find . -maxdepth 2 -mindepth 2 -type d -name replicated)
       
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
