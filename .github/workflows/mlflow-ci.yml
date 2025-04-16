@@ -37,9 +37,11 @@ jobs:
           version: v3.13.3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: 3.12
+          cache: 'pip'
+          cache-dependency-path: applications/mlflow/tests/requirements.txt
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -232,9 +234,11 @@ jobs:
           version: v3.13.3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.13'
+          python-version: 3.12
+          cache: 'pip'
+          cache-dependency-path: applications/mlflow/tests/requirements.txt
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -326,7 +330,18 @@ jobs:
       - name: Run Application Tests
         working-directory: applications/mlflow
         run: |
-          # Run task to test application
+          # Create Python virtual environment
+          python -m venv ./venv
+          source ./venv/bin/activate
+          
+          # Install dependencies with fallback to binary-only
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install --no-cache-dir -r tests/requirements.txt || {
+            echo "Regular installation failed, trying with binary-only approach..."
+            python -m pip install --only-binary=:all: -r tests/requirements.txt
+          }
+          
+          # Run tests
           task run:tests:app
         env:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
@@ -380,9 +395,11 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.13.3'
+          python-version: 3.12
+          cache: 'pip'
+          cache-dependency-path: applications/mlflow/tests/requirements.txt
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -584,11 +601,21 @@ jobs:
         env:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
 
-      # Application testing with our consolidated test file
       - name: Run Application Tests
         working-directory: applications/mlflow
         run: |
-          # Run task to test application
+          # Create Python virtual environment
+          python -m venv ./venv
+          source ./venv/bin/activate
+          
+          # Install dependencies with fallback to binary-only
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install --no-cache-dir -r tests/requirements.txt || {
+            echo "Regular installation failed, trying with binary-only approach..."
+            python -m pip install --only-binary=:all: -r tests/requirements.txt
+          }
+          
+          # Run tests
           task run:tests:app
         env:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}

@@ -896,8 +896,20 @@ tasks:
     cmds:
       - echo "Running application tests against MLflow on localhost:{{.PORT}}..."
       - |
-        echo "Installing Python dependencies from requirements.txt..."
-        pip3 install -r {{.TESTS_DIR}}/requirements.txt
+        # Check if running inside a virtual environment already
+        if [ -z "$VIRTUAL_ENV" ]; then
+          echo "Installing Python dependencies directly..."
+          # Try to use binary wheels whenever possible
+          python -m pip install --upgrade pip wheel setuptools
+          # Install the required packages directly
+          python -m pip install mlflow numpy pandas scikit-learn pytest requests || {
+            echo "❌ Failed to install dependencies. Trying with --only-binary approach..."
+            # Try installing packages that commonly have build issues with binary-only
+            python -m pip install --only-binary=numpy,pandas,pyarrow,scikit-learn mlflow numpy pandas scikit-learn pytest requests
+          }
+        else
+          echo "Running in virtual environment $VIRTUAL_ENV, skipping dependency installation"
+        fi
         
         echo "Running MLflow application tests"
         python {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} \
@@ -912,6 +924,98 @@ tasks:
     cmds:
       - echo "All tests completed successfully"
       - task: cleanup:port:forward
+
+  # Alternative test task with venv
+  run:tests:app:venv:
+    desc: Run application tests using a virtual environment for better isolation
+    cmds:
+      - echo "Running application tests in a virtual environment..."
+      - |
+        # Set up test env directory
+        TEST_ENV_DIR="{{.TESTS_DIR}}/.venv"
+        
+        # Clean up any existing venv if requested
+        if [ "${CLEAN_VENV:-no}" = "yes" ]; then
+          echo "Cleaning up existing virtual environment..."
+          rm -rf "$TEST_ENV_DIR"
+        fi
+        
+        # Create virtual environment if it doesn't exist
+        if [ ! -d "$TEST_ENV_DIR" ]; then
+          echo "Setting up new virtual environment..."
+          python -m venv "$TEST_ENV_DIR"
+        fi
+        
+        # Determine the correct activation script based on shell
+        if [ -f "$TEST_ENV_DIR/bin/activate" ]; then
+          ACTIVATE_SCRIPT="$TEST_ENV_DIR/bin/activate"
+        elif [ -f "$TEST_ENV_DIR/Scripts/activate" ]; then
+          ACTIVATE_SCRIPT="$TEST_ENV_DIR/Scripts/activate"
+        else
+          echo "❌ Unable to find activation script for virtual environment"
+          exit 1
+        fi
+        
+        # Create a temporary script to run in the activated environment
+        TMP_SCRIPT=$(mktemp)
+        cat > "$TMP_SCRIPT" << 'EOF'
+        set -e
+        echo "Using Python: $(which python)"
+        echo "Python version: $(python --version)"
+        echo "Upgrading pip, setuptools, and wheel..."
+        python -m pip install --upgrade pip setuptools wheel
+        
+        echo "Installing dependencies with retry..."
+        MAX_RETRIES=2
+        RETRY_COUNT=0
+        SUCCESS=false
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$SUCCESS" != "true" ]; do
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          echo "Attempt $RETRY_COUNT/$MAX_RETRIES: Installing dependencies..."
+          
+          if python -m pip install --no-cache-dir -r ./tests/requirements.txt; then
+            SUCCESS=true
+          else
+            echo "Installation failed, trying with binary-only approach..."
+            if python -m pip install --only-binary=:all: -r ./tests/requirements.txt; then
+              SUCCESS=true
+            else
+              echo "Binary-only installation failed too."
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Will retry in 5 seconds..."
+                sleep 5
+              fi
+            fi
+          fi
+        done
+        
+        if [ "$SUCCESS" != "true" ]; then
+          echo "❌ Failed to install dependencies after $MAX_RETRIES attempts"
+          exit 1
+        fi
+        
+        echo "Running MLflow application tests"
+        python ./tests/mlflow_test.py localhost:5000 --protocol http --connection-timeout 180 --debug
+        EOF
+        
+        # Make the script executable
+        chmod +x "$TMP_SCRIPT"
+        
+        # Run the script within the activated environment
+        echo "Activating virtual environment and running tests..."
+        source "$ACTIVATE_SCRIPT" && bash "$TMP_SCRIPT"
+        
+        # Clean up
+        rm -f "$TMP_SCRIPT"
+      
+  # Task to clean the virtual environment
+  clean:venv:
+    desc: Clean up the Python virtual environment used for testing
+    cmds:
+      - echo "Cleaning up Python virtual environment..."
+      - rm -rf "{{.TESTS_DIR}}/.venv"
+      - echo "✅ Python virtual environment cleaned"
 
   # Documentation generation tasks
   docs:helm:generate:
