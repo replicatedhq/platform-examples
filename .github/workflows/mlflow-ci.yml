@@ -39,7 +39,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -330,12 +330,11 @@ jobs:
           python -m venv ./venv
           source ./venv/bin/activate
           
-          # Install dependencies with fallback to binary-only
+          # Install dependencies directly
           python -m pip install --upgrade pip wheel setuptools
-          python -m pip install --no-cache-dir -r tests/requirements.txt || {
-            echo "Regular installation failed, trying with binary-only approach..."
-            python -m pip install --only-binary=:all: -r tests/requirements.txt
-          }
+          
+          # Install required packages
+          python -m pip install mlflow numpy pandas scikit-learn pytest requests
           
           # Run tests
           task run:tests:app
@@ -602,12 +601,11 @@ jobs:
           python -m venv ./venv
           source ./venv/bin/activate
           
-          # Install dependencies with fallback to binary-only
+          # Install dependencies directly
           python -m pip install --upgrade pip wheel setuptools
-          python -m pip install --no-cache-dir -r tests/requirements.txt || {
-            echo "Regular installation failed, trying with binary-only approach..."
-            python -m pip install --only-binary=:all: -r tests/requirements.txt
-          }
+          
+          # Install required packages
+          python -m pip install mlflow numpy pandas scikit-learn pytest requests
           
           # Run tests
           task run:tests:app
