@@ -1,0 +1,12 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: traefik
+spec:
+  chart:
+    name: traefik
+  weight: 2
+  helmUpgradeFlags:
+    - --wait
+  namespace: traefik
+  builder: {}

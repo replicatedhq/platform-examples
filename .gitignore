@@ -1,7 +1,6 @@
 # Helm-specific ignores
 **/charts/*.tgz
 **/.specstory/
-**/charts/.rendered-templates/
 
 
 # Ignore Helm dependency directories
@@ -31,4 +30,14 @@ Thumbs.db
 *.pyo
 *.pyd
 __pycache__/
+
+# Mlflow specific
 applications/mlflow/tests/.venv/
+**/charts/.rendered-templates/
+
+# wg-easy specific
+*.kubeconfig
+applications/wg-easy/release/
+applications/wg-easy/*/charts/
+applications/wg-easy/*/Chart.lock
+.aider*

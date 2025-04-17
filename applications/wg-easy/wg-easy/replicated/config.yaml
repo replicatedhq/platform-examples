@@ -1,0 +1,37 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: not-used
+spec:
+  groups:
+    - name: wireguard-config
+      title: Wireguard
+      description: Wireguard configuration
+      items:
+      #- name: accept
+      #  title: Systemd has been updated
+      #  help_text: | 
+      #    Add `--profile=ip-forward` to k0scontroller.service
+      #    Run `systemd daemon-reload`
+      #    Restart `k0scontroller.service`
+      #  type: bool
+      #  required: true
+      - name: password
+        title: Admin password
+        type: password
+        required: true
+      - name: domain
+        title: IP or domain
+        help_text: Domain or IP which the vpn is accessible on
+        type: text
+        required: true
+      #- name: web-port
+      #  title: Web port
+      #  help_text: This is the port the admin UI will be served on
+      #  type: text
+      #  default: "51821"
+      - name: vpn-port
+        title: vpn port
+        help_text: This port must be accessible remotely
+        type: text
+        default: "20000"
