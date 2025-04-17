@@ -56,6 +56,15 @@ tasks:
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
 
+  list-cluster:
+    desc: List the cluster
+    silent: false
+    cmds:
+      - |
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .expires_at')
+        echo "{{.CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
+
   test:
     desc: Run a basic test suite
     silent: false
@@ -64,6 +73,25 @@ tasks:
       - echo "This is a placeholder for actual tests"
       - sleep 5
       - echo "Tests completed!"
+
+
+  verify-kubeconfig:
+    desc: Verify kubeconfig
+    silent: false
+    run: once
+    cmds:
+      - |
+        if [ -f {{.KUBECONFIG_FILE}} ]; then
+          echo "Getting Cluster ID From Replicated Cluster list"
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+          echo "Getting Cluster ID From Kubeconfig"
+          CLUSTER_ID_KUBECONFIG=$(grep "current-context:" {{.KUBECONFIG_FILE}} | cut -d'-' -f3)
+          if [ "$CLUSTER_ID" != "$CLUSTER_ID_KUBECONFIG" ]; then
+            echo "{{.CLUSTER_NAME}} Cluster ID between Replicated ($CLUSTER_ID) and Kubeconfig ($CLUSTER_ID_KUBECONFIG) mismatch"
+            echo "Removing old kubeconfig file"
+            rm -f {{.KUBECONFIG_FILE}}
+          fi
+        fi 
 
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
@@ -84,7 +112,8 @@ tasks:
           true
         fi
     deps:
-      - cluster-create
+      - create-cluster
+      - verify-kubeconfig
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
@@ -240,7 +269,10 @@ tasks:
         done
       
       - echo "Release files prepared in ./release/ directory"
-      
+    deps:
+      - update-version
+
+
   release-create:
     desc: Create and promote a release using the Replicated CLI
     silent: false
@@ -248,13 +280,12 @@ tasks:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     cmds:
-      - echo "Creating and promoting release for {{.APP_NAME}} to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for $APP_NAME to channel $CHANNEL..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_NAME}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}}
-        
-        echo "Release created and promoted to channel {{.CHANNEL}}"
+        replicated release create --app $APP_NAME --yaml-dir ./release --release-notes "$RELEASE_NOTES" --promote $CHANNEL --version $VERSION
+        echo "Release version $VERSION created and promoted to channel $CHANNEL"
     deps:
       - release-prepare
 
