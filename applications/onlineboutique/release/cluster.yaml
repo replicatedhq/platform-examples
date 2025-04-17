@@ -1,7 +1,7 @@
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 1.19.0+k8s-1.30
+  version: 2.3.0+k8s-1.30
   roles:
     controller:
       name: controller
@@ -11,3 +11,11 @@ spec:
     - name: worker
       labels:
         worker: "true"
+  unsupportedOverrides:
+    k0s: |
+      config:
+        spec:
+          workerProfiles:
+            - name: increased-pod-limit
+              values:
+                maxPods: 250
