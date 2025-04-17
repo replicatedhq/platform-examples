@@ -61,6 +61,14 @@ jobs:
           task lint
           task template
 
+      - name: Upload rendered templates
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-rendered-templates
+          path: applications/mlflow/charts/.rendered-templates/
+          retention-days: 7
+
       - name: Check Version Consistency
         working-directory: applications/mlflow
         run: |
@@ -234,7 +242,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install Task
         uses: arduino/setup-task@v1
@@ -392,7 +400,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.13
+          python-version: 3.12
 
       - name: Install Task
         uses: arduino/setup-task@v1

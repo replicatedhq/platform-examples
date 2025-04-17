@@ -18,7 +18,6 @@ Follow this workflow for development:
 
 1. Add required Helm repositories and update dependencies:
    ```bash
-   task add:repos:helm
    task update:deps:helm
    ```
 
@@ -55,42 +54,6 @@ Follow this workflow for development:
 6. Make changes to your charts and repeat steps 2-5 as needed
 
 This workflow allows rapid iteration without needing to publish to the Replicated registry.
-
-### Task Reference
-
-Tasks follow a `verb:resource[:subresource]` naming convention for clarity:
-
-```bash
-# Validation and verification
-task lint                 # Lint Helm charts
-task template             # Render templates to stdout (SDK disabled)
-task check:versions       # Verify Chart.yaml and KOTS manifest versions match
-
-# Repository and dependency management
-task add:repos:helm       # Add required Helm repositories
-task update:deps:helm     # Update Helm chart dependencies
-
-# Packaging and versioning
-task update:versions:chart # Update chart version refs in KOTS manifests
-task package:charts       # Package Helm charts for distribution
-task extract:version:chart # Extract current MLflow chart version
-
-# Installation
-task install:helm:local   # Install charts for local development (SDK disabled)
-
-# Testing
-task test:install:helm    # Test with charts from Replicated registry
-task test:install:kots    # Test KOTS installation
-task run:tests:app        # Run application tests against running MLflow
-task run:tests:all        # Run all tests (Helm install + app tests)
-
-# Release management
-task create:release       # Create a Replicated release
-
-# Cleanup
-task clean:files:charts   # Clean packaged chart files
-task clean:all            # Clean all generated files
-```
 
 ## Releasing
 
@@ -212,4 +175,4 @@ The pipeline is triggered on:
 - Pull requests affecting the MLflow application
 - Pushes to the main branch
 
-For more details, see the workflow definition in [.github/workflows/mlflow-ci.yml](../../.github/workflows/mlflow-ci.yml). 
+For more details, see the workflow definition in [.github/workflows/mlflow-ci.yml](../../.github/workflows/mlflow-ci.yml).

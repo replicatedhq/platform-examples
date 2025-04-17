@@ -148,19 +148,36 @@ tasks:
 
   # Template rendering
   template:
-    desc: Template Helm charts with Replicated SDK disabled and output to stdout
+    desc: Template Helm charts with standard configuration and output to a directory
     deps: [add:repos:helm, update:deps:helm]
     cmds:
-      - echo "Templating Helm charts with Replicated SDK disabled..."
+      - echo "Templating Helm charts..."
+      - |
+        # Create templates directory if it doesn't exist
+        TEMPLATES_DIR="{{.CHART_DIR}}/.rendered-templates"
+        echo "Creating templates directory: $TEMPLATES_DIR"
+        mkdir -p "$TEMPLATES_DIR"
+        
+        # Clean up any previous templates
+        echo "Cleaning up previous templates..."
+        rm -rf "$TEMPLATES_DIR"/*
       - for: { var: CHARTS }
         cmd: |
           echo "=== Rendering templates for {{.ITEM}} chart ==="
           echo "==============================================="
-          helm template {{.CHART_DIR}}/{{.ITEM}} --debug
-          echo ""
+          
+          # Create directory for this chart
+          CHART_TEMPLATES_DIR="{{.CHART_DIR}}/.rendered-templates/{{.ITEM}}"
+          mkdir -p "$CHART_TEMPLATES_DIR"
+          
+          # Render templates to file with default values
+          helm template {{.CHART_DIR}}/{{.ITEM}} --output-dir "$CHART_TEMPLATES_DIR" --debug
+          
+          # Also output to stdout for visibility
+          echo "Templates written to: $CHART_TEMPLATES_DIR"
           echo "=== End of templates for {{.ITEM}} chart ==="
           echo ""
-      - echo "All chart templates have been output to stdout."
+      - echo "All chart templates have been output to {{.CHART_DIR}}/.rendered-templates"
 
   # Version update for packaged charts
   update:versions:chart:
@@ -386,10 +403,16 @@ tasks:
       - rm -f {{.KOTS_DIR}}/*.tgz
       - echo "Chart packages cleaned from {{.KOTS_DIR}}"
 
+  clean:files:templates:
+    desc: Clean rendered templates directory
+    cmds:
+      - rm -rf {{.CHART_DIR}}/.rendered-templates
+      - echo "Rendered templates cleaned from {{.CHART_DIR}}/.rendered-templates"
+
   # Main clean task
   clean:all:
     desc: Clean all generated files
-    deps: [clean:files:charts]
+    deps: [clean:files:charts, clean:files:templates]
     cmds:
       - echo "All generated files cleaned successfully"
 
@@ -894,24 +917,152 @@ tasks:
   run:tests:app:
     desc: Run application tests against the running MLflow service
     cmds:
-      - echo "Running application tests against MLflow on localhost:{{.PORT}}..."
+      - echo "Running MLflow application tests against localhost:{{.PORT}}..."
       - |
-        # Check if running inside a virtual environment already
-        if [ -z "$VIRTUAL_ENV" ]; then
+        # Detect if we're running in a CI environment
+        if [ "{{.CI}}" = "true" ]; then
+          echo "📦 Running in CI environment - using direct package installation..."
+          
+          # In CI, we just install packages directly without using a virtual environment
           echo "Installing Python dependencies directly..."
-          # Try to use binary wheels whenever possible
           python -m pip install --upgrade pip wheel setuptools
-          # Install the required packages directly
-          python -m pip install mlflow numpy pandas scikit-learn pytest requests
+          
+          # Install required packages directly
+          echo "Installing MLflow and test dependencies..."
+          python -m pip install "mlflow>=2.8.0,<3.0.0" "numpy>=1.24.0" "pandas>=2.0.0" "scikit-learn>=1.2.0" pytest requests
+          
+          # Run the tests directly
+          echo "🧪 Running MLflow application tests..."
+          if python {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} --protocol http --connection-timeout 180 --debug; then
+            echo "✅ All tests passed successfully!"
+          else
+            TEST_EXIT_CODE=$?
+            echo "❌ Tests failed with exit code: $TEST_EXIT_CODE"
+            exit $TEST_EXIT_CODE
+          fi
         else
-          echo "Running in virtual environment $VIRTUAL_ENV, skipping dependency installation"
+          # For local development, use a persistent virtual environment for better isolation and speed
+          echo "🔧 Setting up Python test environment..."
+          TEST_ENV_DIR="{{.TESTS_DIR}}/.venv"
+          
+          # Create virtual environment if it doesn't exist
+          if [ ! -d "$TEST_ENV_DIR" ]; then
+            echo "  Creating new Python environment (first-time setup)..."
+            python3 -m venv "$TEST_ENV_DIR" || {
+              echo "❌ Failed to create Python virtual environment."
+              echo "   Please ensure python3 and python3-venv are installed."
+              echo "   On Ubuntu/Debian: sudo apt-get install python3-venv"
+              echo "   On macOS: brew install python3"
+              exit 1
+            }
+            FRESH_ENV=true
+          else
+            echo "  Using existing Python environment from $TEST_ENV_DIR"
+            FRESH_ENV=false
+          fi
+          
+          # Determine the correct activation script based on shell
+          if [ -f "$TEST_ENV_DIR/bin/activate" ]; then
+            ACTIVATE_SCRIPT="$TEST_ENV_DIR/bin/activate"
+          elif [ -f "$TEST_ENV_DIR/Scripts/activate" ]; then
+            ACTIVATE_SCRIPT="$TEST_ENV_DIR/Scripts/activate"
+          else
+            echo "❌ Unable to find activation script for virtual environment"
+            exit 1
+          fi
+          
+          # Activate the virtual environment
+          echo "  Activating test environment..."
+          source "$ACTIVATE_SCRIPT" || {
+            echo "❌ Failed to activate virtual environment."
+            echo "   Trying alternative approach..."
+            
+            # Alternative approach using python -m venv approach
+            echo "   Using python directly from the venv bin directory..."
+            VENV_PYTHON="$TEST_ENV_DIR/bin/python"
+            if [ ! -f "$VENV_PYTHON" ]; then
+              if [ -f "$TEST_ENV_DIR/Scripts/python.exe" ]; then
+                VENV_PYTHON="$TEST_ENV_DIR/Scripts/python.exe"
+              else
+                echo "❌ Cannot find python in the virtual environment."
+                echo "   Falling back to system Python..."
+                VENV_PYTHON="python"
+              fi
+            fi
+            
+            # Install using the venv python directly
+            echo "   Installing dependencies using $VENV_PYTHON..."
+            "$VENV_PYTHON" -m pip install --upgrade pip wheel setuptools
+            "$VENV_PYTHON" -m pip install "mlflow>=2.8.0,<3.0.0" "numpy>=1.24.0" "pandas>=2.0.0" "scikit-learn>=1.2.0" pytest requests
+            
+            # Run the tests using venv python
+            echo "🧪 Running MLflow application tests..."
+            if "$VENV_PYTHON" {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} --protocol http --connection-timeout 180 --debug; then
+              echo "✅ All tests passed successfully!"
+            else
+              TEST_EXIT_CODE=$?
+              echo "❌ Tests failed with exit code: $TEST_EXIT_CODE"
+              exit $TEST_EXIT_CODE
+            fi
+            
+            echo "💡 Environment is persistent for faster future runs."
+            echo "   To force dependency updates: FORCE_DEPS_UPDATE=yes task run:tests:app"
+            echo "   To clean up environment: task clean:venv"
+            
+            # Exit early since we've already run the tests
+            exit 0
+          }
+          
+          # Only install/upgrade packages if it's a fresh environment or forced
+          if [ "$FRESH_ENV" = true ] || [ "${FORCE_DEPS_UPDATE:-no}" = "yes" ]; then
+            # Install dependencies with detailed progress
+            echo "🔄 Installing required dependencies..."
+            echo "  Upgrading package tools..."
+            python -m pip install --upgrade pip wheel setuptools &> "$TEST_ENV_DIR/pip-upgrade.log" || {
+              echo "❌ Failed to upgrade pip/wheel/setuptools."
+              echo "   See error log at: $TEST_ENV_DIR/pip-upgrade.log"
+              cat "$TEST_ENV_DIR/pip-upgrade.log"
+              exit 1
+            }
+            
+            echo "  Installing MLflow and test dependencies (this may take a minute)..."
+            # Install all dependencies with a single command to resolve dependency conflicts properly
+            python -m pip install "mlflow>=2.8.0,<3.0.0" "numpy>=1.24.0" "pandas>=2.0.0" "scikit-learn>=1.2.0" pytest requests &> "$TEST_ENV_DIR/pip-install.log" || {
+              echo "❌ Failed to install dependencies."
+              echo "   See error log at: $TEST_ENV_DIR/pip-install.log"
+              echo "   Common issues:"
+              echo "   - Python version compatibility"
+              echo "   - Network connectivity problems"
+              echo "   - System package dependencies missing"
+              echo ""
+              echo "Error details:"
+              tail -n 20 "$TEST_ENV_DIR/pip-install.log"
+              exit 1
+            }
+            
+            # Show the installed versions
+            echo "✅ Successfully installed dependencies:"
+            python -m pip list | grep -E "mlflow|numpy|pandas|scikit-learn|pytest|requests"
+          else
+            echo "🔍 Using existing dependencies (use FORCE_DEPS_UPDATE=yes to update)"
+          fi
+          
+          # Run the tests with proper error handling
+          echo "🧪 Running MLflow application tests..."
+          if python {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} --protocol http --connection-timeout 180 --debug; then
+            echo "✅ All tests passed successfully!"
+          else
+            TEST_EXIT_CODE=$?
+            echo "❌ Tests failed with exit code: $TEST_EXIT_CODE"
+            echo "   Check the test output above for details."
+            exit $TEST_EXIT_CODE
+          fi
+          
+          # Note about cleaning up
+          echo "💡 Environment is persistent for faster future runs."
+          echo "   To force dependency updates: FORCE_DEPS_UPDATE=yes task run:tests:app"
+          echo "   To clean up environment: task clean:venv"
         fi
-        
-        echo "Running MLflow application tests"
-        python {{.TESTS_DIR}}/mlflow_test.py localhost:{{.PORT}} \
-          --protocol http \
-          --connection-timeout 180 \
-          --debug
 
   # All tests task
   run:tests:all:

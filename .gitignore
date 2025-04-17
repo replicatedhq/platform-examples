@@ -31,6 +31,10 @@ Thumbs.db
 *.pyd
 __pycache__/
 
+# Mlflow specific
+applications/mlflow/tests/.venv/
+**/charts/.rendered-templates/
+
 # wg-easy specific
 *.kubeconfig
 applications/wg-easy/release/
