@@ -55,34 +55,7 @@ Follow this workflow for development:
 
 This workflow allows rapid iteration without needing to publish to the Replicated registry.
 
-## Releasing
-
-### Updating Documentation
-
-Before creating a release, ensure the documentation is up-to-date:
-
-1. Update version information in `charts/mlflow/Chart.yaml` if needed.
-
-2. Update the changelog in `charts/mlflow/README_CHANGELOG.md.gotmpl` with details about the new release.
-
-3. Generate documentation using helm-docs:
-   ```bash
-   # From the mlflow chart directory
-   cd charts/mlflow
-   
-   # If helm-docs is installed locally
-   helm-docs
-   
-   # Or use Docker
-   docker run --rm -v "$(pwd):/helm-docs" -u $(id -u) jnorwood/helm-docs:latest
-   ```
-
-4. Verify the generated documentation:
-   - `README.md` - Main chart documentation
-   - `README_CHANGELOG.md` - Changelog
-   - `README_CONFIG.md` - Configuration reference
-
-### Publishing Replicated Releases
+## Creating a Release
 
 When you're ready to publish your changes to the Replicated platform:
 
@@ -154,6 +127,31 @@ task run:tests:all
 ```
 
 This workflow validates the entire release pipeline from publishing to installation, ensuring that your charts work correctly when distributed through the Replicated platform.
+
+## Updating Documentation
+
+Before creating a release, ensure the documentation is up-to-date:
+
+1. Update version information in `charts/mlflow/Chart.yaml` if needed.
+
+2. Update the changelog in `charts/mlflow/README_CHANGELOG.md.gotmpl` with details about the new release.
+
+3. Generate documentation using helm-docs:
+   ```bash
+   # From the mlflow chart directory
+   cd charts/mlflow
+   
+   # If helm-docs is installed locally
+   helm-docs
+   
+   # Or use Docker
+   docker run --rm -v "$(pwd):/helm-docs" -u $(id -u) jnorwood/helm-docs:latest
+   ```
+
+4. Verify the generated documentation:
+   - `README.md` - Main chart documentation
+   - `README_CHANGELOG.md` - Changelog
+   - `README_CONFIG.md` - Configuration reference
 
 ## CI/CD Pipeline
 
