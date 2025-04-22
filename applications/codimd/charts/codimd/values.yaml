@@ -1,6 +1,68 @@
+# codimd values are documented here: https://github.com/hackmdio/codimd-helm/blob/master/charts/codimd/values.yaml
 codimd:
   enabled: true  # Enable/disable the official CodiMD chart
+  image:
+    registry: docker.io
+    repository: hackmdio/hackmd
+    tag: 2.5.4-cjk
+    pullPolicy: IfNotPresent
+  config:
+    domain: codimd.local
+    protocolUseSSL: false
+    allowAnonymous: true
+    allowAnonymousEdits: true
+    imageUpload: true
+    allowPDFExport: true
+    defaultPermission: "editable"
+  service:
+    type: ClusterIP
+    port: 3000
+  postgres:
+    enabled: false
+  database:
+    type: postgres
+    host: "{{ .Release.Name }}-postgresql"
+    port: 5432
+    username: codimd
+    password: codimd-pass
+    database: codimd
+
+# postgresql values are documented here: https://github.com/bitnami/charts/blob/main/bitnami/postgresql/values.yaml
 postgresql:
-  enabled: true  # Enable/disable embedded PostgreSQL
+  enabled: true  # Enable/disable bitnami PostgreSQL chart (mutually exclusive with `codimd.postgres.enabled`)
+  auth:
+    username: codimd
+    password: codimd-pass
+    database: codimd
+  volumePermissions:
+    enabled: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+# Global values for PostgreSQL chart compatibility
+global:
+  postgresql:
+    auth:
+      username: codimd
+      password: codimd-pass
+      database: codimd
+
+# redis values are documented here: https://github.com/bitnami/charts/blob/main/bitnami/redis/values.yaml
 redis:
   enabled: true  # Enable/disable embedded Redis
+  auth:
+    enabled: false
+  replica:
+    replicaCount: 1  # Set to 1 replica instead of default 3
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
