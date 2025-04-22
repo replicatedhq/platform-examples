@@ -87,20 +87,20 @@ mlflow:
     #     secretKeyRef:
     #       name: extra-env-secret
     #       key: extra-env-key-3
- 
+
   # -- Extra initialization containers belonging to the mlflow pod.
   extraInitContainers: []
- 
+
   # -- Extra containers belonging to the mlflow pod.
   extraContainers: []
-  
+
   # -- Extra environment variable sources in mlflow container
   extraEnvFrom: []
   # - configMapRef:
   #     name: extra-env-configmap
   # - secretRef:
   #     name: extra-env-secret
-  
+
   # -- Extra volumes that can be mounted by containers belonging to the mlflow pod
   extraVolumes: []
   # - name: mlflow-volume
@@ -109,7 +109,7 @@ mlflow:
   # - name: mlflow-configmap-volume
   #   configMap:
   #     name: mlflow-configmap
-  
+
   # -- Extra volume mounts to mount into the mlflow container's file system
   extraVolumeMounts: []
   # - name: mlflow-volume
@@ -172,7 +172,7 @@ mlflow:
   # -- Enable/disable the generation of environment variables for services.
   # [[ref]](https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service)
   enableServiceLinks: true
-  
+
   # -- Configure the lifecycle for the container
   lifecycle: {}
   termination:
@@ -200,7 +200,7 @@ mlflow:
     name: http
     # -- Annotations to add to the service
     annotations: {}
-  
+
   # -- Mlflow Ingress configuration
   # [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/)
   ingress:
@@ -262,7 +262,7 @@ mlflow:
     # - --expose-prometheus /metrics
     # If enabled, run the server with debug logging and auto-reload
     - --dev
-  
+
     # Basic authentication configuration,
     # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
     basicAuth:
@@ -328,7 +328,7 @@ mlflow:
 
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
-  enabled: false
+  enabled: true
 
 minio:
   enabled: true
@@ -349,7 +349,7 @@ minio:
       pullPolicy: IfNotPresent
     # -- Image pull secrets
     imagePullSecret: {}
-    # -- 
+    # --
     scheduler: {}
     # -- The Kubernetes secret name that contains MinIO environment variable configurations.
     # The secret is expected to have a key named config.env containing environment variables exports.
@@ -389,7 +389,7 @@ minio:
         # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
         podAntiAffinityMode: "soft"
         # -- The `Requests or Limits <https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/>`__ for resources to associate to Tenant pods.
-        resources: { }
+        resources: {}
         # -- The Kubernetes `SecurityContext <https://kubernetes.io/docs/tasks/configure-pod-container/security-context/>`__ to use for deploying Tenant resources.
         securityContext:
           runAsUser: 1000
@@ -409,7 +409,7 @@ minio:
           seccompProfile:
             type: RuntimeDefault
         # -- An array of `Topology Spread Constraints <https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/>`__ to associate to Operator Console pods.
-        topologySpreadConstraints: [ ]
+        topologySpreadConstraints: []
         # -- The name of a custom `Container Runtime <https://kubernetes.io/docs/concepts/containers/runtime-class/>`__ to use for the Operator Console pods.
         runtimeClassName: ""
     # -- The mount path where Persistent Volumes are mounted inside Tenant container(s).
@@ -428,7 +428,7 @@ minio:
       externalCaCertSecret: []
       # -- Specify an array of Kubernetes secrets, where each entry corresponds to a secret contains the TLS private key and public certificate pair.
       # See `Operator CRD: TenantSpec <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#tenantspec>`__.
-      externalCertSecret: [ ]
+      externalCertSecret: []
       # Enable automatic Kubernetes based `certificate generation and signing <https://kubernetes.io/docs/tasks/tls/managing-tls-in-a-cluster>`__
       requestAutoCert: true
       # -- See `Operator CRD: CertificateConfig <https://min.io/docs/minio/kubernetes/upstream/reference/operator-crd.html#certificateconfig>`__
@@ -445,25 +445,25 @@ minio:
     # -- Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
     # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
     users: []
-    # -- The `PodManagement <https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#pod-management-policy>`__ policy for MinIO Tenant Pods. 
+    # -- The `PodManagement <https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#pod-management-policy>`__ policy for MinIO Tenant Pods.
     # Can be "OrderedReady" or "Parallel"
     podManagementPolicy: Parallel
-    # -- The `Liveness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes>`__ for monitoring Tenant pod liveness. 
+    # -- The `Liveness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes>`__ for monitoring Tenant pod liveness.
     # Tenant pods will be restarted if the probe fails.
     liveness: {}
     # -- `Readiness Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring Tenant container readiness.
     # Tenant pods will be removed from service endpoints if the probe fails.
-    # -- `Startup Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring container startup. 
+    # -- `Startup Probe <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`__ for monitoring container startup.
     # Tenant pods will be restarted if the probe fails.
     startup: {}
     # -- The `Lifecycle hooks <https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/>`__ for container.
-    lifecycle: { }
+    lifecycle: {}
     # -- Directs the Operator to deploy the MinIO S3 API and Console services as LoadBalancer objects.
     # If the Kubernetes cluster has a configured LoadBalancer, it can attempt to route traffic to those services automatically.
     # Specify ``minio: true`` to expose the MinIO S3 API.
     # Specify ``console: true`` to expose the Console.
     # Both fields default to ``false``.
-    exposeServices: { }
+    exposeServices: {}
     # -- The `Kubernetes Service Account <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>`__ associated with the Tenant.
     serviceAccountName: ""
     # -- Directs the Operator to add the Tenant's metric scrape configuration to an existing Kubernetes Prometheus deployment managed by the Prometheus Operator.
@@ -472,24 +472,24 @@ minio:
     # Specify ``json`` for JSON-formatted logs.
     # Specify ``anonymous`` for anonymized logs.
     # Specify ``quiet`` to supress logging.
-    logging: { }
+    logging: {}
     # -- serviceMetadata allows passing additional labels and annotations to MinIO and Console specific
     # services created by the operator.
-    serviceMetadata: { }
+    serviceMetadata: {}
     # -- Add environment variables to be set in MinIO container (https://github.com/minio/minio/tree/master/docs/config)
-    env: [ ]
+    env: []
     # -- PriorityClassName indicates the Pod priority and hence importance of a Pod relative to other Pods.
     # This is applied to MinIO pods only.
     # Refer Kubernetes documentation for details https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass/
     priorityClassName: ""
     # -- An array of `Volumes <https://kubernetes.io/docs/concepts/storage/volumes/>`__ which the Operator can mount to Tenant pods.
     # The volumes must exist *and* be accessible to the Tenant pods.
-    additionalVolumes: [ ]
+    additionalVolumes: []
     # -- An array of volume mount points associated to each Tenant container.
-    additionalVolumeMounts: [ ]
+    additionalVolumeMounts: []
     # Define configuration for KES (stateless and distributed key-management system)
     # Refer https://github.com/minio/kes
-    #kes:
+    # kes:
     #  ## Image field:
     #  # Image from tag (original behavior), for example:
     #  # image:
@@ -660,7 +660,7 @@ postgres:
     # and then blank the password of the postgres user by setting it to NULL.
     enableSuperuserAccess: true
     superuserSecret: ""
-  
+
     # -- This feature enables declarative management of existing roles, as well as the creation of new roles if they are not
     # already present in the database.
     # See: https://cloudnative-pg.io/documentation/current/declarative_role_management/

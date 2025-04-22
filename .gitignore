@@ -45,3 +45,14 @@ __pycache__/
 
 # Cursor
 .cursor/
+
+# Mlflow specific
+applications/mlflow/tests/.venv/
+**/charts/.rendered-templates/
+
+# wg-easy specific
+*.kubeconfig
+applications/wg-easy/release/
+applications/wg-easy/*/charts/
+applications/wg-easy/*/Chart.lock
+.aider*
