@@ -58,6 +58,7 @@ jobs:
           # Use Taskfile to lint charts and generate templates
           task helm:update-deps
           task helm:lint
+          task helm:update-deps  # Ensure dependencies are updated before templating
           task helm:template
 
       - name: Upload rendered templates

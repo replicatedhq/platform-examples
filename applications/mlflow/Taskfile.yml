@@ -328,18 +328,6 @@ tasks:
           echo "Updating dependencies for {{.ITEM}} chart..."
           helm dependency update {{.CHART_DIR}}/{{.ITEM}}
       - echo "Helm chart dependencies updated successfully."
-    status:
-      - |
-        # Check if all charts have up-to-date dependencies
-        for chart in {{.CHARTS}}; do
-          # Check if Chart.lock exists and is newer than Chart.yaml
-          if [[ ! -f "{{.CHART_DIR}}/$chart/Chart.lock" || "{{.CHART_DIR}}/$chart/Chart.yaml" -nt "{{.CHART_DIR}}/$chart/Chart.lock" ]]; then
-            # Chart.lock doesn't exist or is older than Chart.yaml, need to update
-            exit 1
-          fi
-        done
-        # All charts have up-to-date dependencies
-        exit 0
 
   # Lint charts
   helm:lint:
@@ -359,6 +347,7 @@ tasks:
   helm:template:
     desc: Template Helm charts with standard configuration and output to a directory
     silent: true
+    deps: [helm:update-deps]
     cmds:
       - echo "Rendering Helm chart templates..."
       - |
