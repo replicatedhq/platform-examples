@@ -113,19 +113,41 @@ tasks:
           echo "❌ Version mismatches found! Please run 'task update:versions' to synchronize them."
           exit 1
         fi
+    status:
+      - |
+        # For each available chart, check that versions match
+        for chart in {{.CHARTS}}; do
+          # Get the Chart.yaml path
+          chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
+          
+          # Get the HelmChart resource path
+          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          
+          # Check if both files exist
+          if [ ! -f "$chart_yaml" ] || [ ! -f "$helmchart" ]; then
+            exit 1
+          fi
+          
+          # Get versions from both files
+          chart_yaml_version=$(yq e '.version' "$chart_yaml")
+          helmchart_version=$(yq e '.spec.chart.chartVersion' "$helmchart")
+          
+          # Check if versions could be extracted
+          if [ -z "$chart_yaml_version" ] || [ -z "$helmchart_version" ]; then
+            exit 1
+          fi
+          
+          # Compare versions
+          if [ "$chart_yaml_version" != "$helmchart_version" ]; then
+            exit 1
+          fi
+        done
+        # All versions match
+        exit 0
 
-  # Repository setup - renamed
-  add:repos:helm:
-    desc: Add required Helm repositories
-    cmds:
-      - helm repo add cnpg https://cloudnative-pg.github.io/charts
-      - helm repo add minio https://operator.min.io/
-      - helm repo update
-  
   # Dependency update - renamed
   update:deps:helm:
     desc: Update Helm chart dependencies
-    deps: [add:repos:helm]
     cmds:
       - echo "Updating Helm chart dependencies..."
       - for: { var: CHARTS }
@@ -133,11 +155,23 @@ tasks:
           echo "Updating dependencies for {{.ITEM}} chart..."
           helm dependency update {{.CHART_DIR}}/{{.ITEM}}
       - echo "Helm chart dependencies updated successfully."
+    status:
+      - |
+        # Check if all charts have up-to-date dependencies
+        for chart in {{.CHARTS}}; do
+          # Check if Chart.lock exists and is newer than Chart.yaml
+          if [[ ! -f "{{.CHART_DIR}}/$chart/Chart.lock" || "{{.CHART_DIR}}/$chart/Chart.yaml" -nt "{{.CHART_DIR}}/$chart/Chart.lock" ]]; then
+            # Chart.lock doesn't exist or is older than Chart.yaml, need to update
+            exit 1
+          fi
+        done
+        # All charts have up-to-date dependencies
+        exit 0
 
   # Chart linting
   lint:
     desc: Lint Helm charts
-    deps: [add:repos:helm, update:deps:helm]
+    deps: [update:deps:helm]
     cmds:
       - echo "Linting Helm charts..."
       - for: { var: CHARTS }
@@ -149,7 +183,7 @@ tasks:
   # Template rendering
   template:
     desc: Template Helm charts with standard configuration and output to a directory
-    deps: [add:repos:helm, update:deps:helm]
+    deps: [update:deps:helm]
     cmds:
       - echo "Templating Helm charts..."
       - |
@@ -188,11 +222,42 @@ tasks:
           sed -i 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: {{if eq .ITEM "mlflow"}}{{.MLFLOW_VERSION}}{{else}}{{.INFRA_VERSION}}{{end}}|g' {{.KOTS_DIR}}/{{.ITEM}}-chart.yaml
       - echo "Chart versions updated in KOTS manifests."
       - cmd: task check:versions || echo "⚠️ Version check failed after update. Please verify manually."
+    status:
+      - |
+        # Check if versions in KOTS manifests already match Chart.yaml versions
+        for chart in {{.CHARTS}}; do
+          # Get the Chart.yaml path
+          chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
+          
+          # Get the HelmChart resource path
+          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          
+          # Check if both files exist
+          if [ ! -f "$chart_yaml" ] || [ ! -f "$helmchart" ]; then
+            exit 1
+          fi
+          
+          # Get versions from both files
+          chart_yaml_version=$(yq e '.version' "$chart_yaml")
+          helmchart_version=$(yq e '.spec.chart.chartVersion' "$helmchart")
+          
+          # Check if versions could be extracted
+          if [ -z "$chart_yaml_version" ] || [ -z "$helmchart_version" ]; then
+            exit 1
+          fi
+          
+          # Compare versions - if any mismatch, the task needs to run
+          if [ "$chart_yaml_version" != "$helmchart_version" ]; then
+            exit 1
+          fi
+        done
+        # All versions already match, no need to update
+        exit 0
 
   # Packaging tasks
   package:charts:
     desc: Package Helm charts for distribution
-    deps: [add:repos:helm, update:deps:helm, update:versions:chart]
+    deps: [update:deps:helm, update:versions:chart]
     cmds:
       - echo "Packaging Helm charts..."
       - for: { var: CHARTS }
@@ -200,6 +265,18 @@ tasks:
           echo "Packaging {{.ITEM}} chart..."
           helm package {{.CHART_DIR}}/{{.ITEM}} -u -d {{.KOTS_DIR}}
       - echo "Charts packaged successfully in {{.KOTS_DIR}} directory."
+    status:
+      - |
+        # Check if all charts are packaged with current versions
+        for chart in {{.CHARTS}}; do
+          chart_version=$(helm show chart {{.CHART_DIR}}/$chart | grep '^version:' | cut -d ' ' -f 2)
+          if [ ! -f "{{.KOTS_DIR}}/$chart-$chart_version.tgz" ]; then
+            # Chart package doesn't exist with current version
+            exit 1
+          fi
+        done
+        # All charts are packaged with current versions
+        exit 0
 
   # Release creation
   create:release:
@@ -239,6 +316,8 @@ tasks:
       - echo "Setting up required namespaces..."
       - kubectl create namespace {{.NAMESPACE}} --dry-run=client -o yaml | kubectl apply -f -
       - echo "Namespace setup complete"
+    status:
+      - kubectl get namespace {{.NAMESPACE}} --no-headers --output=name 2>/dev/null
 
   # Registry authentication/setup
   login:registry:
@@ -812,6 +891,18 @@ tasks:
       - task: check:port:forward
       - task: test:connectivity
       - echo "✅ Port forwarding setup completed successfully."
+    status:
+      - |
+        # Check if port forwarding is already active
+        if [ -f "/tmp/mlflow-port-forward-main.pid" ]; then
+          PID=$(cat /tmp/mlflow-port-forward-main.pid)
+          if ps -p $PID > /dev/null && lsof -i:{{.PORT}} | grep -q LISTEN; then
+            # Port forwarding is active
+            exit 0
+          fi
+        fi
+        # Port forwarding is not active
+        exit 1
 
   cleanup:port:forward:
     desc: Clean up port forwarding processes
@@ -861,11 +952,20 @@ tasks:
         fi
         
         echo "✅ Port forwarding cleanup completed"
+    status:
+      - |
+        # Check if there's no port forwarding to clean up
+        if [ ! -f "/tmp/mlflow-port-forward-main.pid" ] && ! ps aux | grep "port-forward.*:{{.PORT}}" | grep -v grep | grep -q .; then
+          # No port forwarding processes found
+          exit 0
+        fi
+        # Port forwarding processes exist that need to be cleaned up
+        exit 1
 
   # Local installation task (renamed from test:install:local)
   install:helm:local:
     desc: Install MLflow with local Helm charts for development (with Replicated SDK disabled)
-    deps: [add:repos:helm, setup:namespaces]
+    deps: [setup:namespaces]
     cmds:
       - echo "Installing MLflow with local Helm charts (Replicated SDK disabled)..."
       - |

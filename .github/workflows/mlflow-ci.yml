@@ -55,8 +55,7 @@ jobs:
       - name: Run Lint and Template
         working-directory: applications/mlflow
         run: |
-          # Use Taskfile to add Helm repos, lint charts and generate templates
-          task add:repos:helm
+          # Use Taskfile to lint charts and generate templates
           task update:deps:helm
           task lint
           task template
@@ -105,7 +104,6 @@ jobs:
         working-directory: applications/mlflow
         run: |
           # Use Taskfile to check if helm docs are up to date
-          task add:repos:helm
           task update:deps:helm
           task docs:helm:check
       
@@ -177,7 +175,6 @@ jobs:
         working-directory: applications/mlflow
         run: |
           # Update and package charts
-          task add:repos:helm
           task update:deps:helm
           task update:versions:chart
           task package:charts

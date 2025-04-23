@@ -103,8 +103,7 @@ cd platform-examples/applications/mlflow
 # Install Task CLI (if not already installed)
 # See https://taskfile.dev/#/installation
 
-# Add required Helm repositories and update dependencies
-task add:repos:helm
+# Update dependencies and install charts
 task update:deps:helm
 
 # Install charts locally with Replicated SDK disabled
