@@ -429,13 +429,11 @@ tasks:
     cmds:
       - echo "Packaging Helm charts for distribution..."
       - |
-        # For each chart, package it
+        # For each chart, package it using absolute paths instead of cd
         for chart in {{.CHARTS}}; do
           echo "Packaging $chart chart..."
-          cd {{.CHART_DIR}}/$chart && helm package .
-          
-          # Move resulting .tgz file to release directory
-          mv *.tgz ../../release/
+          # Use absolute paths in helm package command and specify destination directory
+          helm package {{.CHART_DIR}}/$chart -d {{.RELEASE_DIR}}
         done
       - echo "✅ Charts packaged successfully. Chart archives are in the release directory."
 
