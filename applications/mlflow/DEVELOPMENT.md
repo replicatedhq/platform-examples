@@ -2,42 +2,114 @@
 
 This document provides information about developing, testing, and releasing the MLflow application using the included Taskfile.
 
+## Development
+
+## Prerequisites
+
+- Docker
+- [Task](https://taskfile.dev/installation/) - A task runner / simpler Make alternative
+
+Optional (for direct installation on your machine):
+- go (1.20+)
+- Helm
+- kubectl
+- [Kind](https://kind.sigs.k8s.io/) - Kubernetes in Docker (if running local Kubernetes)
+
 ## Development Workflow
 
-The MLflow application includes a Taskfile.yml that provides tasks for developing, testing, and publishing the application.
+We use a [Taskfile](https://taskfile.dev/) to manage development tasks. The recommended approach is to use our containerized development environment, which includes all necessary dependencies.
 
-### Prerequisites
+### Containerized Development Environment
 
-- [Task](https://taskfile.dev/#/installation) command line tool
-- Kubernetes cluster configured in your current context
-- kubectl, helm, and python3 installed
+Our Docker-based development environment provides:
+* Consistent environment across team members
+* All required dependencies pre-installed
+* No need to install Go, Python, Helm, or other tools locally
+* Works on any operating system with Docker support
 
-### Local Development
+To get started:
 
-Follow this workflow for development:
+```bash
+# Build the development image
+task dev:build-image
 
-1. Add required Helm repositories and update dependencies:
+# Start a development container
+# This creates and runs the container in the background
+task dev:start
+
+# Enter a shell in an already running development container
+task dev:shell
+```
+
+For development with Kind (Kubernetes in Docker), use:
+
+```bash
+# Enter the development container with Kind access
+task dev:shell:kind
+```
+
+The tasks above will:
+1. Build the development Docker image if needed
+2. Start a container with the proper mounts and environment
+3. Provide you with a shell inside the container
+4. Allow you to run all task commands directly
+
+### Common Development Tasks
+
+Once you're inside the development container (or on your local machine with all prerequisites installed), you can run these common tasks:
+
+```bash
+# Update Helm dependencies
+task helm:update-deps
+
+# Lint the Helm chart
+task helm:lint
+
+# Template the chart (no values overrides)
+task helm:template
+
+# Install the chart to a kind cluster
+task helm:install-local
+
+# Run application tests
+task test:app
+```
+
+### Development Workflow Steps
+
+1. Set up the development environment:
    ```bash
-   task update:deps:helm
+   task dev:build-image
    ```
 
-2. Lint charts to check for issues:
+2. Start the development container:
    ```bash
-   task lint
+   task dev:start
    ```
 
-3. Template charts to verify the rendered manifests:
+3. Enter the development container:
    ```bash
-   task template
+   task dev:shell
    ```
 
-4. Install charts for development:
+4. Update Helm dependencies:
+   ```bash
+   task helm:update-deps
+   ```
+
+5. Lint and template charts to check for issues:
+   ```bash
+   task helm:lint
+   task helm:template
+   ```
+
+6. Install charts for development:
    ```bash
    # Installs with Replicated SDK disabled
-   task install:helm:local
+   task helm:install-local
    
    # Optionally specify a custom values file
-   MLFLOW_VALUES=./my-values.yaml task install:helm:local
+   MLFLOW_VALUES=./my-values.yaml task helm:install-local
    ```
 
    > **Note:** For local development, the Replicated SDK is explicitly disabled (`replicated.enabled=false`). This allows development without requiring access to the Replicated platform.
@@ -46,14 +118,38 @@ Follow this workflow for development:
    > 
    > The Helm releases are created with names `infra` and `mlflow` in the `mlflow` namespace.
 
-5. Run application tests:
+7. Run application tests:
    ```bash
-   task run:tests:app
+   task test:app
    ```
 
-6. Make changes to your charts and repeat steps 2-5 as needed
+8. Make changes to your charts and repeat steps 5-7 as needed
 
 This workflow allows rapid iteration without needing to publish to the Replicated registry.
+
+### Container Management
+
+If you encounter issues with the container:
+
+- Stop the container: `task dev:stop`
+- Restart it: `task dev:restart`
+- Rebuild the image if needed: `task dev:build-image`
+
+## Kubernetes Development with Kind
+
+The `dev:shell:kind` task creates a privileged container that can run Kind (Kubernetes in Docker). This allows you to:
+
+1. Create and manage a Kubernetes cluster inside the development container
+2. Test MLflow deployments in a realistic Kubernetes environment
+3. Use kubectl, helm, and other Kubernetes tools directly within the container
+
+To create a Kind cluster once inside the container:
+
+```bash
+kind create cluster --name mlflow-dev
+```
+
+This cluster can then be used to test your MLflow deployments in a Kubernetes environment that closely resembles production.
 
 ## Creating a Release
 
@@ -63,9 +159,8 @@ When you're ready to publish your changes to the Replicated platform:
 
 2. Update documentation:
    ```bash
-   # If helm-docs is not installed
-   cd charts/mlflow
-   docker run --rm -v "$(pwd):/helm-docs" -u $(id -u) jnorwood/helm-docs:latest
+   # Generate Helm documentation
+   task helm:docs:generate
    ```
 
 3. Set up the required environment variables:
@@ -82,13 +177,13 @@ When you're ready to publish your changes to the Replicated platform:
    ```bash
    # This updates KOTS manifests with the current chart versions
    # and packages the charts as .tgz files
-   task package:charts
+   task helm:package
    ```
 
 5. Create a release in Replicated:
    ```bash
    # This uploads the packaged charts and creates a new release
-   task create:release
+   task release:create
    ```
 
 6. Verify the release was created successfully in the Replicated vendor portal
@@ -105,57 +200,76 @@ This workflow tests the full Replicated release and distribution process:
    export REPLICATED_CHANNEL=channel_name
    
    # Login to the registry
-   task login:registry
+   task registry:login
    ```
 
 2. Test the Helm installation from the Replicated registry:
    ```bash
    # This pulls charts from the Replicated registry with SDK enabled
-   task test:install:helm
+   task helm:test-install
    ```
 
    > **Note:** This creates Helm releases named `infra` and `mlflow` in the `mlflow` namespace.
 
 3. Verify the installation with application tests:
    ```bash
-   task run:tests:app
+   task test:app
    ```
 
 You can also run the complete test suite after setting up environment variables:
 ```bash
-task run:tests:all
+task test:all
 ```
 
 This workflow validates the entire release pipeline from publishing to installation, ensuring that your charts work correctly when distributed through the Replicated platform.
 
-## Updating Documentation
+## Troubleshooting
 
-Before creating a release, ensure the documentation is up-to-date:
+### Container Issues
 
-1. Update version information in `charts/mlflow/Chart.yaml` if needed.
+If you encounter issues with the container:
 
-2. Update the changelog in `charts/mlflow/README_CHANGELOG.md.gotmpl` with details about the new release.
+- Stop the container: `task dev:stop`
+- Restart it: `task dev:restart`
+- Rebuild the image if needed: `task dev:build-image`
 
-3. Generate documentation using helm-docs:
-   ```bash
-   # From the mlflow chart directory
-   cd charts/mlflow
-   
-   # If helm-docs is installed locally
-   helm-docs
-   
-   # Or use Docker
-   docker run --rm -v "$(pwd):/helm-docs" -u $(id -u) jnorwood/helm-docs:latest
-   ```
+### Python Command Issues
 
-4. Verify the generated documentation:
-   - `README.md` - Main chart documentation
-   - `README_CHANGELOG.md` - Changelog
-   - `README_CONFIG.md` - Configuration reference
+When running tests inside the container, you might encounter errors with the `python` command not being found. This is because the container uses `python3` instead. To fix this:
 
-## CI/CD Pipeline
+```bash
+# Create a symlink from python3 to python inside the container
+docker exec -it mlflow-dev-container sudo ln -sf /usr/bin/python3 /usr/bin/python
 
-This application includes a CI/CD pipeline implemented with GitHub Actions. The pipeline handles:
+# Then run your tests
+task test:app
+```
+
+### Port Forwarding Issues
+
+If you encounter issues with port forwarding:
+
+1. Check if the port is already in use on your host machine
+2. Try using a different port by specifying it when starting the service
+3. The development environment automatically tries ports 5000-5004 and will use the first available one
+
+### Kind Cluster Issues
+
+If you encounter issues with the Kind cluster:
+
+1. Make sure you're using the `dev:shell:kind` task which provides the necessary privileges
+2. If the cluster fails to start, try deleting it first: `kind delete cluster --name mlflow-dev`
+3. Check docker resource limits if you experience performance issues
+
+## CI/CD Pipeline Integration
+
+For CI, we push the development image to ttl.sh with:
+
+```bash
+task ci:push-image
+```
+
+The MLflow application includes a CI/CD pipeline implemented with GitHub Actions. The pipeline handles:
 
 - Linting and validating Helm chart templates
 - Creating releases in Replicated
@@ -168,9 +282,5 @@ The pipeline workflow:
 3. `helm-install-test`: Tests Helm installation with charts from Replicated registry (SDK enabled)
 4. `kots-install-test`: Tests KOTS installation
 5. `cleanup-test-release`: Cleans up test resources
-
-The pipeline is triggered on:
-- Pull requests affecting the MLflow application
-- Pushes to the main branch
 
 For more details, see the workflow definition in [.github/workflows/mlflow-ci.yml](../../.github/workflows/mlflow-ci.yml).
