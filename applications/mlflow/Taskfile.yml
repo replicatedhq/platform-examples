@@ -7,7 +7,7 @@ version: '3'
 vars:
   # Directory structure
   CHART_DIR: ./charts
-  KOTS_DIR: ./kots
+  RELEASE_DIR: ./release
   TESTS_DIR: ./tests
   
   # Testing configuration
@@ -35,7 +35,7 @@ vars:
   # Release configuration
   # APP_NAME can be overridden by setting REPLICATED_APP environment variable 
   APP_NAME: '{{.REPLICATED_APP | default "diamon-mlflow"}}'
-  YAML_DIR: "./kots"
+  YAML_DIR: "./release"
 
 # Default task shows help
 tasks:
@@ -63,7 +63,7 @@ tasks:
           chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
           
           # Get the HelmChart resource path
-          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          helmchart="{{.RELEASE_DIR}}/$chart-chart.yaml"
           
           # Check if both files exist
           if [ ! -f "$chart_yaml" ]; then
@@ -121,7 +121,7 @@ tasks:
           chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
           
           # Get the HelmChart resource path
-          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          helmchart="{{.RELEASE_DIR}}/$chart-chart.yaml"
           
           # Check if both files exist
           if [ ! -f "$chart_yaml" ] || [ ! -f "$helmchart" ]; then
@@ -215,22 +215,32 @@ tasks:
 
   # Version update for packaged charts
   update:versions:chart:
-    desc: Update chart version references in KOTS manifests
+    desc: Update chart version references in release manifests
     cmds:
       - for: { var: CHARTS }
         cmd: |
-          sed -i 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: {{if eq .ITEM "mlflow"}}{{.MLFLOW_VERSION}}{{else}}{{.INFRA_VERSION}}{{end}}|g' {{.KOTS_DIR}}/{{.ITEM}}-chart.yaml
-      - echo "Chart versions updated in KOTS manifests."
+          # OS-compatible sed command
+          case "$(uname)" in
+            Darwin*)
+              # macOS (BSD sed) requires an extension with -i
+              sed -i '' 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: {{if eq .ITEM "mlflow"}}{{.MLFLOW_VERSION}}{{else}}{{.INFRA_VERSION}}{{end}}|g' {{.RELEASE_DIR}}/{{.ITEM}}-chart.yaml
+              ;;
+            *)
+              # Linux (GNU sed) works with -i directly
+              sed -i 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: {{if eq .ITEM "mlflow"}}{{.MLFLOW_VERSION}}{{else}}{{.INFRA_VERSION}}{{end}}|g' {{.RELEASE_DIR}}/{{.ITEM}}-chart.yaml
+              ;;
+          esac
+      - echo "Chart versions updated in release manifests."
       - cmd: task check:versions || echo "⚠️ Version check failed after update. Please verify manually."
     status:
       - |
-        # Check if versions in KOTS manifests already match Chart.yaml versions
+        # Check if versions in release manifests already match Chart.yaml versions
         for chart in {{.CHARTS}}; do
           # Get the Chart.yaml path
           chart_yaml="{{.CHART_DIR}}/$chart/Chart.yaml"
           
           # Get the HelmChart resource path
-          helmchart="{{.KOTS_DIR}}/$chart-chart.yaml"
+          helmchart="{{.RELEASE_DIR}}/$chart-chart.yaml"
           
           # Check if both files exist
           if [ ! -f "$chart_yaml" ] || [ ! -f "$helmchart" ]; then
@@ -263,14 +273,14 @@ tasks:
       - for: { var: CHARTS }
         cmd: |
           echo "Packaging {{.ITEM}} chart..."
-          helm package {{.CHART_DIR}}/{{.ITEM}} -u -d {{.KOTS_DIR}}
-      - echo "Charts packaged successfully in {{.KOTS_DIR}} directory."
+          helm package {{.CHART_DIR}}/{{.ITEM}} -u -d {{.RELEASE_DIR}}
+      - echo "Charts packaged successfully in {{.RELEASE_DIR}} directory."
     status:
       - |
         # Check if all charts are packaged with current versions
         for chart in {{.CHARTS}}; do
           chart_version=$(helm show chart {{.CHART_DIR}}/$chart | grep '^version:' | cut -d ' ' -f 2)
-          if [ ! -f "{{.KOTS_DIR}}/$chart-$chart_version.tgz" ]; then
+          if [ ! -f "{{.RELEASE_DIR}}/$chart-$chart_version.tgz" ]; then
             # Chart package doesn't exist with current version
             exit 1
           fi
@@ -477,10 +487,10 @@ tasks:
 
   # Cleanup tasks
   clean:files:charts:
-    desc: Clean packaged charts from KOTS directory
+    desc: Clean packaged charts from release directory
     cmds:
-      - rm -f {{.KOTS_DIR}}/*.tgz
-      - echo "Chart packages cleaned from {{.KOTS_DIR}}"
+      - rm -f {{.RELEASE_DIR}}/*.tgz
+      - echo "Chart packages cleaned from {{.RELEASE_DIR}}"
 
   clean:files:templates:
     desc: Clean rendered templates directory
@@ -569,12 +579,12 @@ tasks:
         echo "Helm installation with custom values completed successfully."
       - task: forward:port
 
-  # KOTS test task
+  # Replicated KOTS test task
   test:install:kots:
-    desc: Run KOTS installation test
+    desc: Run Replicated KOTS installation test
     deps: [setup:namespaces]
     cmds:
-      - echo "Running KOTS installation test..."
+      - echo "Running Replicated KOTS installation test..."
       - |
         if [ -z "$REPLICATED_LICENSE_ID" ]; then
           echo "ERROR: REPLICATED_LICENSE_ID environment variable must be set"
@@ -653,7 +663,7 @@ tasks:
           exit 1
         fi
         
-        echo "✅ KOTS installation completed. Setting up port forwarding for testing..."
+        echo "✅ Replicated installation completed. Setting up port forwarding for testing..."
       - task: forward:port
 
   # Port forwarding task - now broken into smaller sub-tasks

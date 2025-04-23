@@ -195,7 +195,7 @@ jobs:
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
-          yaml-dir: applications/mlflow/kots/
+          yaml-dir: applications/mlflow/release/
           promote-channel: ci-automation-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}
           version: ${{ steps.chart-version.outputs.chart_version }}
 
