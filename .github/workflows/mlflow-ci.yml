@@ -206,7 +206,7 @@ jobs:
           
           # Get license ID using the task - capture only the last line of output
           echo "Getting license ID..."
-          INSTALLATION_ID=$(CUSTOMER_NAME="$CUSTOMER_NAME" task customer:get-license-id | tail -n 1)
+          INSTALLATION_ID=$(CUSTOMER_NAME="$CUSTOMER_NAME" task license:get-id | tail -n 1)
           
           # Check if we got a result
           if [ -z "$INSTALLATION_ID" ]; then
