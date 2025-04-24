@@ -372,7 +372,7 @@ jobs:
           # Try to download license
           echo "Attempting to download license..."
           set +e
-          CUSTOMER_NAME="$CUSTOMER_NAME" task customer:download-license
+          CUSTOMER_NAME="$CUSTOMER_NAME" task license:download
           DOWNLOAD_RESULT=$?
           set -e
           
