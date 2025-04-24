@@ -8,6 +8,7 @@ ARG REPLICATED_VERSION=0.101.1
 ARG TASK_VERSION=3.43.2
 ARG KUBECTL_VERSION=1.30.1
 ARG HELM_VERSION=3.17.3
+ARG HELMFILE_VERSION=0.171.0
 ARG YQ_VERSION=4.45.1
 
 RUN apt-get update && apt-get install -y \
@@ -51,10 +52,17 @@ RUN curl -L -o kubectl https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/${TARGE
 RUN curl -L -o helm.tar.gz https://get.helm.sh/helm-v${HELM_VERSION}-${TARGETOS}-${TARGETARCH}.tar.gz \
     && tar -xzf helm.tar.gz \
     && mv ${TARGETOS}-${TARGETARCH}/helm . \
-    && rm -rf ${TARGETOS}-${TARGETARCH}
+    && rm -rf ${TARGETOS}-${TARGETARCH} helm.tar.gz
+
+# Download helmfile binary
+RUN curl -vL -o helmfile.tar.gz https://github.com/helmfile/helmfile/releases/download/v${HELMFILE_VERSION}/helmfile_${HELMFILE_VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz \
+    && tar -xzf helmfile.tar.gz \
+    && rm -f helmfile.tar.gz
 
 # Download and extract the yq binary
 RUN curl -L -o yq https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_${TARGETOS}_${TARGETARCH} \
     && chmod +x yq
+
+WORKDIR /app
 
 ENV PATH="/tools:${PATH}"
