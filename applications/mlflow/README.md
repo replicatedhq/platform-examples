@@ -32,6 +32,7 @@ helm install mlflow oci://registry.replicated.com/mlflow/stable
 
 - [MLflow Helm Chart Documentation](./charts/mlflow/README.md) - Installation and configuration details
 - [Configuration Reference](./charts/mlflow/README_CONFIG.md) - Detailed configuration options
+- [Development Guide](./DEVELOPMENT.md) - Guide for development including containerized environment
 
 ## For Developers
 
@@ -42,6 +43,19 @@ If you're looking to contribute to or customize this application, please refer t
 - Release process
 - CI/CD integration
 - Helm chart customization
+- Containerized development environment
+
+For containerized development, we offer a Docker-based development environment:
+
+```bash
+# Enter the development container shell
+task dev:shell
+
+# For Kubernetes development with Kind
+task dev:shell:kind
+```
+
+See the [Development Guide](./DEVELOPMENT.md) for more details.
 
 We use [helm-docs](https://github.com/norwoodj/helm-docs) for chart documentation. See the [Development Guide](./DEVELOPMENT.md) for details.
 
@@ -103,12 +117,11 @@ cd platform-examples/applications/mlflow
 # Install Task CLI (if not already installed)
 # See https://taskfile.dev/#/installation
 
-# Add required Helm repositories and update dependencies
-task add:repos:helm
-task update:deps:helm
+# Update dependencies and install charts
+task helm:update-deps
 
 # Install charts locally with Replicated SDK disabled
-task install:helm:local
+task helm:install-local
 
 # Access MLflow UI at http://localhost:5000
 ```

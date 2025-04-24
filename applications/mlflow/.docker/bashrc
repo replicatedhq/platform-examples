@@ -1,0 +1,29 @@
+# MLflow development container .bashrc
+
+# Set important environment variables
+export SHELL=/bin/bash
+export HOME=/home/devuser
+
+# Ensure clean exit
+trap 'exit 0' EXIT
+
+# Custom prompt
+export PS1="\[\033[01;32m\]mlflow-dev\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$ "
+
+# Useful aliases
+alias k="kubectl"
+alias kgp="kubectl get pods"
+alias kgs="kubectl get services"
+alias kgc="kubectl get configmaps"
+
+# Define a clean exit function
+clean_exit() {
+  echo "Exiting development shell..."
+  exit 0
+}
+
+# Override the exit command to ensure it always exits cleanly
+alias exit="clean_exit"
+
+# Welcome message
+echo "Type 'task --list' to see available tasks" 
