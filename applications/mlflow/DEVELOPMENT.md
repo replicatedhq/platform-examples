@@ -13,7 +13,6 @@ Optional (for direct installation on your machine):
 - go (1.20+)
 - Helm
 - kubectl
-- [Kind](https://kind.sigs.k8s.io/) - Kubernetes in Docker (if running local Kubernetes)
 
 ## Development Workflow
 
@@ -41,13 +40,6 @@ task dev:start
 task dev:shell
 ```
 
-For development with Kind (Kubernetes in Docker), use:
-
-```bash
-# Enter the development container with Kind access
-task dev:shell:kind
-```
-
 The tasks above will:
 1. Build the development Docker image if needed
 2. Start a container with the proper mounts and environment
@@ -68,7 +60,7 @@ task helm:lint
 # Template the chart (no values overrides)
 task helm:template
 
-# Install the chart to a kind cluster
+# Install the chart to your Kubernetes cluster
 task helm:install-local
 
 # Run application tests
@@ -134,22 +126,6 @@ If you encounter issues with the container:
 - Stop the container: `task dev:stop`
 - Restart it: `task dev:restart`
 - Rebuild the image if needed: `task dev:build-image`
-
-## Kubernetes Development with Kind
-
-The `dev:shell:kind` task creates a privileged container that can run Kind (Kubernetes in Docker). This allows you to:
-
-1. Create and manage a Kubernetes cluster inside the development container
-2. Test MLflow deployments in a realistic Kubernetes environment
-3. Use kubectl, helm, and other Kubernetes tools directly within the container
-
-To create a Kind cluster once inside the container:
-
-```bash
-kind create cluster --name mlflow-dev
-```
-
-This cluster can then be used to test your MLflow deployments in a Kubernetes environment that closely resembles production.
 
 ## Creating a Release
 
@@ -252,14 +228,6 @@ If you encounter issues with port forwarding:
 1. Check if the port is already in use on your host machine
 2. Try using a different port by specifying it when starting the service
 3. The development environment automatically tries ports 5000-5004 and will use the first available one
-
-### Kind Cluster Issues
-
-If you encounter issues with the Kind cluster:
-
-1. Make sure you're using the `dev:shell:kind` task which provides the necessary privileges
-2. If the cluster fails to start, try deleting it first: `kind delete cluster --name mlflow-dev`
-3. Check docker resource limits if you experience performance issues
 
 ## CI/CD Pipeline Integration
 

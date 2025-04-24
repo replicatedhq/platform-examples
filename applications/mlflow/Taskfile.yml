@@ -94,14 +94,8 @@ tasks:
             echo "All standard ports are in use. Using a random port."
           fi
 
-          # Add privileged mode if USE_KIND is true
-          PRIVILEGED_ARG=""
-          if [ "${USE_KIND:-false}" = "true" ]; then
-            PRIVILEGED_ARG="--privileged"
-          fi
-
           # Start container with host networking for kubectl port-forward compatibility
-          CONTAINER_ID=$(docker run --name mlflow-dev-container --network host --privileged -d \
+          CONTAINER_ID=$(docker run --name mlflow-dev-container --network host -d \
             -v $(pwd):/workspace \
             -v ~/.kube:/home/devuser/.kube \
             -v ~/.helm:/home/devuser/.helm \
@@ -122,14 +116,6 @@ tasks:
           fi
         fi
 
-  dev:shell:
-    desc: Attach to development container shell
-    deps: [dev:ensure-running]
-    silent: true
-    cmds:
-      - echo "Connecting to mlflow-dev-container..."
-      - docker exec -it mlflow-dev-container /bin/bash
-
   dev:ensure-running:
     desc: Ensure the development container is running
     internal: true
@@ -145,41 +131,13 @@ tasks:
     status:
       - docker ps | grep -q "mlflow-dev-container"
 
-  dev:shell:kind:
-    desc: Start container with Kind Kubernetes cluster and attach to shell
-    deps: [dev:prepare-kind]
+  dev:shell:
+    desc: Attach to development container shell
+    deps: [dev:ensure-running]
     silent: true
     cmds:
-      - echo "Entering development container with Kind Kubernetes cluster..."
+      - echo "Connecting to mlflow-dev-container..."
       - docker exec -it mlflow-dev-container /bin/bash
-
-  dev:prepare-kind:
-    desc: Prepare the development container for Kind usage
-    internal: true
-    silent: true
-    cmds:
-      - echo "Preparing development container with Kind Kubernetes cluster..."
-      - |
-        if docker ps | grep -q "mlflow-dev-container"; then
-          echo "Container mlflow-dev-container is already running. Stopping it first..."
-          docker stop mlflow-dev-container
-          docker rm mlflow-dev-container
-        elif docker ps -a | grep -q "mlflow-dev-container"; then
-          echo "Container mlflow-dev-container exists but is not running. Removing it..."
-          docker rm mlflow-dev-container
-        fi
-        
-        # Start container with host networking and privileged mode for Kind
-        docker run --name mlflow-dev-container --network host --privileged -d \
-          -v $(pwd):/workspace \
-          -v ~/.replicated:/home/devuser/.replicated \
-          -e SHELL=/bin/bash \
-          -e HOME=/home/devuser \
-          -e USER=devuser \
-          -e USE_KIND=true \
-          -e HOST_NETWORK=true \
-          -w /workspace \
-          {{.DEV_IMAGE}} sleep infinity
 
   dev:stop:
     desc: Stop development container
