@@ -209,18 +209,6 @@ If you encounter issues with the container:
 - Restart it: `task dev:restart`
 - Rebuild the image if needed: `task dev:build-image`
 
-### Python Command Issues
-
-When running tests inside the container, you might encounter errors with the `python` command not being found. This is because the container uses `python3` instead. To fix this:
-
-```bash
-# Create a symlink from python3 to python inside the container
-docker exec -it mlflow-dev-container sudo ln -sf /usr/bin/python3 /usr/bin/python
-
-# Then run your tests
-task test:app
-```
-
 ### Port Forwarding Issues
 
 If you encounter issues with port forwarding:
