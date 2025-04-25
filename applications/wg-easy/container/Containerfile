@@ -9,7 +9,8 @@ WORKDIR /tools
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
-    HOME=/home/devuser
+    HOME=/home/devuser \
+    SHELL=/bin/bash
 
 # Install CLI tools
 RUN apt-get update && apt-get install -y \
