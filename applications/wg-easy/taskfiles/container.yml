@@ -33,7 +33,7 @@ tasks:
       CONTAINER_NAME: '{{.CONTAINER_NAME}}'
       IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
     requires:
-      vars: [IMAGE_NAME, CONTAINER_NAME]
+      vars: [IMAGE_NAME, CONTAINER_NAME, REPLICATED_API_TOKEN]
 
     status:
       - docker ps | grep -q "{{.CONTAINER_NAME}}"
@@ -44,6 +44,7 @@ tasks:
           -v $(pwd):/workspace \
           -e HOME=/home/devuser \
           -e USER=devuser \
+          -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
           -w /workspace \
           {{.IMAGE_NAME}}:{{.IMAGE_TAG}} bash -c 'trap "exit" TERM; while :; do sleep 0.1; done')
 
