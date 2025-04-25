@@ -93,7 +93,7 @@ Configure chart values and create or modify templates.
 ### Stage 3: Local Validation with helm template
 
 > [!IMPORTANT]
-> Tools required by tasks in this project will be made available in a container. Run the command below to start the dev environment
+> Tools required by tasks in this project will be made available in a container. Run the commands below to start the dev environment
 
 ```
 # Build tools image. Run this command once.
