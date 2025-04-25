@@ -1,0 +1,120 @@
+version: "3"
+
+# Development environment tasks
+tasks:
+  build-image:
+    desc: Build development Docker image
+    vars:
+      IMAGE_NAME: '{{.IMAGE_NAME}}'
+      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+      DOCKERFILE: '{{.DOCKERFILE | default "Dockerfile"}}'
+      DOCKERFILE_PATH: '{{.DOCKERFILE_PATH | default "."}}'
+      BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
+    requires:
+      vars: [IMAGE_NAME, IMAGE_TAG, DOCKERFILE, DOCKERFILE_PATH]
+
+    cmds:
+      - docker build -t {{.IMAGE_NAME}} -f {{.DOCKERFILE}} {{.DOCKERFILE_PATH}}
+
+  start:
+    desc: Start development container in background
+    silent: true
+    vars:
+      IMAGE_NAME: '{{.IMAGE_NAME}}'
+      CONTAINER_NAME: '{{.CONTAINER_NAME}}'
+      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+    requires:
+      vars: [IMAGE_NAME, CONTAINER_NAME]
+
+    cmds:
+      - echo "Starting {{.CONTAINER_NAME}} development container..."
+      - |
+        # Check if container is running
+        if docker ps | grep -q "{{.CONTAINER_NAME}}"; then
+          echo "Container {{.CONTAINER_NAME}} is already running"
+        # Check if container exists but is not running
+        elif docker ps -a | grep -q "{{.CONTAINER_NAME}}"; then
+          echo "Container {{.CONTAINER_NAME}} exists but is not running. Starting it..."
+          docker start {{.CONTAINER_NAME}}
+        # Create and start new container
+        else
+          # Try ports 5000-5004, use the first available one
+          PORT_FOUND=false
+          for PORT in {5000..5004}; do
+            if ! lsof -i :$PORT > /dev/null; then
+              PORT_ARG="-p $PORT:$PORT"
+              echo "Using port $PORT for MLflow UI"
+              PORT_FOUND=true
+              break
+            fi
+          done
+
+          # If all standard ports are in use, use a random port
+          if [ "$PORT_FOUND" = "false" ]; then
+            PORT_ARG="-P"
+            echo "All standard ports are in use. Using a random port."
+          fi
+
+          # Start container with host networking for kubectl port-forward compatibility
+          CONTAINER_ID=$(docker run --name {{.CONTAINER_NAME}} --network host -d \
+            -v $(pwd):/workspace \
+            -v ~/.kube:/home/devuser/.kube \
+            -v ~/.helm:/home/devuser/.helm \
+            -v ~/.replicated:/home/devuser/.replicated \
+            -e SHELL=/bin/bash \
+            -e HOME=/home/devuser \
+            -e USER=devuser \
+            -e HOST_NETWORK=true \
+            -w /workspace \
+            {{.IMAGE_NAME}}:{{.IMAGE_TAG}} sleep infinity)
+
+          if [ $? -eq 0 ]; then
+            echo "Development container started successfully with ID: $CONTAINER_ID"
+            echo "Ports opened within the container will be directly accessible on your host machine."
+          else
+            echo "Failed to start development container"
+            exit 1
+          fi
+        fi
+
+  ensure-running:
+    desc: Ensure the development container is running
+    internal: true
+    silent: true
+    cmds:
+      - |
+        if ! docker ps | grep -q "{{.CONTAINER_NAME}}"; then
+          echo "Container {{.CONTAINER_NAME}} is not running. Starting it..."
+          task start
+        else
+          echo "Container {{.CONTAINER_NAME}} is already running."
+        fi
+    status:
+      - docker ps | grep -q "{{.CONTAINER_NAME}}"
+
+  shell:
+    desc: Attach to development container shell
+    deps: [ensure-running]
+    silent: true
+    cmds:
+      - echo "Connecting to {{.CONTAINER_NAME}}..."
+      - docker exec -it {{.CONTAINER_NAME}} /bin/bash
+
+  stop:
+    desc: Stop development container
+    silent: true
+    cmds:
+      - |
+        if docker ps | grep -q "{{.CONTAINER_NAME}}"; then
+          echo "Stopping {{.CONTAINER_NAME}} development container..."
+          docker stop {{.CONTAINER_NAME}}
+        else
+          echo "Container {{.CONTAINER_NAME}} is not running"
+        fi
+
+  restart:
+    desc: Restart development container
+    silent: true
+    cmds:
+      - task: stop
+      - task: start

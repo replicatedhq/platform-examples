@@ -2,6 +2,7 @@ version: "3"
 
 includes:
   utils: ./taskfiles/utils.yml
+  dev: ./../taskfiles/docker.yml
 
 vars:
   # Application configuration
@@ -26,6 +27,11 @@ vars:
   GCP_PROJECT: '{{.GCP_PROJECT | default "replicated-qa"}}'
   GCP_ZONE: '{{.GCP_ZONE | default "us-central1-a"}}'
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
+
+  # Docker workflow configuration
+  IMAGE_NAME: ttl.sh/wg-easy-dev
+  CONTAINER_NAME: wg-easy-dev
+  IMAGE_TAG: latest
 
 tasks:
   default:
