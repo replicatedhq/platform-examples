@@ -3,7 +3,7 @@ version: "3"
 # Development environment tasks
 tasks:
   build-image:
-    desc: Build development Docker image
+    desc: Build development container image
     vars:
       IMAGE_NAME: '{{.IMAGE_NAME}}'
       IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
@@ -13,7 +13,7 @@ tasks:
       vars: [IMAGE_NAME, IMAGE_TAG, CONTAINERFILE]
 
     cmds:
-      - docker build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .
+      - '{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .'
 
   start:
     desc: Start development container in background
@@ -36,11 +36,11 @@ tasks:
       vars: [IMAGE_NAME, CONTAINER_NAME, REPLICATED_API_TOKEN]
 
     status:
-      - docker ps | grep -q "{{.CONTAINER_NAME}}"
+      - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.CONTAINER_NAME}}"'
     cmds:
       - |
         # Start container with host networking for kubectl port-forward compatibility
-        CONTAINER_ID=$(docker run --rm --name {{.CONTAINER_NAME}} -d \
+        CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
           -e HOME=/home/devuser \
           -e USER=devuser \
@@ -64,7 +64,7 @@ tasks:
       - start-implementation
     cmds:
       - echo "Connecting to {{.CONTAINER_NAME}}..."
-      - docker exec -it {{.CONTAINER_NAME}} /bin/bash
+      - '{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} /bin/bash'
 
   stop:
     desc: Stop development container
@@ -73,9 +73,9 @@ tasks:
       vars: [CONTAINER_NAME]
     cmds:
       - |
-        if docker ps | grep -q "{{.CONTAINER_NAME}}"; then
+        if {{.CONTAINER_RUNTIME}} ps | grep -q "{{.CONTAINER_NAME}}"; then
           echo "Stopping {{.CONTAINER_NAME}} development container..."
-          docker stop {{.CONTAINER_NAME}}
+          {{.CONTAINER_RUNTIME}} stop {{.CONTAINER_NAME}}
         else
           echo "Container {{.CONTAINER_NAME}} is not running"
         fi
