@@ -21,6 +21,8 @@ tasks:
     cmds:
       - task: start-implementation
 
+  # Start development container in background.
+  # It's internal because it's used by shell and start tasks.
   start-implementation:
     desc: Start development container in background
     silent: true
