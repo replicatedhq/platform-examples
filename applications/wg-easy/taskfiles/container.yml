@@ -1,0 +1,87 @@
+version: "3"
+
+# Development environment tasks
+tasks:
+  build-image:
+    desc: Build development Docker image
+    vars:
+      IMAGE_NAME: '{{.IMAGE_NAME}}'
+      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+      CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
+      BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
+    requires:
+      vars: [IMAGE_NAME, IMAGE_TAG, CONTAINERFILE]
+
+    cmds:
+      - docker build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .
+
+  start:
+    desc: Start development container in background
+    silent: true
+    cmds:
+      - task: start-implementation
+
+  start-implementation:
+    desc: Start development container in background
+    silent: true
+    run: once
+    internal: true
+    vars:
+      IMAGE_NAME: '{{.IMAGE_NAME}}'
+      CONTAINER_NAME: '{{.CONTAINER_NAME}}'
+      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+    requires:
+      vars: [IMAGE_NAME, CONTAINER_NAME]
+
+    status:
+      - docker ps | grep -q "{{.CONTAINER_NAME}}"
+    cmds:
+      - |
+        # Start container with host networking for kubectl port-forward compatibility
+        CONTAINER_ID=$(docker run --rm --name {{.CONTAINER_NAME}} -d \
+          -v $(pwd):/workspace \
+          -e HOME=/home/devuser \
+          -e USER=devuser \
+          -w /workspace \
+          {{.IMAGE_NAME}}:{{.IMAGE_TAG}} bash -c 'trap "exit" TERM; while :; do sleep 0.1; done')
+
+        if [ $? -eq 0 ]; then
+          echo "Development container started successfully with ID: $CONTAINER_ID"
+        else
+          echo "Failed to start development container"
+          exit 1
+        fi
+
+  shell:
+    desc: Attach to development container shell
+    silent: true
+    requires:
+      vars: [CONTAINER_NAME]
+    deps:
+      - start-implementation
+    cmds:
+      - echo "Connecting to {{.CONTAINER_NAME}}..."
+      - docker exec -it {{.CONTAINER_NAME}} /bin/bash
+
+  stop:
+    desc: Stop development container
+    silent: true
+    requires:
+      vars: [CONTAINER_NAME]
+    cmds:
+      - |
+        if docker ps | grep -q "{{.CONTAINER_NAME}}"; then
+          echo "Stopping {{.CONTAINER_NAME}} development container..."
+          docker stop {{.CONTAINER_NAME}}
+        else
+          echo "Container {{.CONTAINER_NAME}} is not running"
+        fi
+
+  restart:
+    desc: Restart development container
+    silent: true
+    requires:
+      vars: [CONTAINER_NAME]
+    cmds:
+      - task: stop
+      - task: start

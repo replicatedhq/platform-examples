@@ -2,7 +2,7 @@ version: "3"
 
 includes:
   utils: ./taskfiles/utils.yml
-  dev: ./../taskfiles/docker.yml
+  dev: ./taskfiles/container.yml
 
 vars:
   # Application configuration
@@ -31,7 +31,6 @@ vars:
   # Docker workflow configuration
   IMAGE_NAME: ttl.sh/wg-easy-dev
   CONTAINER_NAME: wg-easy-dev
-  IMAGE_TAG: latest
 
 tasks:
   default:
