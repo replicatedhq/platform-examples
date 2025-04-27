@@ -1,0 +1,67 @@
+#Prod like set up with CloudNativePG and nginx-ingress
+main:
+  config:
+    db:
+      type: postgresdb
+      postgresdb:
+        host: db-rw
+        user: n8n
+        #        password: password is read from cnpg db-app secretKeyRef
+        pool:
+          size: 10
+        ssl:
+          enabled: true
+          reject_Unauthorized: true
+          ca_file: "/home/ssl/certs/postgresql/ca.crt"
+  # comment out as we are experiment with Terraform template
+  # secret:
+  #   n8n:
+  #     encryption_key: "thisistheway"
+
+  extraEnv:
+    DB_POSTGRESDB_PASSWORD:
+      valueFrom:
+        secretKeyRef:
+          name: db-app
+          key: password
+  # Mount the CNPG CA Cert into N8N container
+  extraVolumeMounts:
+    - name: db-ca-cert
+      mountPath: /home/ssl/certs/postgresql
+      readOnly: true
+  extraVolumes:
+    - name: db-ca-cert
+      secret:
+        secretName: db-ca
+        items:
+          - key: ca.crt
+            path: ca.crt
+  resources:
+    limits:
+      memory: 2048Mi
+    requests:
+      memory: 512Mi
+ingress:
+  enabled: false
+# cnpg DB cluster request
+extraManifests:
+  - apiVersion: postgresql.cnpg.io/v1
+    kind: Cluster
+    metadata:
+      name: db
+    spec:
+      instances: 1
+      bootstrap:
+        initdb:
+          database: n8n
+          owner: n8n
+      postgresql:
+        parameters:
+          shared_buffers: "64MB"
+      resources:
+        requests:
+          memory: "512Mi"
+        limits:
+          memory: "512Mi"
+      storage:
+        size: 1Gi

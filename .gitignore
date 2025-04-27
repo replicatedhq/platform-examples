@@ -31,6 +31,21 @@ Thumbs.db
 *.pyd
 __pycache__/
 
+# Terraform
+*.tfvars
+*.terraform
+*.tfplan
+*.tfstate
+*.tfstate.backup
+*.tfvars.json
+*.tfvars.json.lock
+
+# Misc
+.env
+
+# Cursor
+.cursor/
+
 # Mlflow specific
 applications/mlflow/tests/.venv/
 **/charts/.rendered-templates/
