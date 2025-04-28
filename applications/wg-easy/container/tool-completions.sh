@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Enable bash completion
-source /etc/bash_completion
-
 # kubectl completion
 source <(kubectl completion bash)
 alias k=kubectl
