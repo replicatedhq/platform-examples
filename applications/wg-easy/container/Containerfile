@@ -1,5 +1,5 @@
-# Base image for all shared Dockerfiles for taskfiles
-# Use this image as base image for app specific docker files
+# Base image for all shared Containerfiles for taskfiles
+# Use this image as base image for app specific container files
 FROM --platform=$BUILDPLATFORM ubuntu:24.04
 
 ARG TARGETOS
