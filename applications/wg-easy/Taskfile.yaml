@@ -29,8 +29,10 @@ vars:
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
 
   # Container workflow configuration
-  IMAGE_NAME: ttl.sh/wg-easy-dev
-  CONTAINER_NAME: wg-easy-dev
+  DEV_CONTAINER_REPOSITORY: '{{.DEV_CONTAINER_REPOSITORY | default "docker.io/wg-easy"}}'
+  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "wg-easy"}}'
+  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-dev"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
 tasks:

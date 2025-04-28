@@ -5,15 +5,14 @@ tasks:
   build-image:
     desc: Build development container image
     vars:
-      IMAGE_NAME: '{{.IMAGE_NAME}}'
-      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+      DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
-      vars: [IMAGE_NAME, IMAGE_TAG, CONTAINERFILE]
+      vars: [DEV_CONTAINER_REPOSITORY, DEV_CONTAINER_IMAGE, CONTAINERFILE]
 
     cmds:
-      - '{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .'
+      - '{{.CONTAINER_RUNTIME}} build -t {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} -f {{.CONTAINERFILE}} .'
 
   start:
     desc: Start development container in background
@@ -29,24 +28,25 @@ tasks:
     run: once
     internal: true
     vars:
-      IMAGE_NAME: '{{.IMAGE_NAME}}'
-      CONTAINER_NAME: '{{.CONTAINER_NAME}}'
-      IMAGE_TAG: '{{.IMAGE_TAG | default "latest"}}'
+      DEV_CONTAINER_REPOSITORY: '{{.DEV_CONTAINER_REPOSITORY}}'
+      DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE}}'
+      DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+      DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME}}'
     requires:
-      vars: [IMAGE_NAME, CONTAINER_NAME, REPLICATED_API_TOKEN]
+      vars: [DEV_CONTAINER_REPOSITORY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
 
     status:
-      - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.CONTAINER_NAME}}"'
+      - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"'
     cmds:
       - |
         # Start container with host networking for kubectl port-forward compatibility
-        CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.CONTAINER_NAME}} -d \
+        CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
           -e HOME=/home/devuser \
           -e USER=devuser \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
           -w /workspace \
-          {{.IMAGE_NAME}}:{{.IMAGE_TAG}} bash -c 'trap "exit" TERM; while :; do sleep 0.1; done')
+          {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit" TERM; while :; do sleep 0.1; done')
 
         if [ $? -eq 0 ]; then
           echo "Development container started successfully with ID: $CONTAINER_ID"
@@ -59,32 +59,32 @@ tasks:
     desc: Attach to development container shell
     silent: true
     requires:
-      vars: [CONTAINER_NAME]
+      vars: [DEV_CONTAINER_NAME]
     deps:
       - start-implementation
     cmds:
-      - echo "Connecting to {{.CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} /bin/bash'
+      - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
+      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} /bin/bash'
 
   stop:
     desc: Stop development container
     silent: true
     requires:
-      vars: [CONTAINER_NAME]
+      vars: [DEV_CONTAINER_NAME]
     cmds:
       - |
-        if {{.CONTAINER_RUNTIME}} ps | grep -q "{{.CONTAINER_NAME}}"; then
-          echo "Stopping {{.CONTAINER_NAME}} development container..."
-          {{.CONTAINER_RUNTIME}} stop {{.CONTAINER_NAME}}
+        if {{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"; then
+          echo "Stopping {{.DEV_CONTAINER_NAME}} development container..."
+          {{.CONTAINER_RUNTIME}} stop {{.DEV_CONTAINER_NAME}}
         else
-          echo "Container {{.CONTAINER_NAME}} is not running"
+          echo "Container {{.DEV_CONTAINER_NAME}} is not running"
         fi
 
   restart:
     desc: Restart development container
     silent: true
     requires:
-      vars: [CONTAINER_NAME]
+      vars: [DEV_CONTAINER_NAME]
     cmds:
       - task: stop
       - task: start
