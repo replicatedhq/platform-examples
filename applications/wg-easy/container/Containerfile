@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     jq \
     yq \
     gnupg \
+    bash-completion \
 
     # Install Helm
     && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
@@ -61,10 +62,18 @@ RUN apt-get update && apt-get install -y \
 # Create a non-root user for better security
 RUN groupadd -r devuser && useradd -r -g devuser -m -s /bin/bash devuser
 
+# Copy shell completion scripts
+COPY container/tool-completions.sh tool-completions.sh
+
+# Copy entrypoint script
+COPY container/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
 # Set working directory
 WORKDIR /workspace
 
 # Switch to non-root user
 USER devuser
 
-CMD ["bash"]
+# Set entrypoint
+ENTRYPOINT ["/tools/entrypoint.sh", "-l"]
