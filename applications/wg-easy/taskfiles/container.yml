@@ -42,11 +42,8 @@ tasks:
         # Start container with host networking for kubectl port-forward compatibility
         CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
-          -e HOME=/home/devuser \
-          -e USER=devuser \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
-          -w /workspace \
-          {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit" TERM; while :; do sleep 0.1; done')
+          {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
 
         if [ $? -eq 0 ]; then
           echo "Development container started successfully with ID: $CONTAINER_ID"

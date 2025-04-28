@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install -y \
     jq \
     yq \
     gnupg \
-    sudo \
 
     # Install Helm
     && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
@@ -52,15 +51,18 @@ RUN apt-get update && apt-get install -y \
     && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
     && apt-get update \
     && apt-get install google-cloud-cli -y \
+
+    # Clean up
+    && apt-get purge -y \
+        curl \
+        gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for better security
-RUN groupadd -r devuser \
-    && useradd -r -g devuser -m -s /bin/bash devuser \
-    && echo "devuser ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/devuser
+RUN groupadd -r devuser && useradd -r -g devuser -m -s /bin/bash devuser
 
 # Set working directory
-WORKDIR /app
+WORKDIR /workspace
 
 # Switch to non-root user
 USER devuser
