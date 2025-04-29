@@ -4,12 +4,12 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'applications/wg-easy/container/**'
-      - '.github/workflows/wg-easy-container.yml'
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-image.yml'
   pull_request:
     paths:
-      - 'applications/wg-easy/container/**'
-      - '.github/workflows/wg-easy-container.yml'
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-image.yml'
   workflow_dispatch:
 
 env:
