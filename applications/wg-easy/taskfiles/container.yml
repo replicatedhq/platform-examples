@@ -14,24 +14,14 @@ tasks:
     cmds:
       - '{{.CONTAINER_RUNTIME}} build -t {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} -f {{.CONTAINERFILE}} .'
 
+  # Start development container in background.
+  # It's internal because it's used by shell and start tasks.
   start:
     desc: Start development container in background
     silent: true
-    cmds:
-      - task: start-implementation
-
-  # Start development container in background.
-  # It's internal because it's used by shell and start tasks.
-  start-implementation:
-    desc: Start development container in background
-    silent: true
     run: once
-    internal: true
     vars:
-      DEV_CONTAINER_REPOSITORY: '{{.DEV_CONTAINER_REPOSITORY}}'
-      DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE}}'
       DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
-      DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME}}'
     requires:
       vars: [DEV_CONTAINER_REPOSITORY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
 
@@ -58,7 +48,7 @@ tasks:
     requires:
       vars: [DEV_CONTAINER_NAME]
     deps:
-      - start-implementation
+      - task: start
     cmds:
       - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
       - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} /bin/bash'
