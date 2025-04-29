@@ -14,7 +14,7 @@ on:
 
 env:
   DEV_CONTAINER_REGISTRY: ghcr.io
-  DEV_CONTAINER_IMAGE: platform-examples/wg-easy-tools
+  DEV_CONTAINER_IMAGE: replicatedhq/platform-examples/wg-easy-tools
 
 jobs:
   build-and-push:
