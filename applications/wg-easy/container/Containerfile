@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HOME=/home/devuser \
     SHELL=/bin/bash
 
-# Install CLI tools
+# Install debian packages
 RUN apt-get update && apt-get install -y \
     curl \
     jq \
@@ -21,8 +21,18 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     bash-completion \
 
-    # Install Helm
-    && curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
+    # Install Google Cloud CLI
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update \
+    && apt-get install google-cloud-cli -y \
+
+    # Clean up
+    && apt-get purge -y gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
 
     # Install kubectl
     && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
@@ -46,19 +56,7 @@ RUN apt-get update && apt-get install -y \
     | cut -d : -f 2,3 \
     | tr -d \") -o replicated.tar.gz \
     && tar xf replicated.tar.gz replicated && rm replicated.tar.gz \
-    && mv replicated /usr/local/bin/replicated \
-
-    # Install Google Cloud CLI
-    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
-    && apt-get update \
-    && apt-get install google-cloud-cli -y \
-
-    # Clean up
-    && apt-get purge -y \
-        curl \
-        gnupg \
-    && rm -rf /var/lib/apt/lists/*
+    && mv replicated /usr/local/bin/replicated
 
 # Create a non-root user for better security
 RUN groupadd -r devuser && useradd -r -g devuser -m -s /bin/bash devuser
