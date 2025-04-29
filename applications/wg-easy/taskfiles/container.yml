@@ -9,10 +9,10 @@ tasks:
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
-      vars: [DEV_CONTAINER_REPOSITORY, DEV_CONTAINER_IMAGE, CONTAINERFILE]
+      vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, CONTAINERFILE]
 
     cmds:
-      - '{{.CONTAINER_RUNTIME}} build -t {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} -f {{.CONTAINERFILE}} .'
+      - '{{.CONTAINER_RUNTIME}} build -t {{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} -f {{.CONTAINERFILE}} .'
 
   # Start development container in background.
   start:
@@ -22,7 +22,7 @@ tasks:
     vars:
       DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
     requires:
-      vars: [DEV_CONTAINER_REPOSITORY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
+      vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
 
     status:
       - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"'
@@ -32,7 +32,7 @@ tasks:
         CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
-          {{.DEV_CONTAINER_REPOSITORY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
+          {{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
 
         if [ $? -eq 0 ]; then
           echo "Development container started successfully with ID: $CONTAINER_ID"
