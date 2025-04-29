@@ -99,6 +99,9 @@ Configure chart values and create or modify templates.
 # Build tools image. Run this command once.
 task dev:build-image
 
+# Start/restart tools container. Idempotent.
+task dev:restart
+
 # Open shell to execute tasks
 task dev:shell
 ```
