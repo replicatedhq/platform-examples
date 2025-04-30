@@ -5,14 +5,14 @@ tasks:
   build-image:
     desc: Build development container image
     vars:
-      DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+      IMAGE_NAME: '{{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
       vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, CONTAINERFILE]
 
     cmds:
-      - '{{.CONTAINER_RUNTIME}} build -t {{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} -f {{.CONTAINERFILE}} .'
+      - '{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .'
 
   # Start development container in background.
   start:
@@ -20,7 +20,9 @@ tasks:
     silent: true
     run: once
     vars:
-      DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+      IMAGE_NAME: '{{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}}'
+      CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
+      BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
       vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
 
@@ -28,11 +30,23 @@ tasks:
       - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"'
     cmds:
       - |
+        # Check if the image exists locally
+        # If not, pull it from the registry
+        # If that fails, build it locally
+        if ! {{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}; then
+          echo "Image {{.IMAGE_NAME}} not found locally."
+          echo "Attempting to pull the image..."
+          if ! {{.CONTAINER_RUNTIME}} pull {{.IMAGE_NAME}}; then
+            echo "Failed to pull image. Building it locally..."
+            {{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .
+          fi
+        fi
+
         # Start container with host networking for kubectl port-forward compatibility
         CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
-          {{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
+          {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
 
         if [ $? -eq 0 ]; then
           echo "Development container started successfully with ID: $CONTAINER_ID"
