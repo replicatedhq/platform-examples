@@ -96,14 +96,11 @@ Configure chart values and create or modify templates.
 > Tools required by tasks in this project will be made available in a container. Run the commands below to start the dev environment
 
 ```
-# Build tools image. Run this command once.
-task dev:build-image
+# Open shell to execute tasks
+task dev:shell
 
 # Start/restart tools container. Idempotent.
 task dev:restart
-
-# Open shell to execute tasks
-task dev:shell
 ```
 
 Validate chart templates locally without deploying to a cluster.
