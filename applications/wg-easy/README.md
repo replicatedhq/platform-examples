@@ -69,8 +69,6 @@ applications/wg-easy/
 
 ## Architecture Overview
 
-![Architecture Diagram](docs/architecture.png)
-
 Key components:
 - **Taskfile**: Orchestrates the workflow with automated tasks
 - **Helmfile**: Manages chart dependencies and installation order

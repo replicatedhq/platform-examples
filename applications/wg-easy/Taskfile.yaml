@@ -38,8 +38,9 @@ vars:
 tasks:
   default:
     desc: Show available tasks
+    silent: true
     cmds:
-      - task -s --list
+      - task --list
 
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
@@ -81,7 +82,6 @@ tasks:
       - echo "This is a placeholder for actual tests"
       - sleep 5
       - echo "Tests completed!"
-
 
   verify-kubeconfig:
     desc: Verify kubeconfig
@@ -189,7 +189,6 @@ tasks:
       - setup-kubeconfig
       - ports-expose
 
-
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
@@ -277,9 +276,6 @@ tasks:
         done
 
       - echo "Release files prepared in ./release/ directory"
-    deps:
-      - update-version
-
 
   release-create:
     desc: Create and promote a release using the Replicated CLI

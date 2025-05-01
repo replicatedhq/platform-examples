@@ -11,8 +11,6 @@ The core philosophy of this workflow is to start simple and add complexity incre
 - Build confidence in changes through progressive validation
 - Maintain high velocity while ensuring quality
 
-![Workflow Diagram](workflow-diagram.png)
-
 ## Prerequisites
 
 Before starting the development workflow, ensure you have the following tools installed:
