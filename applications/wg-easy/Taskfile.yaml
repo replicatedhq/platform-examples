@@ -2,11 +2,12 @@ version: "3"
 
 includes:
   utils: ./taskfiles/utils.yml
+  dev: ./taskfiles/container.yml
 
 vars:
   # Application configuration
   APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
-  
+
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
   K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
@@ -14,18 +15,25 @@ vars:
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
   DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
   KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
-  
+
   # Ports configuration
   EXPOSE_PORTS:
     - port: 30443
       protocol: https
     - port: 30080
       protocol: http
-    
+
   # GCP default configuration
   GCP_PROJECT: '{{.GCP_PROJECT | default "replicated-qa"}}'
   GCP_ZONE: '{{.GCP_ZONE | default "us-central1-a"}}'
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
+
+  # Container workflow configuration
+  DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
+  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
+  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
+  CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
 tasks:
   default:
@@ -91,7 +99,7 @@ tasks:
             echo "Removing old kubeconfig file"
             rm -f {{.KUBECONFIG_FILE}}
           fi
-        fi 
+        fi
 
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
@@ -112,7 +120,7 @@ tasks:
           true
         fi
     deps:
-      - create-cluster
+      - cluster-create
       - verify-kubeconfig
 
   dependencies-update:
@@ -138,7 +146,7 @@ tasks:
         if [ -z "$CLUSTER_ID" ]; then
           exit 1
         fi
-        
+
         # Check if all ports are already exposed
         expected_count={{len .EXPOSE_PORTS}}
         port_checks=""
@@ -147,7 +155,7 @@ tasks:
         {{end}}
         # Remove trailing "or "
         port_checks="${port_checks% or }"
-        
+
         PORT_COUNT=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r ".[] | select($port_checks) | .upstream_port" | wc -l | tr -d ' ')
         [ "$PORT_COUNT" -eq "$expected_count" ]
     cmds:
@@ -169,10 +177,10 @@ tasks:
           echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
           exit 1
         fi
-        
+
         # Get exposed URLs
         ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}})
-        
+
         # Deploy with helmfile
         echo "Using $ENV_VARS"
         eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
@@ -193,7 +201,7 @@ tasks:
           echo "No clusters found with name {{.CLUSTER_NAME}}"
           exit 0
         fi
-        
+
         for id in $CLUSTER_IDS; do
           echo "Deleting cluster ID: $id"
           replicated cluster rm "$id"
@@ -213,7 +221,7 @@ tasks:
       - echo "Preparing release files..."
       - rm -rf ./release
       - mkdir -p ./release
-      
+
       # Copy all non-config.yaml files
       - echo "Copying non-config YAML files to release folder..."
       - find . -path '*/replicated/*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \;
@@ -237,27 +245,27 @@ tasks:
           yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $directory/$helmChartName | tee release/$helmChartName
 
         done < <(find . -maxdepth 2 -mindepth 2 -type d -name replicated)
-      
+
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
       - |
         # Start with an empty config file
         echo "{}" > ./release/config.yaml
-        
+
         # Merge all app config.yaml files first (excluding root replicated)
         for config_file in $(find . -path '*/replicated/config.yaml' | grep -v "^./replicated/"); do
           echo "Merging $config_file..."
           yq eval-all '. as $item ireduce ({}; . * $item)' ./release/config.yaml "$config_file" > ./release/config.yaml.new
           mv ./release/config.yaml.new ./release/config.yaml
         done
-        
+
         # Merge root config.yaml last
         if [ -f "./replicated/config.yaml" ]; then
           echo "Merging root config.yaml last..."
           yq eval-all '. as $item ireduce ({}; . * $item)' ./release/config.yaml "./replicated/config.yaml" > ./release/config.yaml.new
           mv ./release/config.yaml.new ./release/config.yaml
         fi
-      
+
       # Package Helm charts
       - echo "Packaging Helm charts..."
       - |
@@ -267,7 +275,7 @@ tasks:
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
           (cd "$chart_dir" && helm package . && mv *.tgz ../release/)
         done
-      
+
       - echo "Release files prepared in ./release/ directory"
     deps:
       - update-version

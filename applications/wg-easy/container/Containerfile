@@ -1,0 +1,78 @@
+# Base image for all shared Containerfiles for taskfiles
+# Use this image as base image for app specific container files
+FROM --platform=$BUILDPLATFORM ubuntu:24.04
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /tools
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    HOME=/home/devuser \
+    SHELL=/bin/bash
+
+# Install debian packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    less \
+    yq \
+    gnupg \
+    bash-completion \
+
+    # Install Google Cloud CLI
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && apt-get update \
+    && apt-get install google-cloud-cli -y \
+
+    # Clean up
+    && apt-get purge -y gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
+
+    # Install kubectl
+    && curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/ \
+
+    # Install Task
+    && sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin \
+
+    # Install Helmfile
+    && curl -Ls $(curl -s https://api.github.com/repos/helmfile/helmfile/releases/latest \
+    | grep "browser_download_url.*linux_${TARGETARCH}.tar.gz" \
+    | cut -d : -f 2,3 \
+    | tr -d \") -o helmfile.tar.gz \
+    && tar xf helmfile.tar.gz helmfile && rm helmfile.tar.gz \
+    && mv helmfile /usr/local/bin/helmfile \
+
+    # Install Replicated CLI
+    && curl -Ls $(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+    | grep "browser_download_url.*linux_amd64.tar.gz" \
+    | cut -d : -f 2,3 \
+    | tr -d \") -o replicated.tar.gz \
+    && tar xf replicated.tar.gz replicated && rm replicated.tar.gz \
+    && mv replicated /usr/local/bin/replicated
+
+# Create a non-root user for better security
+RUN groupadd -r devuser && useradd -r -g devuser -m -s /bin/bash devuser
+
+# Copy shell completion scripts
+COPY container/tool-completions.sh tool-completions.sh
+
+# Copy entrypoint script
+COPY container/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+# Set working directory
+WORKDIR /workspace
+
+# Switch to non-root user
+USER devuser
+
+# Set entrypoint
+ENTRYPOINT ["/tools/entrypoint.sh", "-l"]

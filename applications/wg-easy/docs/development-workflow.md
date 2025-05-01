@@ -18,14 +18,9 @@ The core philosophy of this workflow is to start simple and add complexity incre
 Before starting the development workflow, ensure you have the following tools installed:
 
 - **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/))
-- **Replicated CLI:** For managing test clusters and application releases. ([Installation Guide](https://docs.replicated.com/reference/replicated-cli-installing))
-- **Helm:** The Kubernetes package manager. ([Installation Guide](https://helm.sh/docs/intro/install/))
-- **Helmfile:** For orchestrating Helm chart deployments. ([Installation Guide](https://github.com/helmfile/helmfile#installation))
-- **kubectl:** The Kubernetes command-line tool. ([Installation Guide](https://kubernetes.io/docs/tasks/tools/install-kubectl/))
-- **jq:** A command-line JSON processor. ([Download Page](https://stedolan.github.io/jq/download/))
-- **yq:** A command-line YAML processor. ([Installation Guide](https://github.com/mikefarah/yq#install))
-- **gcloud CLI:** Google Cloud command-line interface (optional, only required for GCP-specific tasks). ([Installation Guide](https://cloud.google.com/sdk/docs/install))
-- **Standard Unix Utilities:** `find`, `xargs`, `grep`, `awk`, `wc`, `tr`, `cp`, `mv`, `rm`, `mkdir`, `echo`, `sleep`, `test`, `eval` (typically available by default on Linux and macOS).
+- **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development
+
+All other tools will be automatically provided through task commands and containers.
 
 ## Workflow Stages
 
@@ -96,6 +91,17 @@ Configure chart values and create or modify templates.
 **Validation point**: Configuration values are properly defined and templates are syntactically correct.
 
 ### Stage 3: Local Validation with helm template
+
+> [!IMPORTANT]
+> Tools required by tasks in this project will be made available in a container. Run the commands below to start the dev environment
+
+```
+# Open shell to execute tasks
+task dev:shell
+
+# Start/restart tools container. Idempotent.
+task dev:restart
+```
 
 Validate chart templates locally without deploying to a cluster.
 
@@ -177,7 +183,7 @@ Test multiple charts working together using Helmfile orchestration.
    # Check if issuers are correctly using cert-manager
    kubectl get clusterissuers
    kubectl get issuers -A
-   
+
    # Verify Traefik routes
    kubectl get ingressroutes -A
    ```
