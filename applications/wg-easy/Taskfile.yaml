@@ -67,8 +67,8 @@ tasks:
           TIMEOUT: "{{.TIMEOUT}}"
 
   cluster-list:
+    aliases: [create-ls]
     desc: List the cluster
-    silent: false
     cmds:
       - |
         CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
