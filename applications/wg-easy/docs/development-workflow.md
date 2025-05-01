@@ -16,7 +16,7 @@ The core philosophy of this workflow is to start simple and add complexity incre
 Before starting the development workflow, ensure you have the following tools installed:
 
 - **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/))
-- **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development
+- **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development. Export `CONTAINER_RUNTIME=docker` in your shell if you use docker.
 
 All other tools will be automatically provided through task commands and containers.
 
