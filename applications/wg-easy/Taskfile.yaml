@@ -50,22 +50,23 @@ tasks:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
+      TTL: '{{.TTL | default "4h"}}'
     status:
       - replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null
     cmds:
       - |
         if [ "{{.EMBEDDED}}" = "true" ]; then
           echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.LICENSE_ID}}..."
-          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}}
+          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}} --ttl {{.TTL}}
         else
           echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
-          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}}
+          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
         fi
       - task: utils:wait-for-cluster
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
 
-  list-cluster:
+  cluster-list:
     desc: List the cluster
     silent: false
     cmds:
