@@ -67,7 +67,6 @@ tasks:
           TIMEOUT: "{{.TIMEOUT}}"
 
   cluster-list:
-    aliases: [create-ls]
     desc: List the cluster
     cmds:
       - |
