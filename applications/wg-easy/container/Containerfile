@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     less \
-    yq \
     gnupg \
     bash-completion \
 
@@ -41,6 +40,14 @@ RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | b
 
     # Install Task
     && sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin \
+
+    # Install yq
+    && curl -Ls $(curl -s https://api.github.com/repos/mikefarah/yq/releases/latest \
+    | grep "browser_download_url.*linux_${TARGETARCH}" \
+    | cut -d : -f 2,3 \
+    | tr -d \") -o yq \
+    && chmod +x yq \
+    && mv yq /usr/local/bin/yq \
 
     # Install Helmfile
     && curl -Ls $(curl -s https://api.github.com/repos/helmfile/helmfile/releases/latest \
