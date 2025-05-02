@@ -45,6 +45,7 @@ tasks:
         # Start container with host networking for kubectl port-forward compatibility
         CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
+          -v $(pwd)/internal/Taskfile.yaml:/workspace/Taskfile.yaml \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
           {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
 
@@ -64,7 +65,10 @@ tasks:
       - task: start
     cmds:
       - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} /bin/bash'
+      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} {{.CMD}}'
+    vars:
+      CMD: |-
+          {{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}
 
   stop:
     desc: Stop development container
