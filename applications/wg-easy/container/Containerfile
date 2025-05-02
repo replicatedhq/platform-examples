@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     jq \
     less \
-    yq \
     gnupg \
     bash-completion \
 
@@ -56,7 +55,14 @@ RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | b
     | cut -d : -f 2,3 \
     | tr -d \") -o replicated.tar.gz \
     && tar xf replicated.tar.gz replicated && rm replicated.tar.gz \
-    && mv replicated /usr/local/bin/replicated
+    && mv replicated /usr/local/bin/replicated \
+
+    # Install yq
+    && BINARY=yq_linux_amd64 \
+    && VERSION=v4.45.1 \
+    && curl -Ls https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz -O \
+    && tar xf ${BINARY}.tar.gz && rm ${BINARY}.tar.gz \
+    && mv ${BINARY} /usr/local/bin/yq
 
 # Create a non-root user for better security
 RUN groupadd -r devuser && useradd -r -g devuser -m -s /bin/bash devuser
