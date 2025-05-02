@@ -1,0 +1,52 @@
+# Base image for all shared Containerfiles for taskfiles
+# Use this image as base image for app specific container files
+# this first container is only used to fetch deps and build tools
+FROM --platform=$BUILDPLATFORM ubuntu:24.04 as build
+
+ARG TARGETOS
+ARG TARGETARCH
+
+WORKDIR /tools
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    HOME=/home/devuser \
+    SHELL=/bin/bash
+
+# Install debian packages
+RUN apt-get update && apt-get install -y curl gnupg
+
+# fetch kubectl
+run curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && chmod +x kubectl
+
+# fetch helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# fetch Task
+run sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+# fetch Helmfile
+run curl -Ls $(curl -s https://api.github.com/repos/helmfile/helmfile/releases/latest \
+    | grep "browser_download_url.*linux_${TARGETARCH}.tar.gz" \
+    | cut -d : -f 2,3 \
+    | tr -d \") \
+    | tar xz helmfile
+
+# fetch Replicated CLI
+run curl -Ls $(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+    | grep "browser_download_url.*linux_amd64.tar.gz" \
+    | cut -d : -f 2,3 \
+    | tr -d \") \
+    | tar xz replicated
+
+# fetch gcloud keyring
+run curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o cloud.google.gpg
+
+# this container is what will actually be committed
+from --platform=$BUILDPLATFORM ubuntu:24.04
+copy --from=build /tools/cloud.google.gpg /usr/share/keyrings/cloud.google.gpg
+copy --from=build ["/usr/local/bin/helm","/usr/local/bin/task","/tools/helmfile","/tools/kubectl","/tools/kubectl","/tools/replicated","/usr/bin/"]
+run apt-get update && apt-get install -y curl jq yq less \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+    | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update && apt-get install -y google-cloud-sdk

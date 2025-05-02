@@ -1,55 +1,24 @@
-# Base image for all shared Containerfiles for taskfiles
-# Use this image as base image for app specific container files
-# this first container is only used to fetch deps and build tools
-FROM --platform=$BUILDPLATFORM ubuntu:24.04 as build
+# initial stage container used just for fetching things
+from --platform=$BUILDPLATFORM alpine:latest as build
+arg TARGETOS
+arg TARGETARCH
+workdir /src
+run apk add curl jq go git make
 
-ARG TARGETOS
-ARG TARGETARCH
+# fetch Helmfile
+run curl -Ls $(curl -s https://api.github.com/repos/helmfile/helmfile/releases/latest \
+    | jq -r --arg arch ".+linux_$TARGETARCH.+" '.assets[] | select (.browser_download_url | test ($arch) ) |.browser_download_url ') \
+    | tar xz helmfile
 
-WORKDIR /tools
-
-# Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive \
-    HOME=/home/devuser \
-    SHELL=/bin/bash \
-    GOBIN=/tools
-
-# Install debian packages
-RUN apt-get update && apt-get install -y ca-certificates curl golang git make gnupg
-
-# Install kubectl
-run curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && chmod +x kubectl
-
-# Install helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-
-# Install Task
-run go install github.com/go-task/task/v3/cmd/task@latest
-
-# Install Helmfile
-run go install github.com/helmfile/helmfile@latest
-
-# Install Replicated CLI
-# TODO: we should look at why we can't use go install on our own cli
-run git clone https://github.com/replicatedhq/replicated.git
+# fetch Replicated CLI
+# We don't release arm64 so to keep this image
+# multi-arch friendly we'll build replicated cli ourselves
+run git clone https://github.com/replicatedhq/replicated
 run make -C replicated build
 
-# fetch gcloud keyring
-run curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o cloud.google.gpg
 
-# this container is what will actually be committed
-FROM --platform=$BUILDPLATFORM ubuntu:24.04
-
-RUN apt-get update && apt-get install -y curl jq yq less
-copy --from=build /tools/cloud.google.gpg /usr/share/keyrings/cloud.google.gpg
-run echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
-    | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
-    && apt-get update \
-    && apt-get install -y google-cloud-sdk
-
-# copy other tools
-copy --from=build /usr/local/bin/helm /usr/bin/helm
-copy --from=build /tools/task /usr/bin/task
-copy --from=build /tools/helmfile /usr/bin/helmfile
-copy --from=build /tools/kubectl /usr/bin/kubectl
-copy --from=build /tools/replicated/bin/replicated /usr/bin/replicated
+# final stage container should have minimal layers and only stuff we want at runtime
+from --platform=$BUILDPLATFORM alpine:latest
+copy container/install-gcloud.sh /
+copy --from=build /src/helmfile /src/replicated/bin/replicated /usr/bin/
+run apk add curl python3 helm go-task kubectl jq yq && sh install-gcloud.sh
