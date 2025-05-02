@@ -15,7 +15,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     GOBIN=/tools
 
 # Install debian packages
-RUN apt-get update && apt-get install -y ca-certificates curl golang git make
+RUN apt-get update && apt-get install -y ca-certificates curl golang git make gnupg
 
 # Install kubectl
 run curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && chmod +x kubectl
@@ -34,9 +34,18 @@ run go install github.com/helmfile/helmfile@latest
 run git clone https://github.com/replicatedhq/replicated.git
 run make -C replicated build
 
+# fetch gcloud keyring
+run curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o cloud.google.gpg
+
 # this container is what will actually be committed
 FROM --platform=$BUILDPLATFORM ubuntu:24.04
-RUN apt-get update && apt-get install -y curl jq less yq
+
+RUN apt-get update && apt-get install -y curl jq yq less
+copy --from=build /tools/cloud.google.gpg /usr/share/keyrings/cloud.google.gpg
+run echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+    | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update \
+    && apt-get install -y google-cloud-sdk
 
 # copy other tools
 copy --from=build /usr/local/bin/helm /usr/bin/helm
