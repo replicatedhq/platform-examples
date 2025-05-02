@@ -1,7 +1,28 @@
 version: "3"
 
+vars:
+  DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
+  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
+  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
+  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
+  CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
+
 # Development environment tasks
 tasks:
+  shell:
+    desc: Attach to development container shell
+    silent: true
+    requires:
+      vars: [DEV_CONTAINER_NAME]
+    deps:
+      - task: start
+    cmds:
+      - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
+      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} {{.CMD}}'
+    vars:
+      CMD: |-
+          {{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}
+
   build-image:
     desc: Build development container image
     vars:
@@ -45,7 +66,7 @@ tasks:
         # Start container with host networking for kubectl port-forward compatibility
         CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
-          -v $(pwd)/internal/Taskfile.yaml:/workspace/Taskfile.yaml \
+          -v $(pwd)/taskfiles/internal.yaml:/workspace/Taskfile.yaml \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
           {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
 
@@ -55,20 +76,6 @@ tasks:
           echo "Failed to start development container"
           exit 1
         fi
-
-  shell:
-    desc: Attach to development container shell
-    silent: true
-    requires:
-      vars: [DEV_CONTAINER_NAME]
-    deps:
-      - task: start
-    cmds:
-      - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} {{.CMD}}'
-    vars:
-      CMD: |-
-          {{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}
 
   stop:
     desc: Stop development container

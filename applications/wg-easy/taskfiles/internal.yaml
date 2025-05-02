@@ -28,13 +28,6 @@ vars:
   GCP_ZONE: '{{.GCP_ZONE | default "us-central1-a"}}'
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
 
-  # Container workflow configuration
-  DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
-  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
-  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
-  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
-  CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
-
 tasks:
   default:
     desc: Show available tasks
