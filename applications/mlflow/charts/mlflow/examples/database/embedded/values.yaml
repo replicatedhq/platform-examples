@@ -1,0 +1,26 @@
+# MLFlow with embedded PostgreSQL configuration
+
+# PostgreSQL configuration
+postgres:
+  auth:
+    username: mlflow
+    password: mlflow
+
+  embedded:
+    enabled: true
+    type: postgresql
+    instances: 3
+    initdb:
+      database: mlflow
+      owner: mlflow
+    storage:
+      size: 10Gi
+    logLevel: "info"
+
+  # External PostgreSQL is disabled
+  external:
+    enabled: false
+
+mlflow:
+  backendStore:
+    databaseUpgrade: true
