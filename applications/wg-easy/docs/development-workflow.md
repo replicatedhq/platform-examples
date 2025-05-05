@@ -92,17 +92,6 @@ Configure chart values and create or modify templates.
 
 ### Stage 3: Local Validation with helm template
 
-> [!IMPORTANT]
-> Tools required by tasks in this project will be made available in a container. Run the commands below to start the dev environment
-
-```
-# Open shell to execute tasks
-task dev:shell
-
-# Start/restart tools container. Idempotent.
-task dev:restart
-```
-
 Validate chart templates locally without deploying to a cluster.
 
 1. Run helm template to render the chart and inspect manifests:
