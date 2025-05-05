@@ -1,101 +1,104 @@
 version: "3"
 
 vars:
-  DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
-  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
-  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
-  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
+  CONTAINER_REGISTRY: '{{.CONTAINER_REGISTRY | default "ghcr.io"}}'
+  CONTAINER_IMAGE: '{{.CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
+  CONTAINER_TAG: '{{.CONTAINER_TAG | default "latest"}}'
+  CONTAINER_NAME: '{{.CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
 # Development environment tasks
 tasks:
-  shell:
+  exec:
     desc: Attach to development container shell
     silent: true
     requires:
-      vars: [DEV_CONTAINER_NAME]
+      vars: [CONTAINER_NAME]
     deps:
       - task: start
     cmds:
-      - echo "Connecting to {{.DEV_CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.DEV_CONTAINER_NAME}} {{.CMD}}'
+      - echo "Connecting to {{.CONTAINER_NAME}}..."
+      - '{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} {{.CMD}}'
     vars:
-      CMD: |-
-          {{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}
+      CMD: "{{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}"
 
-  build-image:
+  build:
+    run: once
     desc: Build development container image
     vars:
-      IMAGE_NAME: '{{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}}'
+      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
-    requires:
-      vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, CONTAINERFILE]
-
+      MESSAGE: "{{.MESSAGE}}"
     cmds:
+      - '{{if .MESSAGE}}echo "{{.MESSAGE}}"{{end}}'
       - '{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .'
+    status:
+      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
 
-  # Start development container in background.
-  start:
-    desc: Start development container in background
-    silent: true
+  pull:
     run: once
     vars:
-      IMAGE_NAME: '{{.DEV_CONTAINER_REGISTRY}}/{{.DEV_CONTAINER_IMAGE}}:{{.DEV_CONTAINER_TAG}}'
+      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+      CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
+    cmds:
+      - cmd: "{{.CONTAINER_RUNTIME}} pull {{.IMAGE_NAME}}"
+        ignore_error: true
+    status:
+      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
+
+  # Replaces long if/else commands with idempotent tasks and task-color user feedback
+  check-image-exists:
+    desc: If image does not exist, tries to pull. If pull fails, tries to build
+    run: always
+    vars:
+      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+    cmds:
+      - echo "Image '{{.IMAGE_NAME}}' does not exist. Trying pull"
+      - task: pull
+      - task: build
+        vars:
+          MESSAGE: "Pull failed. Trying build"
+    status:
+      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
+
+  start:
+    desc: Start development container in background
+    run: once
+    vars:
+      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
-      vars: [DEV_CONTAINER_REGISTRY, DEV_CONTAINER_IMAGE, DEV_CONTAINER_TAG, DEV_CONTAINER_NAME, REPLICATED_API_TOKEN]
-
-    status:
-      - '{{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"'
+      vars: [CONTAINER_REGISTRY, CONTAINER_IMAGE, CONTAINER_TAG, CONTAINER_NAME, REPLICATED_API_TOKEN]
     cmds:
+      - task: check-image-exists
+      # Start with host networking for kubectl port-forward compatibility
       - |
-        # Check if the image exists locally
-        # If not, pull it from the registry
-        # If that fails, build it locally
-        if ! {{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}; then
-          echo "Image {{.IMAGE_NAME}} not found locally."
-          echo "Attempting to pull the image..."
-          if ! {{.CONTAINER_RUNTIME}} pull {{.IMAGE_NAME}}; then
-            echo "Failed to pull image. Building it locally..."
-            {{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .
-          fi
-        fi
-
-        # Start container with host networking for kubectl port-forward compatibility
-        CONTAINER_ID=$({{.CONTAINER_RUNTIME}} run --rm --name {{.DEV_CONTAINER_NAME}} -d \
+        {{.CONTAINER_RUNTIME}} run --rm --name {{.CONTAINER_NAME}} -d \
           -v $(pwd):/workspace \
           -v $(pwd)/taskfiles/internal.yaml:/workspace/Taskfile.yaml \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
-          {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait')
-
-        if [ $? -eq 0 ]; then
-          echo "Development container started successfully with ID: $CONTAINER_ID"
-        else
-          echo "Failed to start development container"
-          exit 1
-        fi
+          {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait'
+    status:
+      - '[[ $({{.CONTAINER_RUNTIME}} ps | grep -c "{{.CONTAINER_NAME}}") -eq 1 ]] && exit 0'
 
   stop:
     desc: Stop development container
-    silent: true
+    run: once
     requires:
-      vars: [DEV_CONTAINER_NAME]
+      vars: [CONTAINER_NAME]
     cmds:
-      - |
-        if {{.CONTAINER_RUNTIME}} ps | grep -q "{{.DEV_CONTAINER_NAME}}"; then
-          echo "Stopping {{.DEV_CONTAINER_NAME}} development container..."
-          {{.CONTAINER_RUNTIME}} stop {{.DEV_CONTAINER_NAME}}
-        else
-          echo "Container {{.DEV_CONTAINER_NAME}} is not running"
-        fi
+      - "{{.CONTAINER_RUNTIME}} stop {{.CONTAINER_NAME}}"
+    status:
+      - 'exit $({{.CONTAINER_RUNTIME}} ps | grep -c "{{.CONTAINER_NAME}}")'
 
   restart:
     desc: Restart development container
+    run: once
     silent: true
     requires:
-      vars: [DEV_CONTAINER_NAME]
+      vars: [CONTAINER_NAME]
     cmds:
       - task: stop
       - task: start
