@@ -29,10 +29,6 @@ vars:
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
 
 tasks:
-  default:
-    desc: Show available tasks
-    cmds:
-      - task -s --list
 
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
