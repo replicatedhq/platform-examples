@@ -56,3 +56,5 @@ applications/wg-easy/release/
 applications/wg-easy/*/charts/
 applications/wg-easy/*/Chart.lock
 .aider*
+# SpecStory explanation file
+.specstory/.what-is-this.md
