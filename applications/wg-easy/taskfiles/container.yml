@@ -7,24 +7,29 @@ vars:
   CONTAINER_NAME: '{{.CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
-# Development environment tasks
 tasks:
   exec:
-    desc: Attach to development container shell
+    desc: Run command in container
     silent: true
+    run: once
     requires:
-      vars: [CONTAINER_NAME]
+      vars: [CONTAINER_NAME, IMAGE_NAME]
     deps:
-      - task: start
+      - task: check-image-exists
     cmds:
-      - echo "Connecting to {{.CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} {{.CMD}}'
+      - |
+        {{.CONTAINER_RUNTIME}} run --rm -it \
+          -v $(pwd):/workspace \
+          -v $(pwd)/taskfiles/internal.yaml:/workspace/Taskfile.yaml \
+          -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
+          {{.IMAGE_NAME}} {{.CMD}}
     vars:
       CMD: "{{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}"
+      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
 
   build:
     run: once
-    desc: Build development container image
+    desc: Build container image
     vars:
       IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
@@ -38,6 +43,7 @@ tasks:
 
   pull:
     run: once
+    desc: Pull container image
     vars:
       IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
@@ -61,44 +67,3 @@ tasks:
           MESSAGE: "Pull failed. Trying build"
     status:
       - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
-
-  start:
-    desc: Start development container in background
-    run: once
-    vars:
-      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
-      CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
-      BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
-    requires:
-      vars: [CONTAINER_REGISTRY, CONTAINER_IMAGE, CONTAINER_TAG, CONTAINER_NAME, REPLICATED_API_TOKEN]
-    cmds:
-      - task: check-image-exists
-      # Start with host networking for kubectl port-forward compatibility
-      - |
-        {{.CONTAINER_RUNTIME}} run --rm --name {{.CONTAINER_NAME}} -d \
-          -v $(pwd):/workspace \
-          -v $(pwd)/taskfiles/internal.yaml:/workspace/Taskfile.yaml \
-          -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \
-          {{.IMAGE_NAME}} bash -c 'trap "exit 0" TERM; sleep infinity & wait'
-    status:
-      - '[[ $({{.CONTAINER_RUNTIME}} ps | grep -c "{{.CONTAINER_NAME}}") -eq 1 ]] && exit 0'
-
-  stop:
-    desc: Stop development container
-    run: once
-    requires:
-      vars: [CONTAINER_NAME]
-    cmds:
-      - "{{.CONTAINER_RUNTIME}} stop {{.CONTAINER_NAME}}"
-    status:
-      - 'exit $({{.CONTAINER_RUNTIME}} ps | grep -c "{{.CONTAINER_NAME}}")'
-
-  restart:
-    desc: Restart development container
-    run: once
-    silent: true
-    requires:
-      vars: [CONTAINER_NAME]
-    cmds:
-      - task: stop
-      - task: start

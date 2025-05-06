@@ -14,121 +14,121 @@ tasks:
     cmds:
       - task --list
 
-  wrapper:
-    desc: Container wrapper for each tasks; start, exec, stop
-    internal: true
-    deps: [ container:start ]
+  helm:
+    desc: 'Run helm with args inside the container (example: "task helm -- show chart ./cert-manager")'
     cmds:
-      - defer:
-          task: container:stop
       - task: container:exec
         vars:
-          CMD: "task {{.TASK}}"
-    vars:
-      TASK: '{{.TASK}}'
+          CMD: 'helm {{.CLI_ARGS}}'
+
+  kubectl:
+    desc: 'Run kubectl with args inside the container (example: "task kubectl -- version --client")'
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'kubectl {{.CLI_ARGS}}'
 
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   list-cluster:
     desc: List the cluster
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   test:
     desc: Run a basic test suite
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   verify-kubeconfig:
     desc: Verify kubeconfig
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   ports-expose:
     desc: Expose configured ports and capture exposed URLs
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   helm-deploy:
     desc: Deploy all charts using helmfile
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   release-create:
     desc: Create and promote a release using the Replicated CLI
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   gcp-vm-delete:
     desc: Delete the GCP VM instance for K8s and VPN
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
 
   embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
-
+          CMD: 'task {{.TASK}}'
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
     cmds:
-      - task: wrapper
+      - task: container:exec
         vars:
-          TASK: '{{.TASK}}'
+          CMD: 'task {{.TASK}}'
