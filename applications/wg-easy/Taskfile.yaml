@@ -131,7 +131,7 @@ tasks:
       - echo "Updating Helm dependencies for all charts..."
       - |
         # Find all charts and update their dependencies
-        for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Updating dependency $chart_dir"
           helm dependency update "$chart_dir"
         done
