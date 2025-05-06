@@ -1,0 +1,13 @@
+apiVersion: v2
+dependencies:
+- name: replicated-library
+  repository: https://replicatedhq.github.io/helm-charts
+  version: ^0.13.2
+description: Simple wireguard with web configuration management
+home: https://github.com/chris-sanders/helm-charts/charts/wg-easy
+maintainers:
+- email: sanders.chris@gmail.com
+  name: Chris Sanders
+  url: https://github.com/chris-sanders/helm-charts
+name: wg-easy
+version: 1.0.0

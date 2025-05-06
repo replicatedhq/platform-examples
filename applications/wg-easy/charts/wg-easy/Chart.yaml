@@ -1,0 +1,7 @@
+name: wg-easy
+version: 1.0.0
+apiVersion: v2
+dependencies:
+  - name: templates
+    version: '*'
+    repository: file://../templates
