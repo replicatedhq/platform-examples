@@ -163,7 +163,7 @@ Test multiple charts working together using Helmfile orchestration.
        # ...
      - name: cert-manager-issuers
        namespace: cert-manager
-       chart: ./cert-manager-issuers
+       chart: ./charts/cert-manager-issuers
        # ...
        needs:
          - cert-manager/cert-manager

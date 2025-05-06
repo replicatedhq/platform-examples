@@ -95,7 +95,7 @@ releases:
 
   - name: cert-manager-issuers
     namespace: cert-manager
-    chart: ./cert-manager-issuers
+    chart: .charts/cert-manager-issuers
     createNamespace: true
     wait: true
     needs:
