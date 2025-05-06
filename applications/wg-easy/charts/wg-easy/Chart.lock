@@ -1,9 +1,6 @@
 dependencies:
-- name: wg-easy
-  repository: file://../wg-easy-upstream
-  version: 1.0.0
 - name: templates
   repository: file://../templates
   version: 1.0.0
-digest: sha256:7b2acf7eb35e74172755aff2d1e71eae7805394db11eae3087defecefd0b5414
-generated: "2025-05-06T15:04:43.466431-04:00"
+digest: sha256:9939fc386e44c7a8d0a274f270ec92ac70ac9858442b4f85638122044082da74
+generated: "2025-05-06T15:20:40.596254-04:00"
