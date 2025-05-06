@@ -39,7 +39,7 @@ dependencies:
     repository: https://charts.jetstack.io
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates
 ```
 
 ### Customization Control
@@ -95,7 +95,7 @@ releases:
 
   - name: cert-manager-issuers
     namespace: cert-manager
-    chart: ./cert-manager-issuers
+    chart: .charts/cert-manager-issuers
     createNamespace: true
     wait: true
     needs:

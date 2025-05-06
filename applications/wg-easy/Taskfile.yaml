@@ -6,7 +6,13 @@ includes:
 
 vars:
   # Application configuration
-  APP_SLUG: '{{.REPLICATED_APP | default "wg-easy"}}'
+  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
+  APP_SLUG: '{{.REPLICATED_APP_SLUG | default "wg-easy-cre"}}'
+
+  # Release configuration
+  RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
+  RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
 
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
@@ -131,14 +137,14 @@ tasks:
       - echo "Updating Helm dependencies for all charts..."
       - |
         # Find all charts and update their dependencies
-        for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Updating dependency $chart_dir"
-          helm dependency update "$chart_dir"
+          helm dependency update --skip-refresh "$chart_dir"
         done
       - echo "All dependencies updated!"
 
-  ports-expose:
-    desc: Expose configured ports and capture exposed URLs
+  cluster-ports-expose:
+    desc: Expose configured ports for a cluster and capture exposed URLs
     silent: false
     run: once
     status:
@@ -166,8 +172,8 @@ tasks:
     deps:
       - cluster-create
 
-  helm-deploy:
-    desc: Deploy all charts using helmfile
+  helm-install:
+    desc: Install all charts using helmfile
     silent: false
     cmds:
       - echo "Installing all charts via helmfile"
@@ -185,10 +191,10 @@ tasks:
         # Deploy with helmfile
         echo "Using $ENV_VARS"
         eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
-      - echo "All charts deployed!"
+      - echo "All charts installed!"
     deps:
       - setup-kubeconfig
-      - ports-expose
+      - cluster-ports-expose
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
@@ -270,10 +276,10 @@ tasks:
       - echo "Packaging Helm charts..."
       - |
         # Find top-level directories containing Chart.yaml files
-        for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Packaging chart: $chart_dir"
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
-          (cd "$chart_dir" && helm package . && mv *.tgz ../release/)
+          (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
         done
 
       - echo "Release files prepared in ./release/ directory"
@@ -283,8 +289,10 @@ tasks:
   release-create:
     desc: Create and promote a release using the Replicated CLI
     silent: false
+    run: once
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      VERSION: '{{.VERSION | default "0.0.1"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     requires:
       vars: [APP_SLUG, VERSION]
@@ -297,6 +305,53 @@ tasks:
         echo "Release version {{.VERSION}} created and promoted to channel {{.CHANNEL}}"
     deps:
       - release-prepare
+
+  customer-create:
+    desc: Create a new customer or get existing customer with matching name and return their ID
+    silent: false
+    run: once
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
+      CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
+      EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
+    requires:
+      vars: [APP_SLUG]
+    cmds:
+      - |
+        # First check if customer already exists
+        echo "Looking for existing customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CUSTOMER_NAME}}") | .id' | head -1)
+
+        if [ -n "$EXISTING_CUSTOMER" ]; then
+          echo "Found existing customer {{.CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
+          echo "$EXISTING_CUSTOMER"
+          exit 0
+        fi
+
+        # No existing customer found, create a new one
+        echo "Creating new customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+
+        # Build the command with optional expiration
+        CMD="replicated customer create \
+          --app {{.APP_SLUG}} \
+          --name {{.CUSTOMER_NAME}} \
+          --email {{.CUSTOMER_EMAIL}} \
+          --channel {{.CHANNEL}} \
+          --type {{.LICENSE_TYPE}} \
+          --output json"
+
+        # Add expiration if specified
+        if [ -n "{{.EXPIRES_IN}}" ]; then
+          CMD="$CMD --expires-in {{.EXPIRES_IN}}"
+        fi
+
+        # Create the customer and capture the output
+        CUSTOMER_JSON=$($CMD)
+
+        # Extract and output just the customer ID
+        echo "$CUSTOMER_JSON" | jq -r '.id'
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
@@ -355,14 +410,79 @@ tasks:
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
 
+  customer-ls:
+    desc: List customers for the application
+    silent: false
+    vars:
+      OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "table"}}'
+    requires:
+      vars: [APP_SLUG]
+    cmds:
+      - echo "Listing customers for app {{.APP_SLUG}}..."
+      - replicated customer ls --app {{.APP_SLUG}} --output {{.OUTPUT_FORMAT}}
+
+  customer-delete:
+    desc: Archive a customer by ID
+    silent: false
+    vars:
+      CUSTOMER_ID: '{{.CUSTOMER_ID}}'
+    requires:
+      vars: [APP_SLUG, CUSTOMER_ID]
+    cmds:
+      - echo "Archiving customer with ID {{.CUSTOMER_ID}} from app {{.APP_SLUG}}..."
+      - |
+        # Verify customer exists before attempting to archive
+        CUSTOMER_EXISTS=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .id')
+        if [ -z "$CUSTOMER_EXISTS" ]; then
+          echo "Error: Customer with ID {{.CUSTOMER_ID}} not found for app {{.APP_SLUG}}"
+          exit 1
+        fi
+
+        # Get customer name for confirmation message
+        CUSTOMER_NAME=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .name')
+
+        # Archive the customer
+        replicated customer archive {{.CUSTOMER_ID}} --app {{.APP_SLUG}}
+
+        # Confirm archiving
+        echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
+
+  clean:
+    desc: Remove temporary Helm directories, chart dependencies, and release folder
+    silent: false
+    cmds:
+      - echo "Cleaning temporary directories and dependencies..."
+      - |
+        # Remove the release directory
+        if [ -d "./release" ]; then
+          echo "Removing release directory..."
+          rm -rf ./release
+        fi
+
+        # Find and remove tmpcharts-* directories in charts/
+        echo "Removing temporary chart directories..."
+        find charts/ -type d -name "tmpcharts-*" -print
+        find charts/ -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+
+        # Clean up chart dependencies (.tgz files) in charts/*/charts/
+        echo "Removing chart dependencies..."
+        find charts/ -path "*/charts/*.tgz" -type f -print
+        find charts/ -path "*/charts/*.tgz" -type f -delete
+
+        # Clean up any tmpcharts directories in subdirectories
+        echo "Cleaning up any remaining tmpcharts directories..."
+        find . -type d -name "tmpcharts-*" -print
+        find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+      - echo "Cleaning complete!"
+
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
     silent: false
     cmds:
       - task: cluster-create
       - task: setup-kubeconfig
-      - task: ports-expose
+      - task: cluster-ports-expose
       - task: dependencies-update
-      - task: helm-deploy
+      - task: helm-install
       - task: test
       - task: cluster-delete

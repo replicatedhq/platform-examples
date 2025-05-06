@@ -1,0 +1,46 @@
+{{- define "custom.notes" -}}
+This is a library chart maintained by Replicated in order to keep the creation of helm charts dry when deploying third party commercial software 
+{{- end -}}
+
+{{- define "custom.custom.configuration.header" -}}
+## Custom configuration
+{{- end -}}
+
+{{- define "custom.custom.configuration" -}}
+{{ template "custom.custom.configuration.header" . }}
+
+N/A
+{{- end -}}
+
+{{- define "custom.usage" }}
+## Using this library
+
+Include the chart as a dependency in your `Chart.yaml`
+
+```yaml
+# Chart.yaml
+dependencies:
+- name: replicated-library
+  repository: https://replicatedhq.github.io/helm-charts
+  version: {{ template "chart.version" . }}
+```
+
+You can see a full example of this library chart in use [here](https://github.com/replicatedhq/replicated-starter-helm)
+To see an example of the available values see [values-example.yaml](values-example.yaml)
+
+{{- end -}}
+
+{{- define "custom.features" -}}
+## Features
+
+Below highlights some of the useful features available in this library
+
+* [Dynamic App Reload on Configuration Changes](FEATURES.md#dynamic-app-reload-on-configuration-changes)
+* [App, Service, and Ingress Association](FEATURES.md#app-service-and-ingress-association)
+{{- end -}}
+
+{{- define "custom.advancedTemplating" -}}
+## Advanced Templating
+
+[Examples of how you can advanced templating and build on top of this library chart](ADVANCED_TEMPLATING.md)
+{{- end -}}

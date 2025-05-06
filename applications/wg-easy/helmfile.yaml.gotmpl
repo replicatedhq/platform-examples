@@ -10,11 +10,11 @@ environments:
   default:
     values:
       - chartSources:
-          certManager: ./cert-manager
-          certManagerIssuers: ./cert-manager-issuers
-          traefik: ./traefik
-          wgEasy: ./wg-easy
-          replicatedSDK: ./replicated-sdk
+          certManager: ./charts/cert-manager
+          certManagerIssuers: ./charts/cert-manager-issuers
+          traefik: ./charts/traefik
+          wgEasy: ./charts/wg-easy
+          replicatedSDK: ./charts/replicated-sdk
       - extras:
           enableReplicatedSDK: false
   replicated:
