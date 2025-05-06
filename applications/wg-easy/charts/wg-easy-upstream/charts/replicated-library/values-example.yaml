@@ -1,0 +1,557 @@
+global:
+  # -- Set additional global labels.
+  labels: {}
+  # -- Set additional global annotations.
+  annotations: {}
+  # -- Set the full object prefix, defaults to releasName-ChartName if not set. This value takes precedence over nameOverride.
+  # Set to "-" to disable object name prefixing.
+  fullNameOverride:
+  # -- Set an override for the ChartName, defaults to ChartName if not set.
+  nameOverride:
+  # -- When `true`, the feature to automatically re-deploy an App's pod when a ConfigMap or Secret changes is enabled.
+  appReload: true
+
+# -- Configure the apps for the chart here.
+# Apps can be added by adding a dictionary key similar to the 'example' app.
+# By default the name of the app will be the name of the dictionary key
+# TODO: nameOverride
+# TODO: Ensure sha annotations on app are working
+# @default -- See below
+apps:
+  example:
+    # -- Enable the app
+    # Each app represents a single controller type (deployment, daemonset, statefulset)
+    enabled: false
+    # -- Specify the controller type.
+    # Valid options are deployment, daemonset or statefulset
+    type: deployment
+    # The serviceName is required for type = statefulset.
+    # It can be set manually on the application or will be set automatically to the first service which is mapped to this app.
+    serviceName:
+    # -- Set the replica count. Only used for deployment and statefulset
+    replicas: 1
+
+    # -- Specify one or more image pull secrets for the app
+    imagePullSecrets: []
+
+    # -- Specify any initContainers here as dictionary items. Each initContainer should have its own key.
+    containers:
+      example:
+        image:
+          # -- Specify the image repository for the container
+          repository: nginx
+          # -- Specify the image tag for the container
+          tag: latest
+          # -- Specify the image pull policy for the container
+          pullPolicy:
+
+        # -- Override the command for the container
+        command: []
+        # -- Override the arguments for the container
+        args: []
+
+        # -- Environment variables. Template enabled.
+        # Syntax options:
+        # a. DATABASE_USER: USERNAME
+        # b. - name: DATABASE_USER
+        #      USERNAME
+        # c. - name: DATABASE_USER  
+        #      valueFrom:
+        #        secretKeyRef:
+        #          name: db-user
+        #          key: USER
+        # d. - name: DATABASE_USER  
+        #      valueFrom:
+        #        configMapKeyRef:
+        #          name: db_user
+        #          key: DB_USER
+        env:
+        # -- Secrets and/or ConfigMaps that will be loaded as environment variables.
+        # [[ref]](https://unofficial-kubernetes.readthedocs.io/en/latest/tasks/configure-pod-container/configmap/#use-case-consume-configmap-in-environment-variables)
+        envFrom: []
+
+        # -- Specify the ports for the container
+        # [[ref]](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#ports)
+        ports: []
+        # -- Specify a list of volumes mounts in the container.
+        volumeMounts: []
+        # -- Specify probes for the container
+        # [[ref]](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
+        probes:
+          # -- Specify the readiness probes for the container
+          readinessProbe: {}
+          # -- Specify the liveness probes for the container
+          livenessProbe: {}
+          # -- Specify the startup probes for the container
+          startupProbe: {}
+        securityContext: {}
+        # -- Configure the lifecycle for the container
+        lifecycle: {}
+
+        termination:
+          # -- Configure the path at which the file to which the container's termination message will be written.
+          # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+          messagePath:
+          # -- Indicate how the container's termination message should be populated.
+          # Valid options are `File` and `FallbackToLogsOnError`.
+          # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle-1)]
+          messagePolicy:
+          # -- Duration in seconds the pod needs to terminate gracefully
+          # -- [[ref](https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#lifecycle)]
+          gracePeriodSeconds:
+
+        # -- Set the resource requests / limits for the container.
+        resources: {}
+
+    # -- Specify any initContainers here as dictionary items. Each initContainer should have its own key.
+    # The dictionary item key will determine the order.
+    # All of the same values from .Values.apps.example.containers are valid here with the exception of probes.
+    initContainers: {}
+
+    # -- Specify a list of volumes that get mounted to the app.
+    # persistentVolumeClaims which are present and enabled in the persistence configuraiton will have the prefix added automatically.
+    volumes: []
+
+    # -- Set annotations on the deployment/statefulset/daemonset
+    annotations: {}
+    # -- Set labels on the deployment/statefulset/daemonset
+    labels: {}
+
+    # -- Specifies whether a service account token should be automatically mounted.
+    automountServiceAccountToken: true
+    # TODO: apps.*.serviceAccount template
+    # serviceAccount:
+    #   # -- Specifies whether a service account should be created
+    #   create: false
+    #   # -- Annotations to add to the service account
+    #   annotations: {}
+    #   # -- The name of the service account to use.
+    #   # If not set and create is true, a name is generated using the fullname template
+    #   name: ""
+    #   # -- If rules are specified, a matching Role and RoleBinding is created for the service account
+    #   rules: [
+    #     # - apiGroups: [""]
+    #     #   resources: ["pods"]
+    #     #   verbs: ["get", "watch", "list"]
+    #   ]
+
+    # -- Set statefulset podManagementPolicy, valid values are Parallel and OrderedReady (default).
+    podManagementPolicy:
+    # -- Set annotations on the pod
+    podAnnotations: {}
+    # -- Set labels on the pod
+    podLabels: {}
+
+    # -- Set the controller upgrade strategy
+    # For Deployments, valid values are Recreate and RollingUpdate.
+    # For StatefulSets, valid values are OnDelete and RollingUpdate.
+    # For Daemonsets, valid values are OnDelete and RollingUpdate.
+    strategy:
+    rollingUpdate:
+      # -- Set deployment RollingUpdate max unavailable
+      unavailable:
+      # -- Set deployment RollingUpdate max surge
+      surge:
+      # -- Set statefulset RollingUpdate partition
+      partition:
+    # -- ReplicaSet revision history limit
+    revisionHistoryLimit: 3
+
+    # -- Custom priority class for different treatment by the scheduler
+    priorityClassName: # system-node-critical
+    # -- Allow specifying a runtimeClassName other than the default one (ie: nvidia)
+    runtimeClassName: # nvidia
+    # -- Allows specifying a custom scheduler name
+    schedulerName: # awkward-dangerous-scheduler
+    # -- Allows specifying explicit hostname setting
+    hostname:
+    # -- When using hostNetwork make sure you set dnsPolicy to `ClusterFirstWithHostNet`
+    hostNetwork: false
+    # -- Defaults to "ClusterFirst" if hostNetwork is false and "ClusterFirstWithHostNet" if hostNetwork is true.
+    dnsPolicy: # ClusterFirst
+    # -- Optional DNS settings, configuring the ndots option may resolve nslookup issues on some Kubernetes setups.
+    dnsConfig: {}
+    # -- Enable/disable the generation of environment variables for services.
+    # [[ref]](https://kubernetes.io/docs/concepts/services-networking/connect-applications-service/#accessing-the-service)
+    enableServiceLinks: true
+    # -- Configure the Security Context for the Pod
+    podSecurityContext: {}
+
+    # -- Used to create individual disks for each instance when type: StatefulSet
+    volumeClaimTemplates: []
+
+    # -- Node selection constraint
+    # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+    nodeSelector: {}
+
+    # -- Defines affinity constraint rules.
+    # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+    affinity: {}
+
+    # -- Defines topologySpreadConstraint rules.
+    # [[ref]](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/)
+    topologySpreadConstraints: []
+    # - maxSkew: <integer>
+    #   topologyKey: <string>
+    #   whenUnsatisfiable: <string>
+    #   labelSelector: <object>
+
+    # -- Specify taint tolerations
+    # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+    tolerations: []
+
+    # -- Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames.
+    # [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/)
+    hostAliases: []
+    # - ip: "192.168.1.100"
+    #   hostnames:
+    #   - "example.com"
+    #   - "www.example.com"
+
+# -- Configure the secrets for the chart here.
+# Secrets can be added by adding a dictionary key similar to the 'exampleSecret' secret.
+# By default the name of the secret will be the name of the dictionary key
+# TODO: nameOverride
+# TODO: Ensure sha annotations on app are working
+# @default -- See below
+secrets:
+  exampleSecret:
+    # -- Enables or disables the secret
+    enabled: false
+    # -- Labels to add to the secret
+    labels: {}
+    # -- Annotations to add to the secret
+    annotations: {}
+    # -- configMap data content. Helm template enabled.
+    data:
+      {}
+      # foo: bar
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # option to select secret type; default is Opaque
+    # example: set type: kubernetes.io/tls for secrets that contain tls data.
+    type:
+    # -- When `true`, the feature to automatically re-deploy an App's pod when the Secret changes is enabled.
+    appReload: true
+
+# -- Configure the configmaps for the chart here.
+# Configmaps can be added by adding a dictionary key similar to the 'exampleConfig' configmap.
+# By default the name of the configmap will be the name of the dictionary key
+# TODO: nameOverride
+# TODO: Ensure sha annotations on app are working
+# @default -- See below
+configmaps:
+  exampleConfig:
+    # -- Enables or disables the configMap
+    enabled: false
+    # -- Labels to add to the configMap
+    labels: {}
+    # -- Annotations to add to the configMap
+    annotations: {}
+    # -- configMap data content. Helm template enabled.
+    data:
+      {}
+      # foo: bar
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # -- When `true`, the feature to automatically re-deploy an App's pod when the ConfigMap changes is enabled.
+    appReload: true
+
+# -- Configure the services for the chart here.
+# Services can be added by adding a dictionary key similar to the 'example' service.
+# By default the name of the service will be the name of the dictionary key
+# TODO: nameOverride
+# @default -- See below
+services:
+  example:
+    # -- Enables or disables the service
+    enabled: false
+    # -- Optional list of apps to attach this service. This corresponds to apps configured in the `apps` key
+    appName:
+      - example
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # -- Set the service type
+    type: ClusterIP
+    # -- Label sleector(s) for the service to associate Pods as Endpoints. This takes precedence over services.*.appName
+    selector: {}
+    # -- Set the clusterIP
+    # To deploy a headless service, set clusterIP: "None"
+    clusterIP:
+    # -- Specify the externalTrafficPolicy for the service. Options: Cluster, Local
+    # -- [[ref](https://kubernetes.io/docs/tutorials/services/source-ip/)]
+    externalTrafficPolicy:
+    # -- Specify the ip policy. Options: SingleStack, PreferDualStack, RequireDualStack
+    ipFamilyPolicy:
+      # -- The ip families that should be used. Options: IPv4, IPv6
+    ipFamilies: []
+    # -- Provide additional annotations which may be required.
+    annotations: {}
+    # -- Provide additional labels which may be required.
+    labels: {}
+    # -- Configure the Service port information here.
+    # Additional ports can be added by adding a dictionary key similar to the 'http' service.
+    # @default -- See below
+    ports:
+      http:
+        # -- Enables or disables the port
+        enabled: true
+        # -- The port number
+        port:
+        # -- Port protocol.
+        # Support values are `HTTP`, `HTTPS`, `TCP` and `UDP`.
+        # HTTPS and HTTPS spawn a TCP service and get used for internal URL and name generation
+        protocol: HTTP
+        # -- Specify a service targetPort if you wish to differ the service port from the application port.
+        # If `targetPort` is specified, this port number is used in the container definition instead of
+        # the `port` value. Therefore named ports are not supported for this field.
+        targetPort:
+        # -- Specify the nodePort value for the LoadBalancer and NodePort service types.
+        # [[ref]](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport)
+        nodePort:
+
+# -- Configure the ingresses for the chart here.
+# Ingresses can be added by adding a dictionary key similar to the 'example' ingress.
+# Name of the ingress object will be the name of the dictionary key
+# @default -- See below
+ingresses:
+  example:
+    # -- Enables or disables the ingress
+    enabled: false
+    # -- Name of the service to attach this ingress. This corresponds to an service configured un the `services` key
+    serviceName: example
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # -- Provide additional annotations
+    annotations: {}
+    # -- Provide additional labels
+    labels: {}
+    # -- Set the ingressClass that is used for this ingress.
+    # Requires Kubernetes >=1.19
+    ingressClassName: # "nginx"
+    # -- Configure the hosts for the ingress
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: Prefix
+            service:
+              # -- Service Name for the path. By default this is ingresses.example.serviceName if not overwritten
+              # TODO: NOT IMPLEMENTED
+              name:
+              port:
+    tls: []
+
+# -- Configure volumes for the chart here.
+# Persistence items can be added by adding a dictionary key similar to the 'example' key.
+# Name of the persistence object will be the name of the dictionary key unless overwritten with persistence.*.nameOverride
+# @default -- See below
+persistence:
+  example:
+    # -- Enables or disables the volume
+    enabled: false
+
+    # -- Volume type. Available options are ["persistentVolume," "persistentVolumeClaim"]
+    # type.persistentVolume creates a PV and a PVC pair and uses the PVC as a volume on the app
+    # type.persistentVolumeClaim creates a new PVC or uses an existing PVC as a volume on the app
+    # TODO: type.persistentVolume not implemented
+    type: persistentVolumeClaim
+
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+
+    # -- Configure a persistentVolume and persistentVolumeClaim pair to be mounted to the app's primary container
+    # TODO: Not implemented
+    persistentVolume:
+      # -- PersistentVolumeClaim spec
+      # [[ref]](https://kubernetes.io/docs/concepts/storage/persistent-volumes/)
+      spec:
+        capacity:
+          storage: 1Gi
+        accessModes:
+          - ReadWriteOnce
+        reclaimPolicy:
+          - Recycle
+        hostPath:
+          path: /tmp/data1
+
+    # -- Configure a Persistent Volume Claim to be mounted to the app's primary container
+    persistentVolumeClaim:
+      # -- Existing Persistent Volume Claim name. Takes precedence over persistentVolumeClaim.spec
+      existingClaim:
+      # -- PersistentVolumeClaim spec
+      # [[ref]](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims)
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        volumeMode: Filesystem
+        persistentVolumeReclaimPolicy: Retain
+        resources:
+          requests:
+            storage: 8Gi
+        storageClassName: slow
+
+# -- Configure the serviceAccounts for the chart here.
+# ServiceAccounts can be added by adding a dictionary key similar to the 'example' serviceAccount.
+# By default the name of the serviceAccount will be the name of the dictionary key unless overridden with serviceAccounts.*.nameOverride
+# @default -- See below
+serviceAccounts:
+  example:
+    # -- Enables or disables the service account
+    enabled: false
+    # -- Labels to add to the service account
+    labels: {}
+    # -- Annotations to add to the service account
+    annotations: {}
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+
+# -- Configure the roles for the chart here.
+# Roles can be added by adding a dictionary key similar to the 'example' role.
+# By default the name of the role will be the name of the dictionary key unless overridden with roles.*.nameOverride
+# TODO: implement aggregated ClusterRoles
+# @default -- See below
+roles:
+  example:
+    # -- Enables or disables the role
+    enabled: false
+    # -- Labels to add to the role
+    labels: {}
+    # -- Annotations to add to the role
+    annotations: {}
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # -- Type of role. Must be either: ["Role", "ClusterRole"]
+    kind: Role
+    # -- Define the selectors used for aggregated ClusterRoles.  Only used with ClusterRoles.
+    aggregationRule: {}
+    # clusterRoleSelectors:
+    #   - matchLabels:
+    #       rbac.example.com/aggregate-to-admin: "true"
+    # -- Configure the rules for the role
+    rules: []
+
+# -- A rule must be express in the Kubernetes RBAC rule format
+# - apiGroups:
+#     - ""
+#   resources:
+#     - "pods"
+#   verbs:
+#     - "get"
+#     - "watch"
+#     - "list"
+# -- Configure the roleBindings for the chart here.
+# RoleBindings can be added by adding a dictionary key similar to the 'example' roleBinding.
+# By default the name of the roleBinding will be the name of the dictionary key unless overridden with roleBindings.*.nameOverride
+# @default -- See below
+roleBindings:
+  example:
+    # -- Enables or disables the roleBinding
+    enabled: false
+    # -- Labels to add to the clusterRole
+    labels: {}
+    # -- Annotations to add to the clusterRole
+    annotations: {}
+    # -- Override the name of this object. Default name if not overwritten will be releaseName-ChartName-objectName
+    fullNameOverride:
+    # -- Type of roleBinding. Must be either: ["RoleBinding", "ClusterRoleBinding"]
+    kind: RoleBinding
+    # -- Name of the service account to bind to the role
+    subjects:
+      # -- A list of one or more ServiceAccount descriptions.
+      # -- Name of the service account to bind to the role
+      - name: example
+        # The namespace of the service account subject.  Optional.  If no namespace is provided, then the namespace of the chart will be used.
+        namespace:
+        # -- Kind of the service account to bind to the role.  Optional.  Defaults to ServiceAccount.  Must be one of: ["ServiceAccount", "User", "Group"].  Currently, only ServiceAccount is supported.
+        kind: ServiceAccount
+    # -- The Role to bind to the ServiceAccount
+    roleRef:
+      # -- Type of roleBinding. Must be either: ["RoleBinding", "ClusterRoleBinding"].  If the roleBinding is a ClusterRoleBinding, then roleRef.kind must be set to ClusterRole
+      kind: Role
+      # -- Name of the Role to bind to subjects.  If roleRef.kind: is set to ClusterRoleBinding, then name must be the name of a ClusterRole
+      name: example
+# -- Configure the troubleshoot for the chart here.
+# troubleshoot can be added by adding a dictionary key.
+# By default the supportBundle default spec from replicated will be disabled and not installed
+troubleshoot:
+  # -- Specify the type of troubleshoot, Preflight or SupportBundle
+  support-bundles:
+    replicated:
+      # -- Enables or disables the support bundle
+      enabled: true
+      # -- Default spec to install
+      uri: https://raw.githubusercontent.com/replicatedhq/troubleshoot-specs/main/in-cluster/default.yaml
+      # -- Add custom support bundles here
+      my-custom-bundle:
+        enabled: true
+        collectors:
+          - clusterInfo: {}
+          - clusterResources: {}
+          - ceph: {}
+          - longhorn: {}
+          - logs:
+              collectorName: example
+              selector:
+                app: example
+              namespace: default
+              containerNames:
+                - example
+          - logs:
+              name: example
+              # --  Simply use the exact name of application for the appName.
+              appName: example
+          - logs:
+              name: all
+              # --  Use the wildcard *, if you wish to select all applications generated by this chart
+              appName: "*"
+          - logs:
+              collectorName: some-postgres-db
+              selector:
+                app: some-postgres-db
+          - configMap:
+              # -- Simply use the exact name of configMap generated by this chart or another external configMap
+              configMapName: "example-configmap"
+              # -- Define namespace where the ConfigMap exists
+              namespace: default
+              includeAllData: true
+          - configMap:
+              # -- Use the wildcard *, if you wish to select all configMaps generated by this chart
+              configMapName: "*"
+              # -- Current namespace of helm release will be the default namespace for the ConfigMap to collect, if you don't specify a namespace
+              includeAllData: true
+          - secret:
+              # -- Simply use the exact name of secret for the secretName generated by this chart or another external configMap
+              secretName: example-secret-registry
+              # -- Define namespace where the secret exists or leave blank for the current namespace of helm release
+              namespace: default
+              key: .dockerconfigjson
+          - secret:
+              # -- Use the wildcard *, if you wish to select all secrets generated by this chart
+              secretName: "*"
+              # -- Current namespace of helm release will be the default namespace for the secret to collect, if you don't specify a namespace
+  preflights:
+    # -- Add custom support preflight spec here
+    my-preflights:
+      # -- Specify the replicated preflight image for the container
+      image: replicated/preflight:latest
+      # -- Enables or disables the preflight
+      enabled: false
+      # -- Enable or disable the creation of RBAC roles to run the preflight
+      enableRBAC: false
+      # -- Add collectors and analyzers here
+      collectors:
+        - run:
+            collectorName: "static-hi"
+            image: "alpine:3"
+            command: ["echo", "hi static!"]
+      analyzers:
+        - textAnalyze:
+            checkName: Said hi!
+            fileName: /static-hi.log
+            regex: "hi static"
+            outcomes:
+              - fail:
+                  message: Didn't say hi.
+              - pass:
+                  message: Said hi!
