@@ -22,6 +22,18 @@ Before starting the development workflow, ensure you have the following tools in
 
 All other tools will be automatically provided through task commands and containers.
 
+## Running helm and kubectl commands inside the container
+
+You can run consistent versions of `helm` and `kubectl` within the dev container using tasks by the same name.
+
+See documentation on these tasks:
+
+```console
+$ task --list | grep -E 'helm:|kubectl'
+* helm:     Run helm with args inside the container (example: "task helm -- show chart ./cert-manager")
+* kubectl:  Run kubectl with args inside the container (example: "task kubectl -- version --client")
+```
+
 ## Workflow Stages
 
 ### Stage 1: Chart Dependencies and Verification
@@ -46,7 +58,7 @@ Begin by defining and verifying chart dependencies.
    ```bash
    task dependencies-update
    # Or for a single chart:
-   helm dependency update ./cert-manager
+   task helm -- dependency update ./cert-manager
    ```
 
 3. Verify charts were downloaded:
@@ -96,8 +108,9 @@ Validate chart templates locally without deploying to a cluster.
 
 1. Run helm template to render the chart and inspect manifests:
    ```bash
-   helm template ./cert-manager | less
+   less <<< `task helm -- template ./cert-manager`
    ```
+   Note this is the equivalent of running `helm template ./cert-manager | less` outside of the container.
 
 **Validation point**: Generated Kubernetes manifests should be valid and contain the expected resources.
 
@@ -115,27 +128,27 @@ Deploy individual charts to a test cluster to verify functionality.
 2. Install a single chart:
 
    ```bash
-   helm install cert-manager ./cert-manager -n cert-manager --create-namespace
+   task helm -- install cert-manager ./cert-manager -n cert-manager --create-namespace
    ```
 
 3. Verify the deployment:
 
    ```bash
-   kubectl get pods -n cert-manager
+   task kubectl -- get pods -n cert-manager
    ```
 
 4. Test chart functionality:
 
    ```bash
    # Example: Test cert-manager with a test certificate
-   kubectl apply -f ./some-test-certificate.yaml
-   kubectl get certificate -A
+   task kubectl -- apply -f ./some-test-certificate.yaml
+   task kubectl -- get certificate -A
    ```
 
 5. Uninstall when done or making changes and repeat step 2:
 
    ```bash
-   helm uninstall cert-manager -n cert-manager
+   task helm -- uninstall cert-manager -n cert-manager
    ```
 
 **Validation point**: Chart should deploy successfully and function as expected.
@@ -170,11 +183,11 @@ Test multiple charts working together using Helmfile orchestration.
 
    ```bash
    # Check if issuers are correctly using cert-manager
-   kubectl get clusterissuers
-   kubectl get issuers -A
+   task kubectl -- get clusterissuers
+   task kubectl -- get issuers -A
 
    # Verify Traefik routes
-   kubectl get ingressroutes -A
+   task kubectl -- get ingressroutes -A
    ```
 
 **Validation point**: All components should deploy in the correct order and work together.
