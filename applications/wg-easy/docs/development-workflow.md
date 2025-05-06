@@ -106,11 +106,11 @@ Configure chart values and create or modify templates.
 
 Validate chart templates locally without deploying to a cluster.
 
-1. Run helm template to render the chart and inspect manifests:
+1. Run helm template to render the chart and inspect manifests (quit with `:q!`):
    ```bash
-   echo "$(task helm -- template ./cert-manager)" | less
+   task helm -- template ./cert-manager | vim -
    ```
-   Note this is the equivalent of running `helm template ./cert-manager | less` outside of the container.
+   Note this is the equivalent of running `helm template ./cert-manager | vim -` outside of the container.
 
 **Validation point**: Generated Kubernetes manifests should be valid and contain the expected resources.
 
