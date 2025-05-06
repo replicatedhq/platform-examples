@@ -276,10 +276,10 @@ tasks:
       - echo "Packaging Helm charts..."
       - |
         # Find top-level directories containing Chart.yaml files
-        for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Packaging chart: $chart_dir"
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
-          (cd "$chart_dir" && helm package . && mv *.tgz ../release/)
+          (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
         done
 
       - echo "Release files prepared in ./release/ directory"
@@ -458,37 +458,21 @@ tasks:
           echo "Removing release directory..."
           rm -rf ./release
         fi
-        
-        # Find and remove tmpcharts-* directories
+
+        # Find and remove tmpcharts-* directories in charts/
         echo "Removing temporary chart directories..."
+        find charts/ -type d -name "tmpcharts-*" -print
+        find charts/ -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+
+        # Clean up chart dependencies (.tgz files) in charts/*/charts/
+        echo "Removing chart dependencies..."
+        find charts/ -path "*/charts/*.tgz" -type f -print
+        find charts/ -path "*/charts/*.tgz" -type f -delete
+
+        # Clean up any tmpcharts directories in subdirectories
+        echo "Cleaning up any remaining tmpcharts directories..."
         find . -type d -name "tmpcharts-*" -print
         find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
-        
-        # Find charts directories that only contain .tgz files (dependencies)
-        echo "Removing chart dependency directories..."
-        for charts_dir in $(find . -type d -name "charts"); do
-          # Skip if the charts directory is in ./charts/ (which is our template charts directory)
-          if [[ "$charts_dir" == "./charts" || "$charts_dir" == "./charts/"* ]]; then
-            continue
-          fi
-          
-          # Check if the directory only contains .tgz files
-          NON_TGZ_FILES=$(find "$charts_dir" -type f -not -name "*.tgz" | wc -l | tr -d ' ')
-          TOTAL_FILES=$(find "$charts_dir" -type f | wc -l | tr -d ' ')
-          
-          if [ "$TOTAL_FILES" -gt 0 ] && [ "$NON_TGZ_FILES" -eq 0 ]; then
-            # Check if the directory contains any subdirectories
-            SUBDIRS=$(find "$charts_dir" -mindepth 1 -type d | wc -l | tr -d ' ')
-            
-            if [ "$SUBDIRS" -eq 0 ]; then
-              echo "Removing entire chart dependency directory: $charts_dir"
-              rm -rf "$charts_dir"
-            else
-              echo "Removing chart dependencies in $charts_dir (keeping subdirectories)"
-              rm -f "$charts_dir"/*.tgz
-            fi
-          fi
-        done
       - echo "Cleaning complete!"
 
   full-test-cycle:
