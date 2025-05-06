@@ -133,7 +133,7 @@ tasks:
         # Find all charts and update their dependencies
         for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Updating dependency $chart_dir"
-          helm dependency update "$chart_dir"
+          helm dependency update --skip-refresh "$chart_dir"
         done
       - echo "All dependencies updated!"
 
@@ -283,8 +283,10 @@ tasks:
   release-create:
     desc: Create and promote a release using the Replicated CLI
     silent: false
+    run: once
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      VERSION: '{{.VERSION | default "0.0.1"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     requires:
       vars: [APP_SLUG, VERSION]
