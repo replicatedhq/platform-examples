@@ -447,6 +447,50 @@ tasks:
         # Confirm archiving
         echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
 
+  clean:
+    desc: Remove temporary Helm directories, chart dependencies, and release folder
+    silent: false
+    cmds:
+      - echo "Cleaning temporary directories and dependencies..."
+      - |
+        # Remove the release directory
+        if [ -d "./release" ]; then
+          echo "Removing release directory..."
+          rm -rf ./release
+        fi
+        
+        # Find and remove tmpcharts-* directories
+        echo "Removing temporary chart directories..."
+        find . -type d -name "tmpcharts-*" -print
+        find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+        
+        # Find charts directories that only contain .tgz files (dependencies)
+        echo "Removing chart dependency directories..."
+        for charts_dir in $(find . -type d -name "charts"); do
+          # Skip if the charts directory is in ./charts/ (which is our template charts directory)
+          if [[ "$charts_dir" == "./charts" || "$charts_dir" == "./charts/"* ]]; then
+            continue
+          fi
+          
+          # Check if the directory only contains .tgz files
+          NON_TGZ_FILES=$(find "$charts_dir" -type f -not -name "*.tgz" | wc -l | tr -d ' ')
+          TOTAL_FILES=$(find "$charts_dir" -type f | wc -l | tr -d ' ')
+          
+          if [ "$TOTAL_FILES" -gt 0 ] && [ "$NON_TGZ_FILES" -eq 0 ]; then
+            # Check if the directory contains any subdirectories
+            SUBDIRS=$(find "$charts_dir" -mindepth 1 -type d | wc -l | tr -d ' ')
+            
+            if [ "$SUBDIRS" -eq 0 ]; then
+              echo "Removing entire chart dependency directory: $charts_dir"
+              rm -rf "$charts_dir"
+            else
+              echo "Removing chart dependencies in $charts_dir (keeping subdirectories)"
+              rm -f "$charts_dir"/*.tgz
+            fi
+          fi
+        done
+      - echo "Cleaning complete!"
+
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
     silent: false
