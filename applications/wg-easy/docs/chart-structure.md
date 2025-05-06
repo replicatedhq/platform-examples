@@ -39,7 +39,7 @@ dependencies:
     repository: https://charts.jetstack.io
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates
 ```
 
 ### Customization Control

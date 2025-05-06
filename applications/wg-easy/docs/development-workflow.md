@@ -36,7 +36,7 @@ Begin by defining and verifying chart dependencies.
        repository: https://charts.jetstack.io
      - name: templates
        version: '*'
-       repository: file://../charts/templates
+       repository: file://../templates
    ```
 
 2. Update dependencies:
