@@ -18,7 +18,7 @@ tasks:
       - task: check-image-exists
     cmds:
       - |
-        {{.CONTAINER_RUNTIME}} run --rm -it \
+        {{.CONTAINER_RUNTIME}} run --rm \
           -v $(pwd):/workspace \
           -v $(pwd)/taskfiles/internal.yaml:/workspace/Taskfile.yaml \
           -e REPLICATED_API_TOKEN={{ .REPLICATED_API_TOKEN }} \

@@ -108,7 +108,7 @@ Validate chart templates locally without deploying to a cluster.
 
 1. Run helm template to render the chart and inspect manifests:
    ```bash
-   less <<< `task helm -- template ./cert-manager`
+   echo "$(task helm -- template ./cert-manager)" | less
    ```
    Note this is the equivalent of running `helm template ./cert-manager | less` outside of the container.
 
