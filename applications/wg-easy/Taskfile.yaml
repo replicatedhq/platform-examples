@@ -277,10 +277,8 @@ tasks:
         find ./charts -maxdepth 2 -mindepth 2 -type d -name replicated | while read chartDir; do
           echo $chartDir
           parent=$(basename $(dirname $chartDir))
-          
           helmChartName="helmChart-$parent.yaml"
           export version=$(yq -r '.version' $chartDir/../Chart.yaml )
-          
           yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $chartDir/$helmChartName | tee release/$helmChartName
         done
 
@@ -323,18 +321,18 @@ tasks:
     silent: false
     run: once
     vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      VERSION: '{{.VERSION | default "0.0.1"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+      RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     requires:
-      vars: [APP_SLUG, VERSION]
+      vars: [APP_SLUG, RELEASE_CHANNEL, RELEASE_VERSION]
     cmds:
-      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.RELEASE_CHANNEL}}..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}} --version {{.VERSION}}
-        echo "Release version {{.VERSION}} created and promoted to channel {{.CHANNEL}}"
+        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.RELEASE_CHANNEL}} --version {{.RELEASE_VERSION}}
+        echo "Release version {{.RELEASE_VERSION}} created and promoted to channel {{.RELEASE_CHANNEL}}"
     deps:
       - release-prepare
 
@@ -345,7 +343,7 @@ tasks:
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
       CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
     requires:
@@ -370,7 +368,7 @@ tasks:
           --app {{.APP_SLUG}} \
           --name {{.CUSTOMER_NAME}} \
           --email {{.CUSTOMER_EMAIL}} \
-          --channel {{.CHANNEL}} \
+          --channel {{.RELEASE_CHANNEL}} \
           --type {{.LICENSE_TYPE}} \
           --output json"
 
@@ -423,7 +421,7 @@ tasks:
     desc: Setup Replicated embedded cluster on the GCP VM
     silent: false
     vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
       - gcp-vm-create
@@ -436,7 +434,7 @@ tasks:
         vars:
           OPERATION: "setup-embedded"
           APP_SLUG: '{{.APP_SLUG}}'
-          CHANNEL: '{{.CHANNEL}}'
+          RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
           AUTH_TOKEN: '{{.AUTH_TOKEN}}'
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
@@ -508,7 +506,7 @@ tasks:
       - echo "Cleaning complete!"
 
   full-test-cycle:
-    desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
+    desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts
     silent: false
     cmds:
       - task: cluster-create
@@ -519,3 +517,4 @@ tasks:
       - task: helm-install
       - task: test
       - task: cluster-delete
+      - task: clean
