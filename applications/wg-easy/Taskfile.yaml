@@ -6,11 +6,10 @@ includes:
 
 vars:
   # Application configuration
-  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
-  APP_SLUG: '{{.REPLICATED_APP_SLUG | default "wg-easy-cre"}}'
+  APP_SLUG: '{{.REPLICATED_APP | default "wg-easy-cre"}}'
 
   # Release configuration
-  RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
   RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
   REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
@@ -266,7 +265,7 @@ tasks:
       - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
 
       # extract namespaces from helmChart files
-      - yq ea '[.spec.namespace] | unique' */replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
+      - yq ea '[.spec.namespace] | unique' ./charts/*/replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
       - mv release/application.yaml.new release/application.yaml
 
       # set helmChart versions from associated helm Chart.yaml
