@@ -1,76 +1,66 @@
-apps:
-  wg-easy:
-    enabled: true
-    type: deployment
-    replicas: 1
-    podSecurityContext:
-      sysctls:
-        - name: net.ipv4.ip_forward
-          value: "1"
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-3.7.3/charts/other/app-template/values.schema.json
+controllers:
+  main:
     containers:
-      wg-container:
-        image:
-          repository: ghcr.io/wg-easy/wg-easy
-          tag: 9.0
+      main:
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             add:
               - NET_ADMIN
-            drop: []
+        image:
+          repository: ghcr.io/wg-easy/wg-easy
+          tag: 9.0
+          pullPolicy: IfNotPresent
         ports:
           - containerPort: 51821
             protocol: TCP
           - containerPort: 51820
             protocol: UDP
-        volumeMounts:
-          - mountPath: /etc/wireguard
-            name: config
         resources:
           requests:
             cpu: 50m
             memory: 50Mi
-    volumes:
-      - name: config
-        persistentVolumeClaim:
-          claimName: config
-services:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+
+service:
   web:
+    controller: main
     enabled: true
-    appName:
-      - wg-easy
     type: ClusterIP
     ipFamilyPolicy: SingleStack
+    ipFamilies:
+      - IPv4
     ports:
       http:
         enabled: true
         port: 51821
         protocol: HTTP
-        appProtocol: http
-        targetPort: 51821
   vpn:
+    controller: main
     enabled: true
-    appName:
-      - wg-easy
     type: LoadBalancer
+    ipFamilyPolicy: SingleStack
+    ipFamilies:
+      - IPv4
     ports:
       udp:
         enabled: true
         port: 51820
         protocol: UDP
-        appProtocol: udp
-        targetPort: 51820
+
 persistence:
   config:
     enabled: true
     type: persistentVolumeClaim
-    persistentVolumeClaim:
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 100Mi
+    storageClass: ''
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    retain: false
+    globalMounts:
+      - path: /etc/wireguard
 
 # Wireguard configuration
 wireguard:

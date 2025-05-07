@@ -1,8 +1,8 @@
 apiVersion: v2
 dependencies:
-- name: replicated-library
-  repository: https://replicatedhq.github.io/helm-charts
-  version: ^0.13.2
+- name: common
+  repository: https://bjw-s-labs.github.io/helm-charts
+  version: 3.7.3
 description: Simple wireguard with web configuration management
 home: https://github.com/chris-sanders/helm-charts/charts/wg-easy
 maintainers:
