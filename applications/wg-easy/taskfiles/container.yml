@@ -18,7 +18,7 @@ tasks:
       - task: start
     cmds:
       - echo "Connecting to {{.CONTAINER_NAME}}..."
-      - '{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} {{.CMD}}'
+      - "{{.CONTAINER_RUNTIME}} exec -it {{.CONTAINER_NAME}} {{.CMD}}"
     vars:
       CMD: "{{if .CMD}}bash -c '{{.CMD}}'{{else}}/bin/bash{{end}}"
 
@@ -26,33 +26,33 @@ tasks:
     run: once
     desc: Build development container image
     vars:
-      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+      IMAGE_NAME: "{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}"
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
       MESSAGE: "{{.MESSAGE}}"
     cmds:
       - '{{if .MESSAGE}}echo "{{.MESSAGE}}"{{end}}'
-      - '{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} .'
+      - "{{.CONTAINER_RUNTIME}} build -t {{.IMAGE_NAME}} -f {{.CONTAINERFILE}} ."
     status:
-      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
+      - "{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}"
 
   pull:
     run: once
     vars:
-      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+      IMAGE_NAME: "{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}"
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
     cmds:
       - cmd: "{{.CONTAINER_RUNTIME}} pull {{.IMAGE_NAME}}"
         ignore_error: true
     status:
-      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
+      - "{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}"
 
   # Replaces long if/else commands with idempotent tasks and task-color user feedback
   check-image-exists:
     desc: If image does not exist, tries to pull. If pull fails, tries to build
     run: always
     vars:
-      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+      IMAGE_NAME: "{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}"
     cmds:
       - echo "Image '{{.IMAGE_NAME}}' does not exist. Trying pull"
       - task: pull
@@ -60,17 +60,24 @@ tasks:
         vars:
           MESSAGE: "Pull failed. Trying build"
     status:
-      - '{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}'
+      - "{{.CONTAINER_RUNTIME}} image exists {{.IMAGE_NAME}}"
 
   start:
     desc: Start development container in background
     run: once
     vars:
-      IMAGE_NAME: '{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}'
+      IMAGE_NAME: "{{.CONTAINER_REGISTRY}}/{{.CONTAINER_IMAGE}}:{{.CONTAINER_TAG}}"
       CONTAINERFILE: '{{.CONTAINERFILE | default "./container/Containerfile"}}'
       BUILD_ARGS: '{{.BUILD_ARGS | default ""}}'
     requires:
-      vars: [CONTAINER_REGISTRY, CONTAINER_IMAGE, CONTAINER_TAG, CONTAINER_NAME, REPLICATED_API_TOKEN]
+      vars:
+        [
+          CONTAINER_REGISTRY,
+          CONTAINER_IMAGE,
+          CONTAINER_TAG,
+          CONTAINER_NAME,
+          REPLICATED_API_TOKEN,
+        ]
     cmds:
       - task: check-image-exists
       # Start with host networking for kubectl port-forward compatibility

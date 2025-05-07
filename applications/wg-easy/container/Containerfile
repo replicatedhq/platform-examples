@@ -56,6 +56,11 @@ RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | b
     | tr -d \") -o replicated.tar.gz \
     && tar xf replicated.tar.gz replicated && rm replicated.tar.gz \
     && mv replicated /usr/local/bin/replicated \
+    
+    # Install Preflight CLI
+    && curl -Ls https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz -o preflight.tar.gz \
+    && tar xf preflight.tar.gz preflight && rm preflight.tar.gz \
+    && mv preflight /usr/local/bin/preflight \
 
     # Install yq
     && BINARY=yq_linux_amd64 \

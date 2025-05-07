@@ -132,3 +132,10 @@ tasks:
       - task: wrapper
         vars:
           TASK: '{{.TASK}}'
+
+  helm-preflight:
+    desc: Run preflight checks on the Helm chart using preflight tool
+    cmds:
+      - task: wrapper
+        vars:
+          TASK: '{{.TASK}}'
