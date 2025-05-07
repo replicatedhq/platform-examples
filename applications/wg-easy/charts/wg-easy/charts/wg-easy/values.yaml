@@ -5,6 +5,9 @@ controllers:
       main:
         securityContext:
           allowPrivilegeEscalation: false
+          sysctls:
+            - name: net.ipv4.ip_forward
+              value: "1"
           capabilities:
             add:
               - NET_ADMIN
