@@ -126,12 +126,21 @@ tasks:
       - echo "All dependencies updated!"
 
   helm-preflight:
-    desc: Run preflight checks on the Helm chart using preflight tool
+    desc: Run preflight checks on all Helm charts using preflight tool
     silent: false
     cmds:
-      - defer: rm preflightbundle-*.tar.gz
-      - echo "Running preflight check on wg-easy helm chart..."
-      - eval "helm template wg-easy | KUBECONFIG={{.KUBECONFIG_FILE}} preflight - -v=5"
+      - defer: rm -f preflightbundle-*.tar.gz
+      - echo "Running preflight checks on all helm charts..."
+      - |
+        # Find all charts and template them together
+        TEMPLATE_OUTPUT=""
+        for chart_dir in $(find . -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+          TEMPLATE_OUTPUT="${TEMPLATE_OUTPUT}$(helm template "$chart_dir")"$'\n---\n'
+        done
+        
+        # Pipe all templates to preflight at once
+        echo "Running preflight checks on all templates..."
+        echo "$TEMPLATE_OUTPUT" | KUBECONFIG={{.KUBECONFIG_FILE}} preflight - -v=5
       - echo "Preflight check completed!"
     deps:
       - cluster-create
