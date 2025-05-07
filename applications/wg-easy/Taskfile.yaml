@@ -265,23 +265,24 @@ tasks:
       - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
 
       # extract namespaces from helmChart files
+      - echo "Extracting namespaces from helmChart files..."
       - yq ea '[.spec.namespace] | unique' ./charts/*/replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
+      - cat release/application.yaml.new
       - mv release/application.yaml.new release/application.yaml
 
       # set helmChart versions from associated helm Chart.yaml
       - echo "Setting helmChart versions..."
       - |
-        while read directory; do
-
-          echo $directory
-          parent=$(basename $(dirname $directory))
-
+        # Find all replicated directories and update helmChart files in one loop
+        find ./charts -maxdepth 2 -mindepth 2 -type d -name replicated | while read chartDir; do
+          echo $chartDir
+          parent=$(basename $(dirname $chartDir))
+          
           helmChartName="helmChart-$parent.yaml"
-          export version=$(yq -r '.version' $parent/Chart.yaml )
-
-          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $directory/$helmChartName | tee release/$helmChartName
-
-        done < <(find . -maxdepth 2 -mindepth 2 -type d -name replicated)
+          export version=$(yq -r '.version' $chartDir/../Chart.yaml )
+          
+          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $chartDir/$helmChartName | tee release/$helmChartName
+        done
 
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
@@ -306,8 +307,8 @@ tasks:
       # Package Helm charts
       - echo "Packaging Helm charts..."
       - |
-        # Find top-level directories containing Chart.yaml files
-        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        # Find top-level directories containing Chart.yaml files, excluding the templates chart
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | grep -v "charts/templates" | xargs dirname); do
           echo "Packaging chart: $chart_dir"
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
           (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
