@@ -1,0 +1,33 @@
+# MLFlow with embedded artifact store (MinIO) configuration
+
+# Enable MinIO for artifact storage
+minio:
+  enabled: true
+  secrets:
+    name: myminio-env-configuration
+    accessKey: minio
+    secretKey: minio1234
+  tenant:
+    name: minio
+    pools:
+      pool0:
+        servers: 3
+        volumesPerServer: 4
+        size: 10Gi
+    buckets:
+    - name: mlflow
+
+# Configure MLflow to use MinIO as artifact store
+mlflow:
+  trackingServer:
+    mode: serve-artifacts
+    artifactsDestination: "s3://mlflow"
+    
+  artifactStore:
+    s3:
+      enabled: true
+      accessKeyId: "minio"
+      secretAccessKey: "minio1234"
+      ignoreTls: true
+      external:
+        enabled: false

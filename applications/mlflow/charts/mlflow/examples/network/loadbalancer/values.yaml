@@ -1,0 +1,12 @@
+# MLFlow with LoadBalancer service configuration
+
+mlflow:
+  # Configure LoadBalancer service
+  service:
+    type: LoadBalancer
+    port: 5000
+    # Optionally specify nodePort for specific port assignment
+    # nodePort: 32000
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      # Add additional annotations as needed for your specific cloud provider
