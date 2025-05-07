@@ -9,6 +9,7 @@
 *.tgz
 
 # Ignore IDE and editor folders
+.cursorindexingignore
 .idea/
 .vscode/
 *.swp
@@ -53,3 +54,5 @@ applications/wg-easy/release/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 *.tar.gz
+
+**/.claude/settings.local.json
