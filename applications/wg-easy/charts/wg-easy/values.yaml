@@ -1,25 +1,25 @@
 wg-easy:
-  global:
-    fullNameOverride: public
-  apps:
-    wg-easy:
-      fullNameOverride: public
-      containers:
-        wg-container:
-          resources:
-            requests:
-              cpu: 5m
-              memory: 35Mi
-  persistence:
-    config:
-      persistentVolumeClaim:
-        spec:
-          resources:
-            requests:
-              storage: 1Gi
-  services:
-    vpn:
-      type: NodePort
+#   global:
+#     fullNameOverride: public
+#   apps:
+#     wg-easy:
+#       fullNameOverride: public
+#       containers:
+#         wg-container:
+#           resources:
+#             requests:
+#               cpu: 5m
+#               memory: 35Mi
+#   persistence:
+#     config:
+#       persistentVolumeClaim:
+#         spec:
+#           resources:
+#             requests:
+#               storage: 1Gi
+#   services:
+#     vpn:
+#       type: NodePort
   wireguard:
     password: "testpass"
     host: "example.com"
