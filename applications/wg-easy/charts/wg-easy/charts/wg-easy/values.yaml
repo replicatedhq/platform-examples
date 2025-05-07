@@ -3,6 +3,24 @@ controllers:
   main:
     containers:
       main:
+        env:
+          # Host is required, no default makes sense
+          WG_HOST: '{{ required "external host name is required. Set wireguard.host" .Values.wireguard.host }}'
+          # Use dig with sensible defaults for all other parameters
+          WG_PORT: '{{ dig "wireguard" "port" "51820" .Values | quote }}'
+          WG_MTU: '{{ dig "wireguard" "mtu" "1420" .Values | quote }}'
+          WG_PERSISTENT_KEEPALIVE: '{{ dig "wireguard" "persistentKeepalive" "25" .Values | quote }}'
+          WG_DEFAULT_ADDRESS: '{{ dig "wireguard" "defaultAddress" "10.10.10.x" .Values | quote }}'
+          WG_DEFAULT_DNS: '{{ dig "wireguard" "defaultDns" "1.1.1.1" .Values | quote }}'
+          WG_ALLOWED_IPS: '{{ dig "wireguard" "allowedIps" "0.0.0.0/0, ::/0" .Values | quote }}'
+          # Optional parameters that default to empty if not provided
+          WG_PRE_UP: '{{ dig "wireguard" "preUp" "" .Values | quote }}'
+          WG_POST_UP: '{{ dig "wireguard" "postUp" "" .Values | quote }}'
+          WG_PRE_DOWN: '{{ dig "wireguard" "preDown" "" .Values | quote }}'
+          WG_POST_DOWN: '{{ dig "wireguard" "postDown" "" .Values | quote }}'
+        envFrom:
+          - secretRef:
+              identifier: webpass
         securityContext:
           allowPrivilegeEscalation: false
           sysctls:
@@ -27,6 +45,12 @@ controllers:
           limits:
             cpu: 100m
             memory: 100Mi
+
+secrets:
+  webpass:
+    enabled: true
+    data:
+      PASSWORD: '{{ dig "wireguard" "password" nil .Values | quote }}'
 
 service:
   web:
@@ -85,7 +109,40 @@ wireguard:
 # Troubleshoot
 troubleshoot:
   support-bundles:
-    # Replicated supplied default support bundle spec
     replicated:
-      # -- Enables or disables the Replicated default support bundle
       enabled: true
+    # wg-easy:  # arbitrary name for your custom spec
+    #   enabled: true
+    #   collectors:
+    #     - logs:
+    #         name: wg-easy
+    #         collectorName: wg-easy
+    #         selector:
+    #           - app=wg-easy
+    #         # namespace: {{ .Release.Namespace }}
+    #         containerNames:
+    #           - wg-easy
+    #     securityContext:
+    #       allowPrivilegeEscalation: false
+    #       sysctls:
+    #         - name: net.ipv4.ip_forward
+    #           value: "1"
+    #       capabilities:
+    #         add:
+    #           - NET_ADMIN
+    #     image:
+    #       repository: ghcr.io/wg-easy/wg-easy
+    #       tag: 9.0
+    #       pullPolicy: IfNotPresent
+    #     ports:
+    #       - containerPort: 51821
+    #         protocol: TCP
+    #       - containerPort: 51820
+    #         protocol: UDP
+    #     resources:
+    #       requests:
+    #         cpu: 50m
+    #         memory: 50Mi
+    #       limits:
+    #         cpu: 100m
+    #         memory: 100Mi
