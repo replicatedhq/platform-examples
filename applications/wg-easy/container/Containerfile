@@ -21,4 +21,5 @@ run make -C replicated build
 from --platform=$BUILDPLATFORM alpine:latest
 copy container/install-gcloud.sh /
 copy --from=build /src/helmfile /src/replicated/bin/replicated /usr/bin/
-run apk add curl python3 helm go-task kubectl jq yq && sh install-gcloud.sh
+run apk add curl bash python3 helm go-task kubectl jq yq && sh /install-gcloud.sh
+workdir /workspace
