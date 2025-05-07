@@ -140,10 +140,9 @@ tasks:
         
         # Pipe all templates to preflight at once
         echo "Running preflight checks on all templates..."
-        echo "$TEMPLATE_OUTPUT" | KUBECONFIG={{.KUBECONFIG_FILE}} preflight - -v=5
+        echo "$TEMPLATE_OUTPUT" | KUBECONFIG={{.KUBECONFIG_FILE}} preflight -
       - echo "Preflight check completed!"
     deps:
-      - cluster-create
       - setup-kubeconfig
 
   ports-expose:
