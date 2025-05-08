@@ -8,4 +8,4 @@ dependencies:
     repository: https://traefik.github.io/charts
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates

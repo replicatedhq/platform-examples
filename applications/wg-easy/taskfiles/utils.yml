@@ -132,6 +132,40 @@ tasks:
           echo "TF_EXPOSED_URL=$TF_EXPOSED_URL TF_EXPOSED_HTTP_URL=$TF_EXPOSED_HTTP_URL"
         fi
         
+  vendor-api-auth:
+    desc: Verify authorization against Replicated Vendor API
+    silent: false
+    vars:
+      API_TOKEN: '{{.REPLICATED_API_TOKEN | default (env "REPLICATED_API_TOKEN")}}'
+    cmds:
+      - |
+        echo "Verifying Replicated Vendor API authorization..."
+        
+        # Check if API token is provided
+        if [ -z "{{.API_TOKEN}}" ]; then
+          echo "ERROR: No API token provided."
+          echo "Please set the REPLICATED_API_TOKEN environment variable or provide it as a task variable."
+          echo "You can generate an API token in the Replicated Vendor Portal under 'API Tokens'."
+          echo "Documentation: https://docs.replicated.com/reference/vendor-api-using"
+          exit 1
+        fi
+        
+        # Make API request to check authentication
+        AUTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: {{.API_TOKEN}}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          "https://api.replicated.com/vendor/v3/auth")
+        
+        if [ "$AUTH_RESPONSE" = "200" ]; then
+          echo "Authentication successful! Token is valid."
+          exit 0
+        else
+          echo "ERROR: Authentication failed with status code $AUTH_RESPONSE."
+          echo "Please check your API token and try again."
+          exit 1
+        fi
+
   gcp-operations:
     desc: GCP VM operations
     internal: true

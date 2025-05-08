@@ -19,7 +19,7 @@ dependencies:
     repository: https://charts.jetstack.io
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates
 ```
 
 ```bash
@@ -176,7 +176,7 @@ dependencies:
     repository: https://helm.traefik.io/traefik
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates
 ```
 
 ```yaml

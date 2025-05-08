@@ -2,10 +2,6 @@
 **/charts/*.tgz
 **/.specstory/
 
-
-# Ignore Helm dependency directories
-**/charts/*.lock
-
 # General files to ignore
 *.log
 *.gz
@@ -53,6 +49,6 @@ applications/mlflow/tests/.venv/
 # wg-easy specific
 *.kubeconfig
 applications/wg-easy/release/
-applications/wg-easy/*/charts/
-applications/wg-easy/*/Chart.lock
 .aider*
+# SpecStory explanation file
+.specstory/.what-is-this.md

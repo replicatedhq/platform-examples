@@ -11,14 +11,12 @@ The core philosophy of this workflow is to start simple and add complexity incre
 - Build confidence in changes through progressive validation
 - Maintain high velocity while ensuring quality
 
-![Workflow Diagram](workflow-diagram.png)
-
 ## Prerequisites
 
 Before starting the development workflow, ensure you have the following tools installed:
 
 - **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/))
-- **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development
+- **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development. Export `CONTAINER_RUNTIME=docker` in your shell if you use docker.
 
 All other tools will be automatically provided through task commands and containers.
 
@@ -50,7 +48,7 @@ Begin by defining and verifying chart dependencies.
        repository: https://charts.jetstack.io
      - name: templates
        version: '*'
-       repository: file://../charts/templates
+       repository: file://../templates
    ```
 
 2. Update dependencies:
@@ -167,7 +165,7 @@ Test multiple charts working together using Helmfile orchestration.
        # ...
      - name: cert-manager-issuers
        namespace: cert-manager
-       chart: ./cert-manager-issuers
+       chart: ./charts/cert-manager-issuers
        # ...
        needs:
          - cert-manager/cert-manager

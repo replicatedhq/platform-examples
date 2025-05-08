@@ -56,21 +56,20 @@ Use tools to automate repetitive tasks, reducing human error and increasing deve
 
 ```
 applications/wg-easy/
-├── charts/templates/           # Common templates shared across charts
-├── cert-manager/               # Wrapped cert-manager chart
-├── cert-manager-issuers/       # Chart for cert-manager issuers
+├── charts
+│   ├── cert-manager            # Wrapped cert-manager chart
+│   ├── cert-manager-issuers    # Chart for cert-manager issuers
+│   ├── replicated-sdk          # Replicated SDK chart
+│   ├── templates               # Common templates shared across charts
+│   ├── traefik                 # Wrapped Traefik chart
+│   └── wg-easy                 # Main application chart
 ├── replicated/                 # Root Replicated configuration
-├── replicated-sdk/             # Replicated SDK chart
 ├── taskfiles/                  # Task utility functions
-├── traefik/                    # Wrapped Traefik chart
-├── wg-easy/                    # Main application chart
 ├── helmfile.yaml               # Defines chart installation order
 └── Taskfile.yaml               # Main task definitions
 ```
 
 ## Architecture Overview
-
-![Architecture Diagram](docs/architecture.png)
 
 Key components:
 - **Taskfile**: Orchestrates the workflow with automated tasks

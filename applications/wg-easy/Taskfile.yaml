@@ -11,6 +11,7 @@ includes:
 tasks:
   default:
     desc: Show available tasks
+    silent: true
     cmds:
       - task --list
 
@@ -35,7 +36,7 @@ tasks:
         vars:
           CMD: 'task {{.TASK}}'
 
-  list-cluster:
+  cluster-list:
     desc: List the cluster
     cmds:
       - task: container:exec
@@ -70,7 +71,7 @@ tasks:
         vars:
           CMD: 'task {{.TASK}}'
 
-  ports-expose:
+  cluster-ports-expose:
     desc: Expose configured ports and capture exposed URLs
     cmds:
       - task: container:exec
@@ -105,6 +106,13 @@ tasks:
         vars:
           CMD: 'task {{.TASK}}'
 
+  customer-create:
+    desc: Create a new customer or get existing customer with matching name and return their ID
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
+
   gcp-vm-create:
     desc: Create a simple GCP VM instance
     cmds:
@@ -121,6 +129,27 @@ tasks:
 
   embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
+
+  customer-ls:
+    desc: List customers for the application
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
+
+  customer-delete:
+    desc: Archive a customer by ID
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
+
+  clean:
+    desc: Remove temporary Helm directories, chart dependencies, and release folder
     cmds:
       - task: container:exec
         vars:
