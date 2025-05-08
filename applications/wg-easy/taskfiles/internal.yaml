@@ -6,7 +6,12 @@ includes:
 
 vars:
   # Application configuration
-  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
+  APP_SLUG: '{{.REPLICATED_APP | default "wg-easy"}}'
+
+  # Release configuration
+  RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
+  RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
 
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
@@ -71,7 +76,6 @@ tasks:
       - sleep 5
       - echo "Tests completed!"
 
-
   verify-kubeconfig:
     desc: Verify kubeconfig
     silent: false
@@ -125,7 +129,7 @@ tasks:
         done
       - echo "All dependencies updated!"
 
-  ports-expose:
+  cluster-ports-expose:
     desc: Expose configured ports and capture exposed URLs
     silent: false
     run: once
@@ -154,7 +158,7 @@ tasks:
     deps:
       - cluster-create
 
-  helm-deploy:
+  helm-install:
     desc: Deploy all charts using helmfile
     silent: false
     cmds:
@@ -177,7 +181,6 @@ tasks:
     deps:
       - setup-kubeconfig
       - ports-expose
-
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
@@ -267,8 +270,7 @@ tasks:
 
       - echo "Release files prepared in ./release/ directory"
     deps:
-      - update-version
-
+      - dependencies-update
 
   release-create:
     desc: Create and promote a release using the Replicated CLI
@@ -277,14 +279,98 @@ tasks:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     cmds:
-      - echo "Creating and promoting release for $APP_NAME to channel $CHANNEL..."
+      - echo "Creating and promoting release for $APP_SLUG to channel $CHANNEL..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app $APP_NAME --yaml-dir ./release --release-notes "$RELEASE_NOTES" --promote $CHANNEL --version $VERSION
+        replicated release create --app $APP_SLUG --yaml-dir ./release --release-notes "$RELEASE_NOTES" --promote $CHANNEL --version $VERSION
         echo "Release version $VERSION created and promoted to channel $CHANNEL"
     deps:
       - release-prepare
+
+  customer-create:
+    desc: Create a new customer or get existing customer with matching name and return their ID
+    silent: false
+    run: once
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
+      CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
+      EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
+    requires:
+      vars: [APP_SLUG]
+    cmds:
+      - |
+        # First check if customer already exists
+        echo "Looking for existing customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CUSTOMER_NAME}}") | .id' | head -1)
+
+        if [ -n "$EXISTING_CUSTOMER" ]; then
+          echo "Found existing customer {{.CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
+          echo "$EXISTING_CUSTOMER"
+          exit 0
+        fi
+
+        # No existing customer found, create a new one
+        echo "Creating new customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+
+        # Build the command with optional expiration
+        CMD="replicated customer create \
+          --app {{.APP_SLUG}} \
+          --name {{.CUSTOMER_NAME}} \
+          --email {{.CUSTOMER_EMAIL}} \
+          --channel {{.CHANNEL}} \
+          --type {{.LICENSE_TYPE}} \
+          --output json"
+
+        # Add expiration if specified
+        if [ -n "{{.EXPIRES_IN}}" ]; then
+          CMD="$CMD --expires-in {{.EXPIRES_IN}}"
+        fi
+
+        # Create the customer and capture the output
+        CUSTOMER_JSON=$($CMD)
+
+        # Extract and output just the customer ID
+        echo "$CUSTOMER_JSON" | jq -r '.id'
+
+  customer-ls:
+    desc: List customers for the application
+    silent: false
+    vars:
+      OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "table"}}'
+    requires:
+      vars: [APP_SLUG]
+    cmds:
+      - echo "Listing customers for app {{.APP_SLUG}}..."
+      - replicated customer ls --app {{.APP_SLUG}} --output {{.OUTPUT_FORMAT}}
+
+  customer-delete:
+    desc: Archive a customer by ID
+    silent: false
+    vars:
+      CUSTOMER_ID: '{{.CUSTOMER_ID}}'
+    requires:
+      vars: [APP_SLUG, CUSTOMER_ID]
+    cmds:
+      - echo "Archiving customer with ID {{.CUSTOMER_ID}} from app {{.APP_SLUG}}..."
+      - |
+        # Verify customer exists before attempting to archive
+        CUSTOMER_EXISTS=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .id')
+        if [ -z "$CUSTOMER_EXISTS" ]; then
+          echo "Error: Customer with ID {{.CUSTOMER_ID}} not found for app {{.APP_SLUG}}"
+          exit 1
+        fi
+
+        # Get customer name for confirmation message
+        CUSTOMER_NAME=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .name')
+
+        # Archive the customer
+        replicated customer archive {{.CUSTOMER_ID}} --app {{.APP_SLUG}}
+
+        # Confirm archiving
+        echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
@@ -331,17 +417,45 @@ tasks:
     status:
       - |
         # Check if the application tarball has already been downloaded and extracted
-        gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="test -d ./{{.APP_NAME}}" &>/dev/null
+        gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="test -d ./{{.APP_SLUG}}" &>/dev/null
     cmds:
       - task: utils:gcp-operations
         vars:
           OPERATION: "setup-embedded"
-          APP_NAME: '{{.APP_NAME}}'
+          APP_SLUG: '{{.APP_SLUG}}'
           CHANNEL: '{{.CHANNEL}}'
           AUTH_TOKEN: '{{.AUTH_TOKEN}}'
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
+
+  clean:
+    desc: Remove temporary Helm directories, chart dependencies, and release folder
+    silent: false
+    cmds:
+      - echo "Cleaning temporary directories and dependencies..."
+      - |
+        # Remove the release directory
+        if [ -d "./release" ]; then
+          echo "Removing release directory..."
+          rm -rf ./release
+        fi
+
+        # Find and remove tmpcharts-* directories in charts/
+        echo "Removing temporary chart directories..."
+        find charts/ -type d -name "tmpcharts-*" -print
+        find charts/ -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+
+        # Clean up chart dependencies (.tgz files) in charts/*/charts/
+        echo "Removing chart dependencies..."
+        find charts/ -path "*/charts/*.tgz" -type f -print
+        find charts/ -path "*/charts/*.tgz" -type f -delete
+
+        # Clean up any tmpcharts directories in subdirectories
+        echo "Cleaning up any remaining tmpcharts directories..."
+        find . -type d -name "tmpcharts-*" -print
+        find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
+      - echo "Cleaning complete!"
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
@@ -349,8 +463,8 @@ tasks:
     cmds:
       - task: cluster-create
       - task: setup-kubeconfig
-      - task: ports-expose
+      - task: cluster-ports-expose
       - task: dependencies-update
-      - task: helm-deploy
+      - task: helm-install
       - task: test
       - task: cluster-delete

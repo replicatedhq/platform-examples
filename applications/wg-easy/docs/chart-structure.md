@@ -4,8 +4,6 @@ This document explains the modular chart approach used in the WG-Easy Helm chart
 
 ## Modular Chart Architecture
 
-![Chart Structure](architecture.png)
-
 The WG-Easy pattern is built around a modular approach to Helm charts, where upstream charts are wrapped in local charts and enhanced with shared templates and customizations.
 
 ### Directory Structure
@@ -41,7 +39,7 @@ dependencies:
     repository: https://charts.jetstack.io
   - name: templates
     version: '*'
-    repository: file://../charts/templates
+    repository: file://../templates
 ```
 
 ### Customization Control
@@ -94,10 +92,10 @@ releases:
     chart: ./cert-manager
     createNamespace: true
     wait: true
-    
+
   - name: cert-manager-issuers
     namespace: cert-manager
-    chart: ./cert-manager-issuers
+    chart: .charts/cert-manager-issuers
     createNamespace: true
     wait: true
     needs:

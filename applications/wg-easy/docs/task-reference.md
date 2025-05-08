@@ -22,8 +22,8 @@ task update-dependencies && task deploy-helm
 
 **Single Chart Testing:**
 ```bash
-helm dependency update ./traefik
-helm install traefik ./traefik -n traefik --create-namespace
+helm dependency update ./charts/traefik
+helm install traefik ./charts/traefik -n traefik --create-namespace
 ```
 
 ## Environment Tasks
