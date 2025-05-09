@@ -182,7 +182,6 @@ Test multiple charts working together using Helmfile orchestration.
    ```bash
    # Check if issuers are correctly using cert-manager
    task kubectl -- get clusterissuers
-   task kubectl -- get issuers -A
 
    # Verify Traefik routes
    task kubectl -- get ingressroutes -A

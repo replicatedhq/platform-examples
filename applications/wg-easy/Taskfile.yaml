@@ -78,7 +78,7 @@ tasks:
         vars:
           CMD: 'task {{.TASK}}'
 
-  helm-deploy:
+  helm-install:
     desc: Deploy all charts using helmfile
     cmds:
       - task: container:exec

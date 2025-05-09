@@ -139,7 +139,7 @@ tasks:
         # Find all charts and update their dependencies
         for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Updating dependency $chart_dir"
-          helm dependency update --skip-refresh "$chart_dir"
+          helm dependency update "$chart_dir"
         done
       - echo "All dependencies updated!"
 
@@ -279,7 +279,7 @@ tasks:
         for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Packaging chart: $chart_dir"
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
-          (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
+          helm package "$chart_dir" && mv *.tgz release/
         done
 
       - echo "Release files prepared in ./release/ directory"
