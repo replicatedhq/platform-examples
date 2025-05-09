@@ -34,14 +34,25 @@ tasks:
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}}'
+    vars:
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
 
   cluster-list:
     desc: List the cluster
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
   test:
     desc: Run a basic test suite
@@ -55,14 +66,32 @@ tasks:
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
+  # deps:
+  #   - cluster-create
+  #   - verify-kubeconfig
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.DISTRIBUTION}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}} {{.CLUSTER_NAME}}'
+    vars:
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      # from deps cluster-create
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
+      # from deps verify-kubeconfig
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
@@ -76,14 +105,41 @@ tasks:
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}} {{.OPERATION}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      # from task: utils:port-operations
+      OPERATION: "{{if .OPERATION}}OPERATION={{.OPERATION}}{{end}}"
+      # CLUSTER_NAME already above
 
+  # deps:
+  #     - setup-kubeconfig
+  #     - cluster-ports-expose
   helm-install:
     desc: Deploy all charts using helmfile
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} {{.DISTRIBUTION}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}} {{.CLUSTER_NAME}} {{.OPERATION}}'
+    vars:
+      # from deps setup-kubeconfig
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      # from deps cluster-create
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
+      ## from deps verify-kubeconfig
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      # from deps cluster-ports-expose
+      ## CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      ## from task: utils:port-operations
+      OPERATION: "{{if .OPERATION}}OPERATION={{.OPERATION}}{{end}}"
+      ## CLUSTER_NAME already above
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
@@ -111,7 +167,7 @@ tasks:
     cmds:
       - task: container:exec
         vars:
-          CMD: 'task {{.TASK}}'
+          CMD: 'task {{.TASK}} CUSTOMER_NAME={{.CUSTOMER_NAME}} CUSTOMER_EMAIL={{.CUSTOMER_EMAIL}} LICENSE_TYPE={{.LICENSE_TYPE}} EXPIRES_IN={{.EXPIRES_IN}}'
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance

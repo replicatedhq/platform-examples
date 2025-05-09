@@ -2,15 +2,20 @@ version: "3"
 
 includes:
   utils: ./taskfiles/utils.yml
-  dev: ./taskfiles/container.yml
 
+## TO-DO: clean our vars usage
+# - some are global, but unused
+# - some are global, but also re-stated as task vars
+# - some are "requires.vars[]", even though they're set as global vars
+# - some are "requires.vars[]", even though they're set as task vars
+# - some are only set as task vars
 vars:
   # Application configuration
   APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
-  APP_SLUG: '{{.REPLICATED_APP_SLUG | default "wg-easy-cre"}}'
+  APP_SLUG: '{{.APP_SLUG | default "wg-easy-cre"}}'
 
   # Release configuration
-  RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
   RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
 
@@ -20,6 +25,7 @@ vars:
   DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
   DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
+  # can not override
   KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
 
   # Ports configuration
@@ -297,12 +303,12 @@ tasks:
     requires:
       vars: [APP_SLUG, VERSION]
     cmds:
-      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.RELEASE_CHANNEL}}..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}} --version {{.VERSION}}
-        echo "Release version {{.VERSION}} created and promoted to channel {{.CHANNEL}}"
+        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.RELEASE_CHANNEL}} --version {{.RELEASE_VERSION}}
+        echo "Release version {{.RELEASE_VERSION}} created and promoted to channel {{.RELEASE_CHANNEL}}"
     deps:
       - release-prepare
 
@@ -338,7 +344,7 @@ tasks:
           --app {{.APP_SLUG}} \
           --name {{.CUSTOMER_NAME}} \
           --email {{.CUSTOMER_EMAIL}} \
-          --channel {{.CHANNEL}} \
+          --channel {{.RELEASE_CHANNEL}} \
           --type {{.LICENSE_TYPE}} \
           --output json"
 
