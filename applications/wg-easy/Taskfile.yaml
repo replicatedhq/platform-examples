@@ -1,45 +1,12 @@
 version: "3"
 
+# This is a shim taskfile for running tasks inside Podman
+# The actual taskfile that is mounted within the container lives in taskfiles/internal.yaml
+
 includes:
-  utils: ./taskfiles/utils.yml
-  dev: ./taskfiles/container.yml
-
-vars:
-  # Application configuration
-  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
-  APP_SLUG: '{{.REPLICATED_APP_SLUG | default "wg-easy-cre"}}'
-
-  # Release configuration
-  RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
-  RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
-  RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
-
-  # Cluster configuration
-  CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
-  K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
-  DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
-  INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
-  DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
-  KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
-
-  # Ports configuration
-  EXPOSE_PORTS:
-    - port: 30443
-      protocol: https
-    - port: 30080
-      protocol: http
-
-  # GCP default configuration
-  GCP_PROJECT: '{{.GCP_PROJECT | default "replicated-qa"}}'
-  GCP_ZONE: '{{.GCP_ZONE | default "us-central1-a"}}'
-  VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
-
-  # Container workflow configuration
-  DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
-  DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
-  DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
-  DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
-  CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
+  container:
+    internal: true
+    taskfile: ./taskfiles/container.yml
 
 tasks:
   default:
@@ -48,441 +15,205 @@ tasks:
     cmds:
       - task --list
 
+  helm:
+    desc: 'Run helm with args inside the container (example: "task helm -- show chart ./cert-manager")'
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'helm {{.CLI_ARGS}}'
+
+  kubectl:
+    desc: 'Run kubectl with args inside the container (example: "task kubectl -- version --client")'
+    cmds:
+      - task: container:exec
+        vars:
+          CMD: 'kubectl {{.CLI_ARGS}}'
+
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
-    run: once
-    silent: false
-    vars:
-      EMBEDDED: '{{.EMBEDDED | default "false"}}'
-      LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
-      TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
-      TTL: '{{.TTL | default "4h"}}'
-    status:
-      - replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null
     cmds:
-      - |
-        if [ "{{.EMBEDDED}}" = "true" ]; then
-          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.LICENSE_ID}}..."
-          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}} --ttl {{.TTL}}
-        else
-          echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
-          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
-        fi
-      - task: utils:wait-for-cluster
+      - task: container:exec
         vars:
-          TIMEOUT: "{{.TIMEOUT}}"
+          CMD: 'task {{.TASK}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}}'
+    vars:
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
 
   cluster-list:
     desc: List the cluster
     cmds:
-      - |
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
-        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .expires_at')
-        echo "{{.CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
   test:
     desc: Run a basic test suite
-    silent: false
     cmds:
-      - echo "Running basic tests..."
-      - echo "This is a placeholder for actual tests"
-      - sleep 5
-      - echo "Tests completed!"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   verify-kubeconfig:
     desc: Verify kubeconfig
-    silent: false
-    run: once
     cmds:
-      - |
-        if [ -f {{.KUBECONFIG_FILE}} ]; then
-          echo "Getting Cluster ID From Replicated Cluster list"
-          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
-          echo "Getting Cluster ID From Kubeconfig"
-          CLUSTER_ID_KUBECONFIG=$(grep "current-context:" {{.KUBECONFIG_FILE}} | cut -d'-' -f3)
-          if [ "$CLUSTER_ID" != "$CLUSTER_ID_KUBECONFIG" ]; then
-            echo "{{.CLUSTER_NAME}} Cluster ID between Replicated ($CLUSTER_ID) and Kubeconfig ($CLUSTER_ID_KUBECONFIG) mismatch"
-            echo "Removing old kubeconfig file"
-            rm -f {{.KUBECONFIG_FILE}}
-          fi
-        fi
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
+  # deps:
+  #   - cluster-create
+  #   - verify-kubeconfig
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
-    silent: false
-    run: once
     cmds:
-      - task: utils:get-kubeconfig
-      - task: utils:remove-k3s-traefik
-    status:
-      - |
-        # Check if kubeconfig exists
-        test -f {{.KUBECONFIG_FILE}} && \
-        # For k3s, also check if traefik is removed
-        if [ "{{.DISTRIBUTION}}" = "k3s" ]; then
-          KUBECONFIG={{.KUBECONFIG_FILE}} helm list -n kube-system -o json | \
-            jq -e 'map(select(.name == "traefik" or .name == "traefik-crd")) | length == 0' >/dev/null
-        else
-          true
-        fi
-    deps:
-      - cluster-create
-      - verify-kubeconfig
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}} {{.DISTRIBUTION}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}} {{.CLUSTER_NAME}}'
+    vars:
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      # from deps cluster-create
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
+      # from deps verify-kubeconfig
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
-    silent: false
-    run: once
     cmds:
-      - echo "Updating Helm dependencies for all charts..."
-      - |
-        # Find all charts and update their dependencies
-        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
-          echo "Updating dependency $chart_dir"
-          helm dependency update --skip-refresh "$chart_dir"
-        done
-      - echo "All dependencies updated!"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   cluster-ports-expose:
-    desc: Expose configured ports for a cluster and capture exposed URLs
-    silent: false
-    run: once
-    status:
-      - |
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
-        if [ -z "$CLUSTER_ID" ]; then
-          exit 1
-        fi
-
-        # Check if all ports are already exposed
-        expected_count={{len .EXPOSE_PORTS}}
-        port_checks=""
-        {{range $i, $port := .EXPOSE_PORTS}}
-        port_checks="${port_checks}(.upstream_port == {{$port.port}} and .exposed_ports[0].protocol == \"{{$port.protocol}}\") or "
-        {{end}}
-        # Remove trailing "or "
-        port_checks="${port_checks% or }"
-
-        PORT_COUNT=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r ".[] | select($port_checks) | .upstream_port" | wc -l | tr -d ' ')
-        [ "$PORT_COUNT" -eq "$expected_count" ]
+    desc: Expose configured ports and capture exposed URLs
     cmds:
-      - task: utils:port-operations
+      - task: container:exec
         vars:
-          OPERATION: "expose"
-    deps:
-      - cluster-create
+          CMD: 'task {{.TASK}} {{.CLUSTER_NAME}} {{.OPERATION}}'
+    vars:
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      # from task: utils:port-operations
+      OPERATION: "{{if .OPERATION}}OPERATION={{.OPERATION}}{{end}}"
+      # CLUSTER_NAME already above
 
+  # deps:
+  #     - setup-kubeconfig
+  #     - cluster-ports-expose
   helm-install:
-    desc: Install all charts using helmfile
-    silent: false
+    desc: Deploy all charts using helmfile
     cmds:
-      - echo "Installing all charts via helmfile"
-      - |
-        # Get cluster ID
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
-        if [ -z "$CLUSTER_ID" ]; then
-          echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
-          exit 1
-        fi
-
-        # Get exposed URLs
-        ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}})
-
-        # Deploy with helmfile
-        echo "Using $ENV_VARS"
-        eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
-      - echo "All charts installed!"
-    deps:
-      - setup-kubeconfig
-      - cluster-ports-expose
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}} {{.DISTRIBUTION}} {{.EMBEDDED}} {{.LICENSE_ID}} {{.TIMEOUT}} {{.TTL}} {{.DISTRIBUTION}} {{.K8S_VERSION}} {{.DISK_SIZE}} {{.INSTANCE_TYPE}} {{.CLUSTER_NAME}} {{.OPERATION}}'
+    vars:
+      # from deps setup-kubeconfig
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      # from deps cluster-create
+      EMBEDDED: "{{if .EMBEDDED}}EMBEDDED={{.EMBEDDED}}{{end}}"
+      LICENSE_ID: "{{if .LICENSE_ID}}LICENSE_ID={{.LICENSE_ID}}{{end}}"
+      TIMEOUT: "{{if .TIMEOUT}}TIMEOUT={{.TIMEOUT}}{{end}}"
+      TTL: "{{if .TTL}}TTL={{.TTL}}{{end}}"
+      DISTRIBUTION: "{{if .DISTRIBUTION}}DISTRIBUTION={{.DISTRIBUTION}}{{end}}"
+      K8S_VERSION: "{{if .K8S_VERSION}}K8S_VERSION={{.K8S_VERSION}}{{end}}"
+      DISK_SIZE: "{{if .DISK_SIZE}}DISK_SIZE={{.DISK_SIZE}}{{end}}"
+      INSTANCE_TYPE: "{{if .INSTANCE_TYPE}}INSTANCE_TYPE={{.INSTANCE_TYPE}}{{end}}"
+      ## from deps verify-kubeconfig
+      CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      # from deps cluster-ports-expose
+      ## CLUSTER_NAME: "{{if .CLUSTER_NAME}}CLUSTER_NAME={{.CLUSTER_NAME}}{{end}}"
+      ## from task: utils:port-operations
+      OPERATION: "{{if .OPERATION}}OPERATION={{.OPERATION}}{{end}}"
+      ## CLUSTER_NAME already above
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
-    silent: false
     cmds:
-      - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
-      - |
-        CLUSTER_IDS=$(replicated cluster ls | grep "{{.CLUSTER_NAME}}" | awk '{print $1}')
-        if [ -z "$CLUSTER_IDS" ]; then
-          echo "No clusters found with name {{.CLUSTER_NAME}}"
-          exit 0
-        fi
-
-        for id in $CLUSTER_IDS; do
-          echo "Deleting cluster ID: $id"
-          replicated cluster rm "$id"
-        done
-      - |
-        # Clean up kubeconfig file
-        if [ -f "{{.KUBECONFIG_FILE}}" ]; then
-          echo "Removing kubeconfig file {{.KUBECONFIG_FILE}}"
-          rm "{{.KUBECONFIG_FILE}}"
-        fi
-      - echo "All matching clusters deleted and kubeconfig cleaned up!"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
-    silent: false
     cmds:
-      - echo "Preparing release files..."
-      - rm -rf ./release
-      - mkdir -p ./release
-
-      # Copy all non-config.yaml files
-      - echo "Copying non-config YAML files to release folder..."
-      - find . -path '*/replicated/*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \;
-      - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
-
-      # extract namespaces from helmChart files
-      - yq ea '[.spec.namespace] | unique' */replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
-      - mv release/application.yaml.new release/application.yaml
-
-      # set helmChart versions from associated helm Chart.yaml
-      - echo "Setting helmChart versions..."
-      - |
-        while read directory; do
-
-          echo $directory
-          parent=$(basename $(dirname $directory))
-
-          helmChartName="helmChart-$parent.yaml"
-          export version=$(yq -r '.version' $parent/Chart.yaml )
-
-          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $directory/$helmChartName | tee release/$helmChartName
-
-        done < <(find . -maxdepth 2 -mindepth 2 -type d -name replicated)
-
-      # Merge config.yaml files
-      - echo "Merging config.yaml files..."
-      - |
-        # Start with an empty config file
-        echo "{}" > ./release/config.yaml
-
-        # Merge all app config.yaml files first (excluding root replicated)
-        for config_file in $(find . -path '*/replicated/config.yaml' | grep -v "^./replicated/"); do
-          echo "Merging $config_file..."
-          yq eval-all '. as $item ireduce ({}; . * $item)' ./release/config.yaml "$config_file" > ./release/config.yaml.new
-          mv ./release/config.yaml.new ./release/config.yaml
-        done
-
-        # Merge root config.yaml last
-        if [ -f "./replicated/config.yaml" ]; then
-          echo "Merging root config.yaml last..."
-          yq eval-all '. as $item ireduce ({}; . * $item)' ./release/config.yaml "./replicated/config.yaml" > ./release/config.yaml.new
-          mv ./release/config.yaml.new ./release/config.yaml
-        fi
-
-      # Package Helm charts
-      - echo "Packaging Helm charts..."
-      - |
-        # Find top-level directories containing Chart.yaml files
-        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
-          echo "Packaging chart: $chart_dir"
-          # Navigate to chart directory, package it, and move the resulting .tgz to release folder
-          (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
-        done
-
-      - echo "Release files prepared in ./release/ directory"
-    deps:
-      - dependencies-update
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   release-create:
     desc: Create and promote a release using the Replicated CLI
-    silent: false
-    run: once
-    vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      VERSION: '{{.VERSION | default "0.0.1"}}'
-      RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
-    requires:
-      vars: [APP_SLUG, VERSION]
     cmds:
-      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.CHANNEL}}..."
-      - |
-        # Create and promote the release in one step
-        echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}} --version {{.VERSION}}
-        echo "Release version {{.VERSION}} created and promoted to channel {{.CHANNEL}}"
-    deps:
-      - release-prepare
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   customer-create:
     desc: Create a new customer or get existing customer with matching name and return their ID
-    silent: false
-    run: once
-    vars:
-      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
-      CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
-      EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
-    requires:
-      vars: [APP_SLUG]
     cmds:
-      - |
-        # First check if customer already exists
-        echo "Looking for existing customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
-        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CUSTOMER_NAME}}") | .id' | head -1)
-
-        if [ -n "$EXISTING_CUSTOMER" ]; then
-          echo "Found existing customer {{.CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
-          echo "$EXISTING_CUSTOMER"
-          exit 0
-        fi
-
-        # No existing customer found, create a new one
-        echo "Creating new customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
-
-        # Build the command with optional expiration
-        CMD="replicated customer create \
-          --app {{.APP_SLUG}} \
-          --name {{.CUSTOMER_NAME}} \
-          --email {{.CUSTOMER_EMAIL}} \
-          --channel {{.CHANNEL}} \
-          --type {{.LICENSE_TYPE}} \
-          --output json"
-
-        # Add expiration if specified
-        if [ -n "{{.EXPIRES_IN}}" ]; then
-          CMD="$CMD --expires-in {{.EXPIRES_IN}}"
-        fi
-
-        # Create the customer and capture the output
-        CUSTOMER_JSON=$($CMD)
-
-        # Extract and output just the customer ID
-        echo "$CUSTOMER_JSON" | jq -r '.id'
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}} CUSTOMER_NAME={{.CUSTOMER_NAME}} CUSTOMER_EMAIL={{.CUSTOMER_EMAIL}} LICENSE_TYPE={{.LICENSE_TYPE}} EXPIRES_IN={{.EXPIRES_IN}}'
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
-    silent: false
-    vars:
-      GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE | default "e2-standard-2"}}'
-      GCP_DISK_SIZE: '{{.GCP_DISK_SIZE | default "100"}}'
-      GCP_DISK_TYPE: '{{.GCP_DISK_TYPE | default "pd-standard"}}'
-      GCP_IMAGE_FAMILY: '{{.GCP_IMAGE_FAMILY | default "ubuntu-2204-lts"}}'
-      GCP_IMAGE_PROJECT: '{{.GCP_IMAGE_PROJECT | default "ubuntu-os-cloud"}}'
-    status:
-      - gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} &>/dev/null
     cmds:
-      - task: utils:gcp-operations
+      - task: container:exec
         vars:
-          OPERATION: "create"
-          GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE}}'
-          GCP_DISK_SIZE: '{{.GCP_DISK_SIZE}}'
-          GCP_DISK_TYPE: '{{.GCP_DISK_TYPE}}'
-          GCP_IMAGE_FAMILY: '{{.GCP_IMAGE_FAMILY}}'
-          GCP_IMAGE_PROJECT: '{{.GCP_IMAGE_PROJECT}}'
+          CMD: 'task {{.TASK}}'
 
   gcp-vm-delete:
     desc: Delete the GCP VM instance for K8s and VPN
-    silent: false
-    status:
-      - "! gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} &>/dev/null"
     cmds:
-      - task: utils:gcp-operations
+      - task: container:exec
         vars:
-          OPERATION: "delete"
-          GCP_PROJECT: '{{.GCP_PROJECT}}'
-          GCP_ZONE: '{{.GCP_ZONE}}'
-          VM_NAME: '{{.VM_NAME}}'
+          CMD: 'task {{.TASK}}'
 
   embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
-    silent: false
-    vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
-    deps:
-      - gcp-vm-create
-    status:
-      - |
-        # Check if the application tarball has already been downloaded and extracted
-        gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="test -d ./{{.APP_SLUG}}" &>/dev/null
     cmds:
-      - task: utils:gcp-operations
+      - task: container:exec
         vars:
-          OPERATION: "setup-embedded"
-          APP_SLUG: '{{.APP_SLUG}}'
-          CHANNEL: '{{.CHANNEL}}'
-          AUTH_TOKEN: '{{.AUTH_TOKEN}}'
-          GCP_PROJECT: '{{.GCP_PROJECT}}'
-          GCP_ZONE: '{{.GCP_ZONE}}'
-          VM_NAME: '{{.VM_NAME}}'
+          CMD: 'task {{.TASK}}'
 
   customer-ls:
     desc: List customers for the application
-    silent: false
-    vars:
-      OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "table"}}'
-    requires:
-      vars: [APP_SLUG]
     cmds:
-      - echo "Listing customers for app {{.APP_SLUG}}..."
-      - replicated customer ls --app {{.APP_SLUG}} --output {{.OUTPUT_FORMAT}}
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   customer-delete:
     desc: Archive a customer by ID
-    silent: false
-    vars:
-      CUSTOMER_ID: '{{.CUSTOMER_ID}}'
-    requires:
-      vars: [APP_SLUG, CUSTOMER_ID]
     cmds:
-      - echo "Archiving customer with ID {{.CUSTOMER_ID}} from app {{.APP_SLUG}}..."
-      - |
-        # Verify customer exists before attempting to archive
-        CUSTOMER_EXISTS=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .id')
-        if [ -z "$CUSTOMER_EXISTS" ]; then
-          echo "Error: Customer with ID {{.CUSTOMER_ID}} not found for app {{.APP_SLUG}}"
-          exit 1
-        fi
-
-        # Get customer name for confirmation message
-        CUSTOMER_NAME=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.CUSTOMER_ID}}") | .name')
-
-        # Archive the customer
-        replicated customer archive {{.CUSTOMER_ID}} --app {{.APP_SLUG}}
-
-        # Confirm archiving
-        echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
-    silent: false
     cmds:
-      - echo "Cleaning temporary directories and dependencies..."
-      - |
-        # Remove the release directory
-        if [ -d "./release" ]; then
-          echo "Removing release directory..."
-          rm -rf ./release
-        fi
-
-        # Find and remove tmpcharts-* directories in charts/
-        echo "Removing temporary chart directories..."
-        find charts/ -type d -name "tmpcharts-*" -print
-        find charts/ -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
-
-        # Clean up chart dependencies (.tgz files) in charts/*/charts/
-        echo "Removing chart dependencies..."
-        find charts/ -path "*/charts/*.tgz" -type f -print
-        find charts/ -path "*/charts/*.tgz" -type f -delete
-
-        # Clean up any tmpcharts directories in subdirectories
-        echo "Cleaning up any remaining tmpcharts directories..."
-        find . -type d -name "tmpcharts-*" -print
-        find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
-      - echo "Cleaning complete!"
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
-    silent: false
     cmds:
-      - task: cluster-create
-      - task: setup-kubeconfig
-      - task: cluster-ports-expose
-      - task: dependencies-update
-      - task: helm-install
-      - task: test
-      - task: cluster-delete
+      - task: container:exec
+        vars:
+          CMD: 'task {{.TASK}}'

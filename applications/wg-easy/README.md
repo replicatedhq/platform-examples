@@ -48,6 +48,7 @@ Use tools to automate repetitive tasks, reducing human error and increasing deve
 
 - Task-based workflow automation
 - Helmfile for orchestration
+- Container-based task running for consistency
 - Automated validation and testing
 - Streamlined release process
 

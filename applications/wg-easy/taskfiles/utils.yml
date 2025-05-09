@@ -271,10 +271,10 @@ tasks:
           gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} --command="
             set -e
             echo 'Downloading {{.APP_NAME}} installer...'
-            curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.AUTH_TOKEN}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+            curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.RELEASE_CHANNEL}}' -H 'Authorization: {{.AUTH_TOKEN}}' -o {{.APP_NAME}}-{{.RELEASE_CHANNEL}}.tgz
             
             echo 'Extracting installer...'
-            tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
+            tar -xvzf {{.APP_NAME}}-{{.RELEASE_CHANNEL}}.tgz
           "
           
           echo "Embedded cluster setup initiated on VM {{.VM_NAME}}"
