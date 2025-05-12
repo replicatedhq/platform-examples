@@ -16,6 +16,12 @@ spec:
     - --wait
 
   values:
+    controllers:
+      main:
+        containers:
+          main:
+            image:
+              repository: '{{repl HasLocalRegistry | ternary print(LocalRegistryHost "/wg-easy/wg-easy") "gcr.io/wg-easy/wg-easy" }}'
     wg-easy:
       services:
         vpn:
