@@ -1,6 +1,40 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-3.7.3/charts/other/app-template/values.schema.json
+
+# Wireguard configuration
+wireguard:
+# If password is defined will set a password on the web interface
+  password: "testpass"
+# See https://github.com/WeeJeWel/wg-easy for configuration options
+  host: "example.com"
+  port: 51820 # This is used in the postUp
+  defaultAddress: "10.10.10.x"
+  defaultDns: "1.1.1.1"
+  allowedIps: "0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, 160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, 173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, 192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, 193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 224.0.0.0/3"
+  postUp: "iptables -A FORWARD -i wg0 -o eth0 -d 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8 -j DROP; iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o eth0 -j MASQUERADE; iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT"
+
+# Shared templates for Traefik routes
+templates:
+  traefikRoutes:
+    web-tls:
+      hostName: "example.com"
+      serviceName: public-web
+      servicePort: 51821
+    web:
+      hostName: "example.com"
+      serviceName: public-web
+      servicePort: 51821
+
 controllers:
   main:
+    pod:
+      securityContext:
+        allowPrivilegeEscalation: false
+        sysctls:
+          - name: net.ipv4.ip_forward
+            value: "1"
+        capabilities:
+          add:
+            - NET_ADMIN
     containers:
       main:
         env:
@@ -20,14 +54,6 @@ controllers:
         envFrom:
           - secretRef:
               identifier: webpass
-        securityContext:
-          allowPrivilegeEscalation: false
-          sysctls:
-            - name: net.ipv4.ip_forward
-              value: "1"
-          capabilities:
-            add:
-              - NET_ADMIN
         image:
           repository: ghcr.io/wg-easy/wg-easy
           tag: 9.0
@@ -59,16 +85,11 @@ controllers:
               periodSeconds: 10
               timeoutSeconds: 1
               failureThreshold: 5
-
-    #          Liveness:   tcp-socket :51821 delay=0s timeout=5s period=10s #success=1 #failure=5
-    #          Readiness:  tcp-socket :51821 delay=0s timeout=1s period=10s #success=1 #failure=5
-
 secrets:
   webpass:
     enabled: true
-    data:
-      PASSWORD: '{{ dig "wireguard" "password" nil .Values | quote }}'
-
+    stringData:
+    PASSWORD: '{{ dig "wireguard" "password" nil .Values | quote }}'
 service:
   web:
     controller: main
@@ -95,7 +116,6 @@ service:
         enabled: true
         port: 51820
         protocol: UDP
-
 persistence:
   config:
     enabled: true
@@ -107,70 +127,19 @@ persistence:
     globalMounts:
       - path: /etc/wireguard
 
-# Wireguard configuration
-wireguard:
-  # If password is defined will set a password on the web interface
-    password: "testpass"
-  # See https://github.com/WeeJeWel/wg-easy for configuration options
-    host: "example.com"
-    port: 51820 # This is used in the postUp
-    defaultAddress: "10.10.10.x"
-    defaultDns: "1.1.1.1"
-    allowedIps: "0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, 160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, 173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, 192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, 193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 224.0.0.0/3"
-    postUp: "iptables -A FORWARD -i wg0 -o eth0 -d 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8 -j DROP; iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o eth0 -j MASQUERADE; iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT"
-
 # Troubleshoot
 troubleshoot:
   support-bundles:
     replicated:
       enabled: true
-    # wg-easy:  # arbitrary name for your custom spec
-    #   enabled: true
-    #   collectors:
-    #     - logs:
-    #         name: wg-easy
-    #         collectorName: wg-easy
-    #         selector:
-    #           - app=wg-easy
-    #         # namespace: {{ .Release.Namespace }}
-    #         containerNames:
-    #           - wg-easy
-    #     securityContext:
-    #       allowPrivilegeEscalation: false
-    #       sysctls:
-    #         - name: net.ipv4.ip_forward
-    #           value: "1"
-    #       capabilities:
-    #         add:
-    #           - NET_ADMIN
-    #     image:
-    #       repository: ghcr.io/wg-easy/wg-easy
-    #       tag: 9.0
-    #       pullPolicy: IfNotPresent
-    #     ports:
-    #       - containerPort: 51821
-    #         protocol: TCP
-    #       - containerPort: 51820
-    #         protocol: UDP
-    #     resources:
-    #       requests:
-    #         cpu: 50m
-    #         memory: 50Mi
-    #       limits:
-    #         cpu: 100m
-    #         memory: 100Mi
-
-
-wg-easy:
-
-
-templates:
-  traefikRoutes:
-    web-tls:
-      hostName: "example.com"
-      serviceName: public-web
-      servicePort: 51821
-    web:
-      hostName: "example.com"
-      serviceName: public-web
-      servicePort: 51821
+    wg-easy:  # arbitrary name for your custom spec
+      enabled: true
+      collectors:
+        - logs:
+            name: wg-easy
+            collectorName: wg-easy
+            selector:
+              - app=wg-easy
+            namespace: '{{ .Release.Namespace }}'
+            containerNames:
+              - wg-easy
