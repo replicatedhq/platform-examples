@@ -517,4 +517,3 @@ tasks:
       - task: helm-install
       - task: test
       - task: cluster-delete
-      - task: clean

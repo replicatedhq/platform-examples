@@ -28,13 +28,9 @@ controllers:
   main:
     pod:
       securityContext:
-        allowPrivilegeEscalation: false
         sysctls:
           - name: net.ipv4.ip_forward
             value: "1"
-        capabilities:
-          add:
-            - NET_ADMIN
     containers:
       main:
         env:
@@ -70,6 +66,11 @@ controllers:
           limits:
             cpu: 100m
             memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+              - NET_ADMIN
         probes:
           liveness:
             enabled: true
@@ -132,14 +133,14 @@ troubleshoot:
   support-bundles:
     replicated:
       enabled: true
-    wg-easy:  # arbitrary name for your custom spec
-      enabled: true
-      collectors:
-        - logs:
-            name: wg-easy
-            collectorName: wg-easy
-            selector:
-              - app=wg-easy
-            namespace: '{{ .Release.Namespace }}'
-            containerNames:
-              - wg-easy
+    # wg-easy:  # arbitrary name for your custom spec
+    #   enabled: true
+    #   collectors:
+    #     - logs:
+    #         name: wg-easy
+    #         collectorName: wg-easy
+    #         selector:
+    #           - app=wg-easy
+    #         namespace: '{{ .Release.Namespace }}'
+    #         containerNames:
+    #           - wg-easy
