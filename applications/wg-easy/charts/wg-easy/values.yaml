@@ -3,9 +3,10 @@
 # Wireguard configuration
 wireguard:
 # If password is defined will set a password on the web interface
-  password: "testpass"
+  # password: "testpass"
 # See https://github.com/WeeJeWel/wg-easy for configuration options
   host: "example.com"
+  device: "eth0"
   port: 51820 # This is used in the postUp
   defaultAddress: 10.10.10.x
   defaultDns: 1.1.1.1
@@ -17,15 +18,15 @@ templates:
   traefikRoutes:
     web-tls:
       hostName: "example.com"
-      serviceName: public-web
+      serviceName: wg-easy
       servicePort: 51821
     web:
       hostName: "example.com"
-      serviceName: public-web
+      serviceName: wg-easy
       servicePort: 51821
 
 controllers:
-  main:
+  wg-easy:
     serviceAccount:
       name: default
     pod:
@@ -35,10 +36,11 @@ controllers:
           - name: net.ipv4.ip_forward
             value: "1"
     containers:
-      main:
+      wg-container:
         env:
           # Host is required, no default makes sense
           WG_HOST: '{{ required "external host name is required. Set wireguard.host" .Values.wireguard.host }}'
+          WG_DEVICE: '{{ dig "wireguard" "device" "eth0" .Values }}'
           # Use dig with sensible defaults for all other parameters
           WG_PORT: '{{ dig "wireguard" "port" "" .Values }}'
           WG_MTU: '{{ dig "wireguard" "mtu" "" .Values}}'
@@ -55,7 +57,7 @@ controllers:
               identifier: webpass
         image:
           repository: ghcr.io/wg-easy/wg-easy
-          tag: 9.0
+          tag: 14.0
           pullPolicy: IfNotPresent
         ports:
           - containerPort: 51821
@@ -71,6 +73,7 @@ controllers:
           capabilities:
             add:
               - NET_ADMIN
+              - SYS_MODULE
         probes:
           liveness:
             enabled: true
@@ -90,10 +93,10 @@ secrets:
   webpass:
     enabled: true
     stringData:
-    PASSWORD: '{{ dig "wireguard" "password" nil .Values | quote }}'
+      PASSWORD_HASH: '{{ dig "wireguard" "password" "$$2b$$12$$coPqCsPtcFO.Ab99xylBNOW4.Iu7OOA2/ZIboHN6/oyxca3MWo7fW" .Values }}'
 service:
   web:
-    controller: main
+    controller: wg-easy
     enabled: true
     type: ClusterIP
     ipFamilyPolicy: SingleStack
@@ -106,7 +109,7 @@ service:
         protocol: HTTP
     primary: true
   vpn:
-    controller: main
+    controller: wg-easy
     enabled: true
     type: NodePort
     ipFamilyPolicy: SingleStack
