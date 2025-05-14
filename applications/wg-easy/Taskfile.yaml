@@ -181,36 +181,25 @@ tasks:
     deps:
       - cluster-create
 
-  helm-preflight-dryrun:
-    desc: Verify the preflight specs that will be run
+  helm-preflight:
+    desc: Run preflight checks on Helm charts using preflight CLI (use DRY_RUN=true for dry-run)
     silent: false
+    vars:
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
     cmds: 
       - |
-        TEMP_FILE=$(mktemp)
-        
-        # Find all charts and append their templates to the temp file
-        for chart_dir in $(find charts/ -maxdepth 1 -mindepth 1 -type d); do
-          helm template "$chart_dir" >> "$TEMP_FILE"
-          echo "---" >> "$TEMP_FILE" # Add separator between charts
-        done
-        
-        # Run preflight once on the combined templates
-        echo "Running preflight checks on all templates"
-        cat "$TEMP_FILE" | kubectl preflight - --dry-run
-        
-        # Clean up
-        rm "$TEMP_FILE"
+        PREFLIGHT_FLAGS=""
+        if [ "{{.DRY_RUN}}" = "true" ]; then          
+          PREFLIGHT_FLAGS="--dry-run"
+        fi
 
-  helm-preflight:
-    desc: Run preflight checks on Helm charts using preflight CLI
-    silent: false
-    cmds: 
-      - defer: rm -f preflightbundle-*.tar.gz
-      - helm template charts/wg-easy | kubectl preflight -
-      - helm template charts/cert-manager | kubectl preflight -
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+          echo "Running preflight on $chart_dir"
+          helm template $chart_dir | kubectl preflight - $PREFLIGHT_FLAGS
+        done
     deps:
       - setup-kubeconfig
-    
+
   helm-install:
     desc: Install all charts using helmfile
     silent: false

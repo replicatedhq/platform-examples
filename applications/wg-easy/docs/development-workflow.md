@@ -135,19 +135,27 @@ Deploy individual charts to a test cluster to verify functionality.
    task setup-kubeconfig
    ```
 
-2. Install a single chart:
+2. Run preflight checks on your chart:
+
+   ```bash
+   task helm-preflight
+   # Or for a single chart with dry-run:
+   helm template ./charts/wg-easy | kubectl preflight - --dry-run
+   ```
+
+3. Install a single chart:
 
    ```bash
    helm install cert-manager ./charts/cert-manager -n cert-manager --create-namespace
    ```
 
-3. Verify the deployment:
+4. Verify the deployment:
 
    ```bash
    kubectl get pods -n cert-manager
    ```
 
-4. Test chart functionality:
+5. Test chart functionality:
 
    ```bash
    # Example: Test cert-manager with a test certificate
@@ -155,13 +163,13 @@ Deploy individual charts to a test cluster to verify functionality.
    kubectl get certificate -A
    ```
 
-5. Uninstall when done or making changes and repeat step 2:
+6. Uninstall when done or making changes and repeat step 3:
 
    ```bash
    helm uninstall cert-manager -n cert-manager
    ```
 
-**Validation point**: Chart should deploy successfully and function as expected.
+**Validation point**: Preflight checks should pass without errors, and the chart should deploy successfully and function as expected.
 
 ### Stage 5: Integration Testing with helmfile
 
