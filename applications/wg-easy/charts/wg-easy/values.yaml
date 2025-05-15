@@ -4,7 +4,7 @@
 wireguard:
 # If password is defined will set a password on the web interface
 # password must be a bcrypted hash - use
-# docker run ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD
+# podman run ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD
 # to generate a hash - default is literally YOUR_PASSWORD
   password: '$2a$12$Zh4e0Lnbfhh3.EJTLKPApOCOZgjmaWm0eOMDI7YkoACKMjKPFs7.a'
 # See https://github.com/WeeJeWel/wg-easy for configuration options
