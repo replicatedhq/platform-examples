@@ -185,8 +185,7 @@ tasks:
     desc: Run preflight checks on Helm charts using preflight CLI (use DRY_RUN=true for dry-run)
     silent: false
     vars:
-      DRY_RUN:
-        default: false
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
     cmds: 
       - |
         PREFLIGHT_FLAGS=""
