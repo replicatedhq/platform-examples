@@ -52,4 +52,4 @@ applications/wg-easy/release/
 .aider*
 # SpecStory explanation file
 .specstory/.what-is-this.md
-preflightbundle-*.tar.gz
+*.tar.gz
