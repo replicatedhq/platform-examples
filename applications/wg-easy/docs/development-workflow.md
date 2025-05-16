@@ -189,6 +189,9 @@ Test multiple charts working together using Helmfile orchestration.
    # set a license id so we can perform the helm install from the replicated registry
    export REPLICATED_LICENSE_ID=<customer license id>
    task helm-install
+
+   # or to deploy using the replicated released OCI charts
+   task helm-install HELM_ENV=replicated
    ```
 
 3. Verify cross-component integration:
