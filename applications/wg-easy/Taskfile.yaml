@@ -188,13 +188,13 @@ tasks:
         fi
 
         # Get exposed URLs
-        ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}})
+        ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}} )
 
         # Deploy with helmfile
         helm registry logout registry.replicated.com || true
         helm registry login registry.replicated.com --username test@example.com --password {{.LICENSE_ID}}
         echo "Using $ENV_VARS"
-        eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
+        eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT=replicated $ENV_VARS helmfile sync --wait"
         helm registry logout registry.replicated.com
       - echo "All charts installed!"
     deps:
