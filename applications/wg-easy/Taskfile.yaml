@@ -175,6 +175,8 @@ tasks:
   helm-install:
     desc: Install all charts using helmfile
     silent: false
+    vars:
+      LICENSE_ID: '{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}'
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -189,8 +191,11 @@ tasks:
         ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}})
 
         # Deploy with helmfile
+        helm registry logout registry.replicated.com || true
+        helm registry login registry.replicated.com --username test@example.com --password {{.LICENSE_ID}}
         echo "Using $ENV_VARS"
         eval "KUBECONFIG={{.KUBECONFIG_FILE}} $ENV_VARS helmfile sync --wait"
+        helm registry logout registry.replicated.com
       - echo "All charts installed!"
     deps:
       - setup-kubeconfig
@@ -230,7 +235,7 @@ tasks:
 
       # Copy all non-config.yaml files
       - echo "Copying non-config YAML files to release folder..."
-      - find . -path '*/replicated/*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \;
+      - find . -path './charts/*/replicated/*.yaml' -exec cp {} ./release/ \;
       - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
 
       # extract namespaces from helmChart files

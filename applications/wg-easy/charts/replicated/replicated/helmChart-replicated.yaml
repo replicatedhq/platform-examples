@@ -1,10 +1,10 @@
 apiVersion: kots.io/v1beta2
 kind: HelmChart
 metadata:
-  name: replicated-sdk
+  name: replicated
 spec:
   chart:
-    name: replicated-sdk
+    name: replicated
   weight: 1
   
   # helmUpgradeFlags specifies additional flags to pass to the `helm upgrade` command.
@@ -16,5 +16,5 @@ spec:
     - --wait
 
   values: {}
-  namespace: replicated-sdk
+  namespace: replicated
   builder: {}

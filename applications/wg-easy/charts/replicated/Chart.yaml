@@ -1,4 +1,4 @@
-name: replicated-sdk
+name: replicated
 version: 1.0.0
 apiVersion: v2
 dependencies:
