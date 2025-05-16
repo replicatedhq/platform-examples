@@ -13,6 +13,7 @@ vars:
   RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
   RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
+  REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
 
   # Cluster configuration
   CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
@@ -54,7 +55,6 @@ tasks:
     silent: false
     vars:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
-      LICENSE_ID: '{{if eq .EMBEDDED "true"}}{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}{{end}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
       TTL: '{{.TTL | default "4h"}}'
     status:
@@ -62,8 +62,8 @@ tasks:
     cmds:
       - |
         if [ "{{.EMBEDDED}}" = "true" ]; then
-          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.LICENSE_ID}}..."
-          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.LICENSE_ID}} --ttl {{.TTL}}
+          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.REPLICATED_LICENSE_ID}}..."
+          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
         else
           echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
           replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
@@ -174,9 +174,11 @@ tasks:
 
   helm-install:
     desc: Install all charts using helmfile
-    silent: false
+    silent: true
     vars:
-      LICENSE_ID: '{{.LICENSE_ID | default "2cmqT1dBVHZ3aSH21kPxWtgoYGr"}}'
+      HELM_ENV: '{{.HELM_ENV | default "default"}}'
+    requires:
+      vars: [REPLICATED_LICENSE_ID]
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -191,11 +193,8 @@ tasks:
         ENV_VARS=$(task utils:port-operations OPERATION=getenv CLUSTER_NAME={{.CLUSTER_NAME}} )
 
         # Deploy with helmfile
-        helm registry logout registry.replicated.com || true
-        helm registry login registry.replicated.com --username test@example.com --password {{.LICENSE_ID}}
         echo "Using $ENV_VARS"
-        eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT=replicated $ENV_VARS helmfile sync --wait"
-        helm registry logout registry.replicated.com
+        eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT={{.HELM_ENV}} REPLICATED_APP={{.APP_SLUG}} $ENV_VARS helmfile sync --wait"
       - echo "All charts installed!"
     deps:
       - setup-kubeconfig

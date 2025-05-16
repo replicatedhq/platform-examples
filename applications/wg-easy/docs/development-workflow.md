@@ -173,7 +173,7 @@ Test multiple charts working together using Helmfile orchestration.
 
    ```bash
    # set a license id so we can perform the helm install from the replicated registry
-   export LICENSE_ID=<customer license id>
+   export REPLICATED_LICENSE_ID=<customer license id>
    task helm-install
    ```
 
