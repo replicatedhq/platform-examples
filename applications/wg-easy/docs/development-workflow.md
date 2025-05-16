@@ -17,6 +17,12 @@ Before starting the development workflow, ensure you have the following tools in
 
 - **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/))
 - **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development. Export `CONTAINER_RUNTIME=docker` in your shell if you use docker.
+- **Replicated API Token:** Export `REPLICATED_API_TOKEN` in your shell. This can be obtained from the [Replicated Vendor Portal](https://vendor.replicated.com) under Account Settings → API Tokens.
+
+  ```bash
+  # Add to your shell's rc file (.bashrc, .zshrc, etc.)
+  export REPLICATED_API_TOKEN="<your-token-here>"
+  ```
 
 All other tools will be automatically provided through task commands and containers.
 
@@ -29,7 +35,7 @@ Begin by defining and verifying chart dependencies.
 1. Define or update dependencies in `Chart.yaml`:
 
    ```yaml
-   # Example: cert-manager/Chart.yaml
+   # Example: charts/cert-manager/Chart.yaml
    dependencies:
      - name: cert-manager
        version: '1.14.5'
@@ -44,13 +50,13 @@ Begin by defining and verifying chart dependencies.
    ```bash
    task dependencies-update
    # Or for a single chart:
-   helm dependency update ./cert-manager
+   helm dependency update ./charts/cert-manager
    ```
 
 3. Verify charts were downloaded:
 
    ```bash
-   ls -la ./cert-manager/charts/
+   ls -la ./charts/cert-manager/charts/
    ```
 
 **Validation point**: Dependencies should be successfully downloaded to the `/charts` directory.
@@ -105,7 +111,7 @@ Validate chart templates locally without deploying to a cluster.
 
 1. Run helm template to render the chart and inspect manifests:
    ```bash
-   helm template ./cert-manager | less
+   helm template ./charts/cert-manager | less
    ```
 
 **Validation point**: Generated Kubernetes manifests should be valid and contain the expected resources.
@@ -117,14 +123,22 @@ Deploy individual charts to a test cluster to verify functionality.
 1. Create a test cluster if needed:
 
    ```bash
+   # Create with default name (test-cluster)
    task cluster-create
+
+   # Create with custom name
+   task cluster-create CLUSTER_NAME=my-custom-cluster
+
+   # Create embedded cluster with custom name
+   task cluster-create CLUSTER_NAME=my-embedded-cluster EMBEDDED=true
+
    task setup-kubeconfig
    ```
 
 2. Install a single chart:
 
    ```bash
-   helm install cert-manager ./cert-manager -n cert-manager --create-namespace
+   helm install cert-manager ./charts/cert-manager -n cert-manager --create-namespace
    ```
 
 3. Verify the deployment:

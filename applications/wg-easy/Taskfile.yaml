@@ -58,9 +58,18 @@ tasks:
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
       TTL: '{{.TTL | default "4h"}}'
     status:
-      - replicated cluster ls --output json | jq -e '.[] | select(.name == "{{.CLUSTER_NAME}}")' > /dev/null
+      - |
+        # Check if cluster exists and output info if it does
+        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}")')
+        if [ -n "$CLUSTER_INFO" ]; then
+          echo "Found existing cluster {{.CLUSTER_NAME}}:"
+          echo "$CLUSTER_INFO" | jq -r '"  ID: " + .id + "\n  Status: " + .status + "\n  Distribution: " + .distribution + "\n  Created: " + .created_at + "\n  Expires: " + .expires_at'
+          exit 0
+        fi
+        exit 1
     cmds:
       - |
+        echo "Creating new cluster {{.CLUSTER_NAME}}..."
         if [ "{{.EMBEDDED}}" = "true" ]; then
           echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.REPLICATED_LICENSE_ID}}..."
           replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
