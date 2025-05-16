@@ -9,7 +9,7 @@ These tasks support the iterative development process, focusing on fast feedback
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
 | `dependencies-update` | Updates Helm dependencies for all charts in the repository | Stage 1: Dependencies |
-| `helm-deploy` | Deploys all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
+| `helm-install` | Deploys all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
 | `ports-expose` | Exposes the configured ports on the cluster for testing | Stage 4-5: Chart Installation/Integration |
 | `remove-k3s-traefik` | Removes pre-installed Traefik from k3s clusters to avoid conflicts | Stage 4-5: Chart Installation/Integration |
 
@@ -121,7 +121,7 @@ Parameters in the Taskfile.yaml try to always have defaults so that it works out
 These tasks are designed to support the progressive complexity approach:
 
 1. **Early Stages** - Use `dependencies-update` and helm commands directly
-2. **Middle Stages** - Use `cluster-create`, `helm-deploy`,  and `test`
+2. **Middle Stages** - Use `cluster-create`, `helm-install`,  and `test`
 3. **Later Stages** - Use `release-prepare`, `release-create`, and embedded cluster tasks
 
 This organization allows developers to focus on the appropriate level of complexity at each stage of development.

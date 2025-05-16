@@ -172,7 +172,9 @@ Test multiple charts working together using Helmfile orchestration.
 2. Deploy all charts:
 
    ```bash
-   task helm-deploy
+   # set a license id so we can perform the helm install from the replicated registry
+   export LICENSE_ID=<customer license id>
+   task helm-install
    ```
 
 3. Verify cross-component integration:
