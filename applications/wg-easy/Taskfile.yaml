@@ -181,6 +181,25 @@ tasks:
     deps:
       - cluster-create
 
+  helm-preflight:
+    desc: Run preflight checks on Helm charts using preflight CLI (use DRY_RUN=true for dry-run)
+    silent: false
+    vars:
+      DRY_RUN: '{{.DRY_RUN | default "false"}}'
+    cmds: 
+      - |
+        PREFLIGHT_FLAGS=""
+        if [ "{{.DRY_RUN}}" = "true" ]; then          
+          PREFLIGHT_FLAGS="--dry-run"
+        fi
+
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+          echo "Running preflight on $chart_dir"
+          helm template $chart_dir | kubectl preflight - $PREFLIGHT_FLAGS
+        done
+    deps:
+      - setup-kubeconfig
+
   helm-install:
     desc: Install all charts using helmfile
     silent: false
@@ -492,6 +511,7 @@ tasks:
       - task: setup-kubeconfig
       - task: cluster-ports-expose
       - task: dependencies-update
+      - task: helm-preflight
       - task: helm-install
       - task: test
       - task: cluster-delete
