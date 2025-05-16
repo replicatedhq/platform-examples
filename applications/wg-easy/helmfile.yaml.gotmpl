@@ -14,27 +14,37 @@ environments:
           certManagerIssuers: ./charts/cert-manager-issuers
           traefik: ./charts/traefik
           wgEasy: ./charts/wg-easy
-          replicatedSDK: ./charts/replicated-sdk
+          replicatedSDK: ./charts/replicated
       - extras:
           enableReplicatedSDK: false
   replicated:
     values:
-      - app: '{{ env "APP" | default "wg-easy" }}'
-      - channel: '{{ env "CHANNEL" | default "Unstable" }}'
+      - app: '{{ env "REPLICATED_APP" | default "wg-easy" }}'
+      - channel: '{{ env "CHANNEL" | default "unstable" }}'
+      - username: "test@example.com"
+      - password: '{{env "REPLICATED_LICENSE_ID"}}'
       - chartSources:
-          certManager: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager'
-          certManagerIssuers: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/cert-manager-issuers'
-          traefik: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/traefik'
-          wgEasy: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/wg-easy'
-          replicatedSDK: 'oci://registry.replicated.com/{{ env "APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "Unstable" }}/replicated-sdk'
+          certManager: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'
+          certManagerIssuers: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
+          traefik: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
+          wgEasy: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
+          replicatedSDK: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
       - extras:
           enableReplicatedSDK: true
 ---
+repositories:
+  - name: registry.replicated.com
+    oci: true
+    url: registry.replicated.com
+    username: '{{ .Values.username }}'
+    password: '{{ .Values.password }}'
+
 releases:
   # Install cert-manager with CRDs but without issuers
   - name: cert-manager
     namespace: cert-manager
     chart: {{ .Values.chartSources.certManager }}
+    version: 1.0.0
     createNamespace: true
     wait: true
     installed: true
@@ -44,6 +54,7 @@ releases:
   - name: cert-manager-issuers
     namespace: cert-manager
     chart: {{ .Values.chartSources.certManagerIssuers }}
+    version: 1.0.0
     createNamespace: true
     wait: true
     installed: true
@@ -54,6 +65,7 @@ releases:
   - name: traefik
     namespace: traefik
     chart: {{ .Values.chartSources.traefik }}
+    version: 1.0.0
     createNamespace: true
     wait: true
     installed: true
@@ -69,9 +81,10 @@ releases:
               nodePort: 30443
   
   # Install replicated-sdk (only in replicated environment)
-  - name: replicated-sdk
-    namespace: replicated-sdk
+  - name: replicated
+    namespace: replicated
     chart: {{ .Values.chartSources.replicatedSDK }}
+    version: 1.0.0
     createNamespace: true
     wait: true
     installed: {{ .Values.extras.enableReplicatedSDK }}
@@ -82,6 +95,7 @@ releases:
   - name: wg-easy
     namespace: wg-easy
     chart: {{ .Values.chartSources.wgEasy }}
+    version: 1.0.0
     createNamespace: true
     wait: true
     installed: true

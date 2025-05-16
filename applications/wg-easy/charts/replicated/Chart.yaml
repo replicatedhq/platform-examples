@@ -1,4 +1,4 @@
-name: replicated-sdk
+name: replicated
 version: 1.0.0
 apiVersion: v2
 dependencies:
@@ -7,4 +7,4 @@ dependencies:
     repository: file://../templates
   - name: replicated
     repository: oci://registry.replicated.com/library
-    version: 1.1.1
+    version: 1.5.3
