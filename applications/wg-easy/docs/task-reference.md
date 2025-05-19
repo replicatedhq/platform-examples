@@ -9,7 +9,8 @@ These tasks support the iterative development process, focusing on fast feedback
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
 | `dependencies-update` | Updates Helm dependencies for all charts in the repository | Stage 1: Dependencies |
-| `helm-install` | Deploys all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
+| `helm-preflight` | Runs preflight checks on Helm charts using the preflight CLI | Stage 4: Validation |
+| `helm-install` | Installs all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
 | `ports-expose` | Exposes the configured ports on the cluster for testing | Stage 4-5: Chart Installation/Integration |
 | `remove-k3s-traefik` | Removes pre-installed Traefik from k3s clusters to avoid conflicts | Stage 4-5: Chart Installation/Integration |
 
@@ -17,7 +18,7 @@ These tasks support the iterative development process, focusing on fast feedback
 
 **Complete Update and Deploy:**
 ```bash
-task update-dependencies && task deploy-helm
+task update-dependencies && task helm-install
 ```
 
 **Single Chart Testing:**
@@ -94,9 +95,9 @@ This task performs the following sequence:
 1. Creates a cluster
 2. Sets up the kubeconfig
 3. Exposes ports
-4. Removes pre-installed Traefik
-5. Updates dependencies
-6. Deploys all charts
+4. Updates dependencies
+5. Runs preflight checks on charts
+6. Installs all charts
 7. Runs tests
 8. Deletes the cluster
 
@@ -109,6 +110,7 @@ Many tasks accept parameters to customize their behavior. Here are the most comm
 | `CLUSTER_NAME` | `cluster-create`, `setup-kubeconfig` | Name for the cluster | "test-cluster" |
 | `K8S_VERSION` | `cluster-create` | Kubernetes version | "1.32.2" |
 | `DISTRIBUTION` | `cluster-create` | Cluster distribution | "k3s" |
+| `DRY_RUN` | `helm-preflight` | Run preflight checks in dry-run mode | "false" |
 | `CHANNEL` | `release-create` | Channel to promote to | "Unstable" |
 | `RELEASE_NOTES` | `release-create` | Notes for the release | "" |
 | `GCP_PROJECT` | `gcp-vm-create` | GCP project ID | Required |
