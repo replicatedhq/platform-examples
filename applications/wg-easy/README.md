@@ -64,7 +64,7 @@ applications/wg-easy/
 │   └── wg-easy                 # Main application chart
 ├── replicated/                 # Root Replicated configuration
 ├── taskfiles/                  # Task utility functions
-├── helmfile.yaml               # Defines chart installation order
+├── helmfile.yaml.gotmpl               # Defines chart installation order
 └── Taskfile.yaml               # Main task definitions
 ```
 
