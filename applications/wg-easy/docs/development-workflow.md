@@ -175,7 +175,7 @@ Deploy individual charts to a test cluster to verify functionality.
 
 Test multiple charts working together using Helmfile orchestration.
 
-1. Ensure helmfile.yaml is configured with the correct dependencies:
+1. Ensure helmfile.yaml.gotmpl is configured with the correct dependencies:
 
    ```yaml
    releases:

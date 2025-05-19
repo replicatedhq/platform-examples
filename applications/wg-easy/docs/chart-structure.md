@@ -19,7 +19,7 @@ applications/wg-easy/
 ├── replicated-sdk/             # Replicated SDK chart
 ├── traefik/                    # Wrapped Traefik chart
 ├── wg-easy/                    # Main application chart
-├── helmfile.yaml               # Defines chart installation order
+├── helmfile.yaml.gotmpl               # Defines chart installation order
 └── Taskfile.yaml               # Main task definitions
 ```
 
@@ -85,7 +85,7 @@ This approach provides:
 The charts are composed together using Helmfile, which manages dependencies and installation order:
 
 ```yaml
-# Example from helmfile.yaml
+# Example from helmfile.yaml.gotmpl
 releases:
   - name: cert-manager
     namespace: cert-manager
