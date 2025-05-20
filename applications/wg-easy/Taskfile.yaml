@@ -42,6 +42,16 @@ vars:
   DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
+  # CMX VM configuration
+  CMX_VM_NAME: '{{.CMX_VM_NAME | default (printf "%s-cmx-vm" (or (env "USER") "dev"))}}'
+  CMX_VM_DISTRIBUTION: '{{.CMX_VM_DISTRIBUTION | default "ubuntu"}}'
+  CMX_VM_VERSION: '{{.CMX_VM_VERSION | default "24.04"}}'
+  CMX_VM_INSTANCE_TYPE: '{{.CMX_VM_INSTANCE_TYPE | default "r1.medium"}}'
+  CMX_VM_DISK_SIZE: '{{.CMX_VM_DISK_SIZE | default "100"}}'
+  CMX_VM_TTL: '{{.CMX_VM_TTL | default "1h"}}'
+  CMX_VM_USER: '{{.CMX_VS_USER}}'
+  CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY | default (env "HOME" | printf "%s/.ssh/id_ed25519")}}'
+
 tasks:
   default:
     desc: Show available tasks
@@ -519,3 +529,86 @@ tasks:
       - task: helm-install
       - task: test
       - task: cluster-delete
+
+  cmx-vm-create:
+    desc: Create a CMX VM instance using Replicated CLI
+    run: once
+    silent: false
+    status:
+      - |
+        # Check if VM is running
+        replicated vm ls | grep "{{.CMX_VM_NAME}}" | grep running
+    cmds:
+      - |
+        echo "Creating CMX VM {{.CMX_VM_NAME}}..."
+        replicated vm create --distribution {{.CMX_VM_DISTRIBUTION}} --version {{.CMX_VM_VERSION}} --instance-type {{.CMX_VM_INSTANCE_TYPE}} --disk {{.CMX_VM_DISK_SIZE}} --name {{.CMX_VM_NAME}} --ttl {{.CMX_VM_TTL}}
+
+        echo "Waiting for VM to be running (timeout: 120s)..."
+        for i in $(seq 1 60); do
+          replicated vm ls | grep "{{.CMX_VM_NAME}}"
+          if replicated vm ls | grep "{{.CMX_VM_NAME}}" | grep running; then
+            echo "VM {{.CMX_VM_NAME}} is ready!"
+            break
+          fi
+          if [ $i -eq 60 ]; then
+            echo "Timeout reached after 120s. VM may still be initializing."
+            exit 1
+          fi
+          sleep 2
+        done
+
+  cmx-vm-delete:
+    desc: Delete a CMX VM instance
+    silent: false
+    cmds:
+      - |
+        echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
+        replicated vm rm {{.CMX_VM_NAME}}
+
+  cmx-vm-embedded-cluster-setup:
+    desc: Download and install the app as Embedded Cluster on CMX VM
+    silent: false
+    vars:
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
+      ADMIN_CONSOLE_PASSWORD:
+        sh: uuidgen | cut -c1-13
+    deps:
+      - cmx-vm-create
+    cmds:
+      - |
+        echo "Check if user is set..."
+        if [ -z "{{.CMX_VM_USER}}" ]; then
+          echo "CMX_VM_USER is not set. Set it to your Github handle. E.g. task cmx-vm-embedded-cluster-setup CMX_VM_USER=nvanthao"
+          exit 1
+        fi
+
+        echo "Check if public key exists..."
+        if [ ! -f "{{.CMX_VM_PUBLIC_KEY}}" ]; then
+          echo "{{.CMX_VM_PUBLIC_KEY}} does not exist."
+          exit 1
+        fi
+
+        echo "SSH into the VM and download the app binary..."
+        SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i {{.CMX_VM_PUBLIC_KEY}}"
+        VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) nvanthao@\(.direct_ssh_endpoint)\"")
+ 
+        echo "SSH command: $VM_SSH_CMD"
+        $VM_SSH_CMD << 'EOF'
+        set -e
+        echo 'Downloading {{.APP_NAME}} installer...'
+        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.AUTH_TOKEN}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+        
+        echo 'Extracting installer...'
+        tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
+
+        echo "Installing {{.APP_NAME}}..."
+        sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
+
+        EOF
+
+        echo "Exposing port 30000 on the VM..."
+        replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
+
+        echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
+    

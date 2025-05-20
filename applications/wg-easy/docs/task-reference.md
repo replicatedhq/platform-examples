@@ -45,6 +45,9 @@ These tasks help manage the development and testing environments.
 | `gcp-vm-create` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
 | `gcp-vm-delete` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
 | `embedded-cluster-setup` | Sets up a Replicated embedded cluster on the GCP VM | Stage 7: Embedded Testing |
+| `cmx-vm-create` | Creates a CMX VM instance using Replicated CLI | Stage 7: Embedded Testing |
+| `cmx-vm-delete` | Deletes a CMX VM instance | Stage 7: Cleanup |
+| `cmx-vm-embedded-cluster-setup` | Sets up a Replicated embedded cluster on the CMX VM | Stage 7: Embedded Testing |
 
 ### Common Environment Combinations
 
@@ -115,6 +118,14 @@ Many tasks accept parameters to customize their behavior. Here are the most comm
 | `RELEASE_NOTES` | `release-create` | Notes for the release | "" |
 | `GCP_PROJECT` | `gcp-vm-create` | GCP project ID | Required |
 | `GCP_ZONE` | `gcp-vm-create` | GCP zone | "us-central1-a" |
+| `CMX_VM_NAME` | `cmx-vm-create`, `cmx-vm-delete`, `cmx-vm-embedded-cluster-setup` | Name for the CMX VM | "{{USER}}-cmx-vm" |
+| `CMX_VM_DISTRIBUTION` | `cmx-vm-create` | VM distribution | "ubuntu" |
+| `CMX_VM_VERSION` | `cmx-vm-create` | VM version | "24.04" |
+| `CMX_VM_INSTANCE_TYPE` | `cmx-vm-create` | VM instance type | "r1.medium" |
+| `CMX_VM_DISK_SIZE` | `cmx-vm-create` | VM disk size in GB | "100" |
+| `CMX_VM_TTL` | `cmx-vm-create` | VM time-to-live | "1h" |
+| `CMX_VM_USER` | `cmx-vm-embedded-cluster-setup` | VM user for SSH access | Required |
+| `CMX_VM_PUBLIC_KEY` | `cmx-vm-embedded-cluster-setup` | Path to SSH public key | "~/.ssh/id_ed25519" |
 
 Parameters in the Taskfile.yaml try to always have defaults so that it works out of the box but allows customization for common values.
 
