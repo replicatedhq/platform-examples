@@ -50,7 +50,7 @@ vars:
   CMX_VM_DISK_SIZE: '{{.CMX_VM_DISK_SIZE | default "100"}}'
   CMX_VM_TTL: '{{.CMX_VM_TTL | default "1h"}}'
   CMX_VM_USER: '{{.CMX_VS_USER}}'
-  CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY | default (env "HOME" | printf "%s/.ssh/id_ed25519")}}'
+  CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY}}'
 
 tasks:
   default:
@@ -565,12 +565,13 @@ tasks:
         echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
         replicated vm rm {{.CMX_VM_NAME}}
 
-  cmx-vm-embedded-cluster-setup:
+  cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
     silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
+      SKIP_INSTALL: '{{.SKIP_INSTALL | default "false"}}'
       ADMIN_CONSOLE_PASSWORD:
         sh: uuidgen | cut -c1-13
     deps:
@@ -582,21 +583,18 @@ tasks:
       - |
         echo "Check if user is set..."
         if [ -z "{{.CMX_VM_USER}}" ]; then
-          echo "CMX_VM_USER is not set. Set it to your Github handle. E.g. task cmx-vm-embedded-cluster-setup CMX_VM_USER=nvanthao"
-          exit 1
-        fi
-
-        echo "Check if public key exists..."
-        if [ ! -f "{{.CMX_VM_PUBLIC_KEY}}" ]; then
-          echo "{{.CMX_VM_PUBLIC_KEY}} does not exist."
+          echo "CMX_VM_USER is not set. Set it to your Github handle. E.g. task cmx-vm-install CMX_VM_USER=nvanthao"
           exit 1
         fi
 
         echo "SSH into the VM and download the app binary..."
-        SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i {{.CMX_VM_PUBLIC_KEY}}"
-        VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) nvanthao@\(.direct_ssh_endpoint)\"")
+        SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+        if [ -n "{{.CMX_VM_PUBLIC_KEY}}" ]; then
+          SSH_BASE_CMD="$SSH_BASE_CMD -i {{.CMX_VM_PUBLIC_KEY}}"
+        fi
+        VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) {{.CMX_VM_USER}}@\(.direct_ssh_endpoint)\"")
  
-        echo "SSH command: $VM_SSH_CMD"
+        echo "SSH base command: $SSH_BASE_CMD"
         $VM_SSH_CMD << 'EOF'
         set -e
         echo 'Downloading {{.APP_NAME}} installer...'
@@ -605,13 +603,18 @@ tasks:
         echo 'Extracting installer...'
         tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
 
-        echo "Installing {{.APP_NAME}}..."
-        sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
-
+        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          echo "Installing {{.APP_NAME}}..."
+          sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
+        else
+          echo "Skipping installation as requested. Binary is available at ./{{.APP_NAME}}"
+        fi
         EOF
 
-        echo "Exposing port 30000 on the VM..."
-        replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
+        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          echo "Exposing port 30000 on the VM..."
+          replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
 
-        echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
+          echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
+        fi
     
