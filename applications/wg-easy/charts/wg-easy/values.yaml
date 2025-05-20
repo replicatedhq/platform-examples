@@ -133,20 +133,3 @@ persistence:
     retain: false
     globalMounts:
       - path: /etc/wireguard
-
-# Troubleshoot
-troubleshoot:
-  support-bundles:
-    replicated:
-      enabled: true
-    # wg-easy:  # arbitrary name for your custom spec
-    #   enabled: true
-    #   collectors:
-    #     - logs:
-    #         name: wg-easy
-    #         collectorName: wg-easy
-    #         selector:
-    #           - app=wg-easy
-    #         namespace: '{{ .Release.Namespace }}'
-    #         containerNames:
-    #           - wg-easy
