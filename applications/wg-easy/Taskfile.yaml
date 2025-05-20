@@ -575,6 +575,9 @@ tasks:
         sh: uuidgen | cut -c1-13
     deps:
       - cmx-vm-create
+    status:
+      - replicated vm port ls {{.CMX_VM_NAME}}
+      - curl -sL $(replicated vm port ls {{.CMX_VM_NAME}} --output=json | jq -r ".[0].hostname")/healthz
     cmds:
       - |
         echo "Check if user is set..."
