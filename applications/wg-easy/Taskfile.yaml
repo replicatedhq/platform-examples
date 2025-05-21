@@ -532,7 +532,7 @@ tasks:
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
     run: once
-    silent: false
+    silent: true
     status:
       - |
         # Check if VM is running
@@ -558,7 +558,7 @@ tasks:
 
   cmx-vm-delete:
     desc: Delete a CMX VM instance
-    silent: false
+    silent: true
     cmds:
       - |
         echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
@@ -566,7 +566,7 @@ tasks:
 
   cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
-    silent: false
+    silent: true
     requires:
       vars: [REPLICATED_LICENSE_ID]
     vars:
