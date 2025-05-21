@@ -16,12 +16,12 @@ vars:
   REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
 
   # Cluster configuration
-  CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default (printf "%s-cluster" (or (env "USER") "wg-easy-dev"))}}' 
   K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
   DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
   DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
-  KUBECONFIG_FILE: './{{.CLUSTER_NAME}}.kubeconfig'
+  KUBECONFIG_FILE: './test-cluster.kubeconfig'
 
   # Ports configuration
   EXPOSE_PORTS:
