@@ -568,9 +568,10 @@ tasks:
   cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
     silent: false
+    requires:
+      vars: [REPLICATED_LICENSE_ID]
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
       SKIP_INSTALL: '{{.SKIP_INSTALL | default "false"}}'
       ADMIN_CONSOLE_PASSWORD:
         sh: uuidgen | cut -c1-13
@@ -587,6 +588,12 @@ tasks:
           exit 1
         fi
 
+        echo "Check if license ID is set..."
+        if [ -z "{{.REPLICATED_LICENSE_ID}}" ]; then
+          echo "REPLICATED_LICENSE_ID is not set. Set it to your DEV Customer License ID. E.g. task cmx-vm-install REPLICATED_LICENSE_ID=1234567890"
+          exit 1
+        fi
+
         echo "SSH into the VM and download the app binary..."
         SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         if [ -n "{{.CMX_VM_PUBLIC_KEY}}" ]; then
@@ -598,7 +605,7 @@ tasks:
         $VM_SSH_CMD << 'EOF'
         set -e
         echo 'Downloading {{.APP_NAME}} installer...'
-        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.AUTH_TOKEN}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
         
         echo 'Extracting installer...'
         tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
