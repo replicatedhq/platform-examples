@@ -434,7 +434,6 @@ tasks:
     silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
       - gcp-vm-create
     status:
@@ -447,7 +446,7 @@ tasks:
           OPERATION: "setup-embedded"
           APP_SLUG: '{{.APP_SLUG}}'
           CHANNEL: '{{.CHANNEL}}'
-          AUTH_TOKEN: '{{.AUTH_TOKEN}}'
+          AUTH_TOKEN: '{{.REPLICATED_LICENSE_ID}}'
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
