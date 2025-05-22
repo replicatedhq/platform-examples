@@ -20,11 +20,7 @@ wireguard:
 templates:
   traefikRoutes:
     web-tls:
-      hostName: example.com
-      serviceName: wg-easy
-      servicePort: 51821
-    web:
-      hostName: example.com
+      hostName: '{{ dig "wireguard" "host" "example.com" .Values }}'
       serviceName: wg-easy
       servicePort: 51821
 
