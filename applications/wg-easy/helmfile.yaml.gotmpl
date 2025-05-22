@@ -9,6 +9,8 @@ helmDefaults:
 environments:
   default:
     values:
+      - username: "test@example.com"
+      - password: '{{env "REPLICATED_LICENSE_ID"}}'
       - chartSources:
           certManager: ./charts/cert-manager
           certManagerIssuers: ./charts/cert-manager-issuers
