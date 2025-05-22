@@ -7,10 +7,9 @@ dependencies:
   version: '*'
   repository: file://../templates
 description: Simple wireguard with web configuration management
-home: https://github.com/chris-sanders/helm-charts/charts/wg-easy
+home: https://github.com/replicatedhq/platform-examples/
 maintainers:
-- email: sanders.chris@gmail.com
-  name: Chris Sanders
-  url: https://github.com/chris-sanders/helm-charts
+- name: Replicated, Inc.
+  url: https://github.com/replicatedhq/platform-examples/
 name: wg-easy
 version: 1.0.0
