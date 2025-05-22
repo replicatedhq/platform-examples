@@ -202,8 +202,6 @@ tasks:
     silent: true
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
-    requires:
-      vars: [REPLICATED_LICENSE_ID]
     cmds:
       - echo "Installing all charts via helmfile"
       - |

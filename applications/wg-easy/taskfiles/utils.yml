@@ -114,22 +114,13 @@ tasks:
           # Get TF_EXPOSED_URL for HTTPS
           TF_EXPOSED_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 30443 and .exposed_ports[0].protocol == "https") | .hostname' | head -n 1)
           
-          # Get TF_EXPOSED_HTTP_URL for HTTP
-          TF_EXPOSED_HTTP_URL=$(replicated cluster port ls $CLUSTER_ID --output json | jq -r '.[] | select(.upstream_port == 30080 and .exposed_ports[0].protocol == "http") | .hostname' | head -n 1)
-          
           if [ -z "$TF_EXPOSED_URL" ]; then
             echo "Error: Could not determine TF_EXPOSED_URL. HTTPS port is not properly exposed."
             echo "Please ensure the HTTPS port is exposed before deploying."
             exit 1
           fi
           
-          if [ -z "$TF_EXPOSED_HTTP_URL" ]; then
-            echo "Error: Could not determine TF_EXPOSED_HTTP_URL. HTTP port is not properly exposed."
-            echo "Please ensure the HTTP port is exposed before deploying."
-            exit 1
-          fi
-          
-          echo "TF_EXPOSED_URL=$TF_EXPOSED_URL TF_EXPOSED_HTTP_URL=$TF_EXPOSED_HTTP_URL"
+          echo "TF_EXPOSED_URL=$TF_EXPOSED_URL"
         fi
         
   vendor-api-auth:

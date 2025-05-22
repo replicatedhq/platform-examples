@@ -7,12 +7,8 @@ traefik:
   service:
     type: NodePort
   ports:
-    web:
-      nodePort: 80
-      redirectTo:
-        port: websecure
     websecure:
-      nodePort: 443
+      nodePort: 30443
   tlsStore:
     default:
       certificates:

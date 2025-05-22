@@ -2,7 +2,7 @@
 helmDefaults:
   verify: false
   wait: true
-  timeout: 600
+  timeout: 100
   atomic: true
   cleanupOnFail: true
 
@@ -32,12 +32,14 @@ environments:
       - extras:
           enableReplicatedSDK: true
 ---
+{{- if eq .Environment.Name "replicated" }}
 repositories:
   - name: registry.replicated.com
     oci: true
     url: registry.replicated.com
     username: '{{ .Values.username }}'
     password: '{{ .Values.password }}'
+{{- end }}
 
 releases:
   # Install cert-manager with CRDs but without issuers
@@ -75,8 +77,6 @@ releases:
     values:
       - traefik:
           ports:
-            web:
-              nodePort: 30080
             websecure:
               nodePort: 30443
 
