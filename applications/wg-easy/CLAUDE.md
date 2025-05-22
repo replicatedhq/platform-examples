@@ -171,6 +171,16 @@ RELEASE_NOTES="Release notes"
 APP_SLUG=wg-easy-cre
 ```
 
+## Claude Code Configuration
+
+When using Claude Code with this repository, use these timeout settings for long-running operations:
+
+- `task helm-install`: Use 1200000ms (20 minutes) timeout - double the helmfile timeout of 600s
+- `task full-test-cycle`: Use 1800000ms (30 minutes) timeout - accounts for cluster creation + deployment + testing
+- `task cluster-create`: Use 600000ms (10 minutes) timeout - double typical cluster creation time
+
+Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` parameter.
+
 ## Common Workflows
 
 ### Local Development
