@@ -49,7 +49,7 @@ releases:
     wait: true
     installed: true
     skipDeps: true
-    
+
   # Install issuers separately after cert-manager is ready
   - name: cert-manager-issuers
     namespace: cert-manager
@@ -61,7 +61,7 @@ releases:
     skipDeps: true
     needs:
       - cert-manager/cert-manager
-    
+
   - name: traefik
     namespace: traefik
     chart: {{ .Values.chartSources.traefik }}
@@ -79,7 +79,7 @@ releases:
               nodePort: 30080
             websecure:
               nodePort: 30443
-  
+
   # Install replicated-sdk (only in replicated environment)
   - name: replicated
     namespace: replicated
@@ -91,7 +91,7 @@ releases:
     skipDeps: true
     needs:
       - traefik/traefik
-    
+
   - name: wg-easy
     namespace: wg-easy
     chart: {{ .Values.chartSources.wgEasy }}
@@ -110,5 +110,3 @@ releases:
           traefikRoutes:
             web-tls:
               hostName: '{{ env "TF_EXPOSED_URL" }}'
-            web:
-              hostName: '{{ env "TF_EXPOSED_HTTP_URL" }}'

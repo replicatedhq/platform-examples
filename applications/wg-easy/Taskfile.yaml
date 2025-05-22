@@ -26,8 +26,6 @@ vars:
   EXPOSE_PORTS:
     - port: 30443
       protocol: https
-    - port: 30080
-      protocol: http
 
   # GCP default configuration
   GCP_PROJECT: '{{.GCP_PROJECT | default "replicated-qa"}}'
