@@ -42,6 +42,16 @@ vars:
   DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
 
+  # CMX VM configuration
+  CMX_VM_NAME: '{{.CMX_VM_NAME | default (printf "%s-cmx-vm" (or (env "USER") "dev"))}}'
+  CMX_VM_DISTRIBUTION: '{{.CMX_VM_DISTRIBUTION | default "ubuntu"}}'
+  CMX_VM_VERSION: '{{.CMX_VM_VERSION | default "24.04"}}'
+  CMX_VM_INSTANCE_TYPE: '{{.CMX_VM_INSTANCE_TYPE | default "r1.medium"}}'
+  CMX_VM_DISK_SIZE: '{{.CMX_VM_DISK_SIZE | default "100"}}'
+  CMX_VM_TTL: '{{.CMX_VM_TTL | default "1h"}}'
+  CMX_VM_USER: '{{.CMX_VS_USER}}'
+  CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY}}'
+
 tasks:
   default:
     desc: Show available tasks
@@ -424,7 +434,6 @@ tasks:
     silent: false
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
       - gcp-vm-create
     status:
@@ -437,7 +446,7 @@ tasks:
           OPERATION: "setup-embedded"
           APP_SLUG: '{{.APP_SLUG}}'
           CHANNEL: '{{.CHANNEL}}'
-          AUTH_TOKEN: '{{.AUTH_TOKEN}}'
+          AUTH_TOKEN: '{{.REPLICATED_LICENSE_ID}}'
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
           VM_NAME: '{{.VM_NAME}}'
@@ -519,3 +528,99 @@ tasks:
       - task: helm-install
       - task: test
       - task: cluster-delete
+
+  cmx-vm-create:
+    desc: Create a CMX VM instance using Replicated CLI
+    run: once
+    silent: true
+    status:
+      - |
+        # Check if VM is running
+        replicated vm ls | grep "{{.CMX_VM_NAME}}" | grep running
+    cmds:
+      - |
+        echo "Creating CMX VM {{.CMX_VM_NAME}}..."
+        replicated vm create --distribution {{.CMX_VM_DISTRIBUTION}} --version {{.CMX_VM_VERSION}} --instance-type {{.CMX_VM_INSTANCE_TYPE}} --disk {{.CMX_VM_DISK_SIZE}} --name {{.CMX_VM_NAME}} --ttl {{.CMX_VM_TTL}}
+
+        echo "Waiting for VM to be running (timeout: 120s)..."
+        for i in $(seq 1 60); do
+          replicated vm ls | grep "{{.CMX_VM_NAME}}"
+          if replicated vm ls | grep "{{.CMX_VM_NAME}}" | grep running; then
+            echo "VM {{.CMX_VM_NAME}} is ready!"
+            break
+          fi
+          if [ $i -eq 60 ]; then
+            echo "Timeout reached after 120s. VM may still be initializing."
+            exit 1
+          fi
+          sleep 2
+        done
+
+  cmx-vm-delete:
+    desc: Delete a CMX VM instance
+    silent: true
+    cmds:
+      - |
+        echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
+        replicated vm rm {{.CMX_VM_NAME}}
+
+  cmx-vm-install:
+    desc: Download and install the app as Embedded Cluster on CMX VM
+    silent: true
+    requires:
+      vars: [REPLICATED_LICENSE_ID]
+    vars:
+      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      SKIP_INSTALL: '{{.SKIP_INSTALL | default "false"}}'
+      ADMIN_CONSOLE_PASSWORD:
+        sh: uuidgen | cut -c1-13
+    deps:
+      - cmx-vm-create
+    status:
+      - replicated vm port ls {{.CMX_VM_NAME}}
+      - curl -sL $(replicated vm port ls {{.CMX_VM_NAME}} --output=json | jq -r ".[0].hostname")/healthz
+    cmds:
+      - |
+        echo "Check if user is set..."
+        if [ -z "{{.CMX_VM_USER}}" ]; then
+          echo "CMX_VM_USER is not set. Set it to your Github handle. E.g. task cmx-vm-install CMX_VM_USER=nvanthao"
+          exit 1
+        fi
+
+        echo "Check if license ID is set..."
+        if [ -z "{{.REPLICATED_LICENSE_ID}}" ]; then
+          echo "REPLICATED_LICENSE_ID is not set. Set it to your DEV Customer License ID. E.g. task cmx-vm-install REPLICATED_LICENSE_ID=1234567890"
+          exit 1
+        fi
+
+        echo "SSH into the VM and download the app binary..."
+        SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+        if [ -n "{{.CMX_VM_PUBLIC_KEY}}" ]; then
+          SSH_BASE_CMD="$SSH_BASE_CMD -i {{.CMX_VM_PUBLIC_KEY}}"
+        fi
+        VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) {{.CMX_VM_USER}}@\(.direct_ssh_endpoint)\"")
+ 
+        echo "SSH base command: $SSH_BASE_CMD"
+        $VM_SSH_CMD << 'EOF'
+        set -e
+        echo 'Downloading {{.APP_NAME}} installer...'
+        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+        
+        echo 'Extracting installer...'
+        tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
+
+        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          echo "Installing {{.APP_NAME}}..."
+          sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
+        else
+          echo "Skipping installation as requested. Binary is available at ./{{.APP_NAME}}"
+        fi
+        EOF
+
+        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          echo "Exposing port 30000 on the VM..."
+          replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
+
+          echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
+        fi
+    
