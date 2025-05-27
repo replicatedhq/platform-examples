@@ -1,0 +1,139 @@
+---
+name: WG-Easy PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-pr-validation.yaml'
+
+env:
+  APP_DIR: applications/wg-easy
+
+jobs:
+  task-validation:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+          - dependencies-update
+          - helm-preflight
+          - release-prepare
+          - clean
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.14.0'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: '1.30.0'
+
+      - name: Install preflight CLI
+        run: |
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz \
+            | tar xz
+          sudo mv preflight /usr/local/bin/
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run task ${{ matrix.task }}
+        run: task ${{ matrix.task }}
+        timeout-minutes: 10
+
+      - name: Verify release directory contents
+        if: matrix.task == 'release-prepare'
+        run: |
+          echo "Checking release directory contents:"
+          ls -la release/
+          echo "Verifying required files exist:"
+          test -f release/application.yaml
+          test -f release/config.yaml
+          test -f release/cluster.yaml
+          find release/ -name "*.tgz" | wc -l | grep -v "^0$"
+
+      - name: Upload release artifacts
+        if: matrix.task == 'release-prepare'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release/
+          retention-days: 7
+
+  lint-and-validate:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.14.0'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update dependencies
+        run: task dependencies-update
+
+      - name: Lint Helm charts
+        run: |
+          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
+            xargs dirname); do
+            echo "Linting chart: $chart_dir"
+            helm lint "$chart_dir"
+          done
+
+      - name: Template Helm charts
+        run: |
+          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
+            xargs dirname); do
+            echo "Templating chart: $chart_dir"
+            helm template test-release "$chart_dir" --dry-run
+          done
+
+      - name: Validate Taskfile syntax
+        run: task --list-all
+
+      - name: Validate helmfile template
+        run: |
+          if [ -f helmfile.yaml.gotmpl ]; then
+            echo "Validating helmfile template syntax"
+            cat helmfile.yaml.gotmpl | envsubst | yq eval . > /dev/null
+          fi
