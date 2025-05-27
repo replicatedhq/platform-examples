@@ -9,6 +9,7 @@
 *.tgz
 
 # Ignore IDE and editor folders
+.cursorindexingignore
 .idea/
 .vscode/
 *.swp
@@ -42,6 +43,9 @@ __pycache__/
 # Cursor
 .cursor/
 
+# Claude
+.claude/
+
 # Mlflow specific
 applications/mlflow/tests/.venv/
 **/charts/.rendered-templates/
@@ -53,3 +57,5 @@ applications/wg-easy/release/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 *.tar.gz
+
+**/.claude/settings.local.json

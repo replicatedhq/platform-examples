@@ -6,17 +6,16 @@ includes:
 
 vars:
   # Application configuration
-  APP_NAME: '{{.REPLICATED_APP | default "wg-easy"}}'
-  APP_SLUG: '{{.REPLICATED_APP_SLUG | default "wg-easy-cre"}}'
+  APP_SLUG: '{{.REPLICATED_APP | default "wg-easy-cre"}}'
 
   # Release configuration
-  RELEASE_CHANNELd: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
   RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
   REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
 
   # Cluster configuration
-  CLUSTER_NAME: '{{.CLUSTER_NAME | default (printf "%s-cluster" (or (env "USER") "wg-easy-dev"))}}' 
+  CLUSTER_NAME: '{{.CLUSTER_NAME | default (printf "%s-cluster" (or (env "USER") "wg-easy-dev"))}}'
   K8S_VERSION: '{{.K8S_VERSION | default "1.32.2"}}'
   DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
@@ -27,8 +26,6 @@ vars:
   EXPOSE_PORTS:
     - port: 30443
       protocol: https
-    - port: 30080
-      protocol: http
 
   # GCP default configuration
   GCP_PROJECT: '{{.GCP_PROJECT | default "replicated-qa"}}'
@@ -196,10 +193,10 @@ tasks:
     silent: false
     vars:
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
-    cmds: 
+    cmds:
       - |
         PREFLIGHT_FLAGS=""
-        if [ "{{.DRY_RUN}}" = "true" ]; then          
+        if [ "{{.DRY_RUN}}" = "true" ]; then
           PREFLIGHT_FLAGS="--dry-run"
         fi
 
@@ -215,8 +212,6 @@ tasks:
     silent: true
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
-    requires:
-      vars: [REPLICATED_LICENSE_ID]
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -237,6 +232,28 @@ tasks:
     deps:
       - setup-kubeconfig
       - cluster-ports-expose
+
+  helm-uninstall:
+    desc: Uninstall all charts using helm uninstall
+    silent: false
+    cmds:
+      - echo "Uninstalling all charts via helm"
+      - |
+        # Get cluster ID
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        if [ -z "$CLUSTER_ID" ]; then
+          echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
+          exit 1
+        fi
+
+        # Get the list of installed releases and uninstall them
+        KUBECONFIG={{.KUBECONFIG_FILE}} helm list --all-namespaces -o json | jq -r '.[] | .name + " -n " + .namespace' | while read release; do
+          echo "Uninstalling helm release: $release"
+          KUBECONFIG={{.KUBECONFIG_FILE}} helm uninstall $release
+        done
+      - echo "All charts uninstalled!"
+    deps:
+      - setup-kubeconfig
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
@@ -276,23 +293,22 @@ tasks:
       - find ./replicated -name '*.yaml' -not -name 'config.yaml' -exec cp {} ./release/ \; 2>/dev/null || true
 
       # extract namespaces from helmChart files
-      - yq ea '[.spec.namespace] | unique' */replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
+      - echo "Extracting namespaces from helmChart files..."
+      - yq ea '[.spec.namespace] | unique' ./charts/*/replicated/helmChart-*.yaml | yq '.spec.additionalNamespaces *= load("/dev/stdin") | .spec.additionalNamespaces += "*" ' replicated/application.yaml > release/application.yaml.new
+      - cat release/application.yaml.new
       - mv release/application.yaml.new release/application.yaml
 
       # set helmChart versions from associated helm Chart.yaml
       - echo "Setting helmChart versions..."
       - |
-        while read directory; do
-
-          echo $directory
-          parent=$(basename $(dirname $directory))
-
+        # Find all replicated directories and update helmChart files in one loop
+        find ./charts -maxdepth 2 -mindepth 2 -type d -name replicated | while read chartDir; do
+          echo $chartDir
+          parent=$(basename $(dirname $chartDir))
           helmChartName="helmChart-$parent.yaml"
-          export version=$(yq -r '.version' $parent/Chart.yaml )
-
-          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $directory/$helmChartName | tee release/$helmChartName
-
-        done < <(find . -maxdepth 2 -mindepth 2 -type d -name replicated)
+          export version=$(yq -r '.version' $chartDir/../Chart.yaml )
+          yq '.spec.chart.chartVersion = strenv(version) | .spec.chart.chartVersion style="single"' $chartDir/$helmChartName | tee release/$helmChartName
+        done
 
       # Merge config.yaml files
       - echo "Merging config.yaml files..."
@@ -317,8 +333,8 @@ tasks:
       # Package Helm charts
       - echo "Packaging Helm charts..."
       - |
-        # Find top-level directories containing Chart.yaml files
-        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+        # Find top-level directories containing Chart.yaml files, excluding the templates chart
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | grep -v "charts/templates" | xargs dirname); do
           echo "Packaging chart: $chart_dir"
           # Navigate to chart directory, package it, and move the resulting .tgz to release folder
           (cd "$chart_dir" && helm package . && mv *.tgz ../../release/)
@@ -333,18 +349,18 @@ tasks:
     silent: false
     run: once
     vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
-      VERSION: '{{.VERSION | default "0.0.1"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+      RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
     requires:
-      vars: [APP_SLUG, VERSION]
+      vars: [APP_SLUG, RELEASE_CHANNEL, RELEASE_VERSION]
     cmds:
-      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.CHANNEL}}..."
+      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.RELEASE_CHANNEL}}..."
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL}} --version {{.VERSION}}
-        echo "Release version {{.VERSION}} created and promoted to channel {{.CHANNEL}}"
+        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.RELEASE_CHANNEL}} --version {{.RELEASE_VERSION}}
+        echo "Release version {{.RELEASE_VERSION}} created and promoted to channel {{.RELEASE_CHANNEL}}"
     deps:
       - release-prepare
 
@@ -355,7 +371,7 @@ tasks:
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
       CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
     requires:
@@ -380,7 +396,7 @@ tasks:
           --app {{.APP_SLUG}} \
           --name {{.CUSTOMER_NAME}} \
           --email {{.CUSTOMER_EMAIL}} \
-          --channel {{.CHANNEL}} \
+          --channel {{.RELEASE_CHANNEL}} \
           --type {{.LICENSE_TYPE}} \
           --output json"
 
@@ -433,7 +449,8 @@ tasks:
     desc: Setup Replicated embedded cluster on the GCP VM
     silent: false
     vars:
-      CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+      AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
     deps:
       - gcp-vm-create
     status:
@@ -445,7 +462,7 @@ tasks:
         vars:
           OPERATION: "setup-embedded"
           APP_SLUG: '{{.APP_SLUG}}'
-          CHANNEL: '{{.CHANNEL}}'
+          RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
           AUTH_TOKEN: '{{.REPLICATED_LICENSE_ID}}'
           GCP_PROJECT: '{{.GCP_PROJECT}}'
           GCP_ZONE: '{{.GCP_ZONE}}'
@@ -517,7 +534,7 @@ tasks:
       - echo "Cleaning complete!"
 
   full-test-cycle:
-    desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete
+    desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts
     silent: false
     cmds:
       - task: cluster-create
@@ -599,13 +616,13 @@ tasks:
           SSH_BASE_CMD="$SSH_BASE_CMD -i {{.CMX_VM_PUBLIC_KEY}}"
         fi
         VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) {{.CMX_VM_USER}}@\(.direct_ssh_endpoint)\"")
- 
+
         echo "SSH base command: $SSH_BASE_CMD"
         $VM_SSH_CMD << 'EOF'
         set -e
         echo 'Downloading {{.APP_NAME}} installer...'
         curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
-        
+
         echo 'Extracting installer...'
         tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
 
@@ -623,4 +640,4 @@ tasks:
 
           echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
         fi
-    
+

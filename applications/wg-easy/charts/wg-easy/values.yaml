@@ -1,40 +1,131 @@
-wg-easy:
-  global:
-    fullNameOverride: public
-  apps:
-    wg-easy:
-      fullNameOverride: public
-      containers:
-        wg-container:
-          resources:
-            requests:
-              cpu: 5m
-              memory: 35Mi
-  persistence:
-    config:
-      persistentVolumeClaim:
-        spec:
-          resources:
-            requests:
-              storage: 1Gi
-  services:
-    vpn:
-      type: NodePort
-  wireguard:
-    password: "testpass"
-    host: "example.com"
-    port: 51820 # This is used in the postUp
-    defaultAddress: "10.10.10.x"
-    defaultDns: "1.1.1.1"
-    allowedIps: "0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, 160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, 173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, 192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, 193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 224.0.0.0/3"
-    postUp: "iptables -A FORWARD -i wg0 -o eth0 -d 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8 -j DROP; iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o eth0 -j MASQUERADE; iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT"
+# yaml-language-server: $schema=https://raw.githubusercontent.com/bjw-s-labs/helm-charts/app-template-3.7.3/charts/other/app-template/values.schema.json
+
+# Wireguard configuration
+wireguard:
+# If password is defined will set a password on the web interface
+# password must be a bcrypted hash - use
+# podman run ghcr.io/wg-easy/wg-easy wgpw YOUR_PASSWORD
+# to generate a hash - default is literally YOUR_PASSWORD
+  password: '$2a$12$Zh4e0Lnbfhh3.EJTLKPApOCOZgjmaWm0eOMDI7YkoACKMjKPFs7.a'
+# See https://github.com/WeeJeWel/wg-easy for configuration options
+  host: example.com
+  device: eth0
+  port: 51820 # This is used in the postUp
+  defaultAddress: 10.10.10.x
+  defaultDns: 1.1.1.1
+  allowedIps: 0.0.0.0/5, 8.0.0.0/7, 11.0.0.0/8, 12.0.0.0/6, 16.0.0.0/4, 32.0.0.0/3, 64.0.0.0/2, 128.0.0.0/3, 160.0.0.0/5, 168.0.0.0/6, 172.0.0.0/12, 172.32.0.0/11, 172.64.0.0/10, 172.128.0.0/9, 173.0.0.0/8, 174.0.0.0/7, 176.0.0.0/4, 192.0.0.0/9, 192.128.0.0/11, 192.160.0.0/13, 192.169.0.0/16, 192.170.0.0/15, 192.172.0.0/14, 192.176.0.0/12, 192.192.0.0/10, 193.0.0.0/8, 194.0.0.0/7, 196.0.0.0/6, 200.0.0.0/5, 208.0.0.0/4, 224.0.0.0/3
+  postUp: iptables -A FORWARD -i wg0 -o eth0 -d 192.168.0.0/16,172.16.0.0/12,10.0.0.0/8 -j DROP; iptables -t nat -A POSTROUTING -s 10.10.10.0/24 -o eth0 -j MASQUERADE; iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT; iptables -A FORWARD -i wg0 -j ACCEPT; iptables -A FORWARD -o wg0 -j ACCEPT
+
+# Shared templates for Traefik routes
 templates:
   traefikRoutes:
     web-tls:
-      hostName: "example.com"
-      serviceName: public-web
+      hostName: '{{ dig "wireguard" "host" "example.com" .Values }}'
+      serviceName: wg-easy
       servicePort: 51821
-    web:
-      hostName: "example.com"
-      serviceName: public-web
-      servicePort: 51821
+
+controllers:
+  wg-easy:
+    serviceAccount:
+      name: default
+    pod:
+      enableServiceLinks: true
+      securityContext:
+        sysctls:
+          - name: net.ipv4.ip_forward
+            value: "1"
+    containers:
+      wg-container:
+        env:
+          # Host is required, no default makes sense
+          WG_HOST: '{{ required "external host name is required. Set wireguard.host" .Values.wireguard.host }}'
+          WG_DEVICE: '{{ dig "wireguard" "device" "eth0" .Values }}'
+          # Use dig with sensible defaults for all other parameters
+          WG_PORT: '{{ dig "wireguard" "port" "" .Values }}'
+          WG_MTU: '{{ dig "wireguard" "mtu" "" .Values}}'
+          WG_PERSISTENT_KEEPALIVE: '{{ dig "wireguard" "persistentKeepalive" "" .Values }}'
+          WG_DEFAULT_ADDRESS: '{{ dig "wireguard" "defaultAddress" "" .Values }}'
+          WG_DEFAULT_DNS: '{{ dig "wireguard" "defaultDns" "" .Values }}'
+          WG_ALLOWED_IPS: '{{ dig "wireguard" "allowedIps" "" .Values }}'
+          WG_PRE_UP: '{{ dig "wireguard" "preUp" "" .Values }}'
+          WG_POST_UP: '{{ dig "wireguard" "postUp" "" .Values }}'
+          WG_PRE_DOWN: '{{ dig "wireguard" "preDown" "" .Values }}'
+          WG_POST_DOWN: '{{ dig "wireguard" "postDown" "" .Values }}'
+        envFrom:
+          - secretRef:
+              identifier: webpass
+        image:
+          repository: ghcr.io/wg-easy/wg-easy
+          tag: 14.0
+          pullPolicy: IfNotPresent
+        ports:
+          - containerPort: 51821
+            protocol: TCP
+          - containerPort: 51820
+            protocol: UDP
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+              - NET_ADMIN
+              - SYS_MODULE
+        probes:
+          liveness:
+            enabled: true
+            spec:
+              initialDelaySeconds: 0
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 5
+          readiness:
+            enabled: true
+            spec:
+              initialDelaySeconds: 0
+              periodSeconds: 10
+              timeoutSeconds: 1
+              failureThreshold: 5
+secrets:
+  webpass:
+    enabled: true
+    stringData:
+      PASSWORD_HASH: '{{ dig "wireguard" "password" "$2a$12$Zh4e0Lnbfhh3.EJTLKPApOCOZgjmaWm0eOMDI7YkoACKMjKPFs7.a" .Values }}'
+service:
+  web:
+    controller: wg-easy
+    enabled: true
+    type: ClusterIP
+    ipFamilyPolicy: SingleStack
+    ipFamilies:
+      - IPv4
+    ports:
+      http:
+        enabled: true
+        port: 51821
+        protocol: HTTP
+    primary: true
+  vpn:
+    controller: wg-easy
+    enabled: true
+    type: NodePort
+    ipFamilyPolicy: SingleStack
+    ipFamilies:
+      - IPv4
+    ports:
+      udp:
+        enabled: true
+        port: 51820
+        protocol: UDP
+persistence:
+  config:
+    enabled: true
+    type: persistentVolumeClaim
+    storageClass: ''
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    retain: false
+    globalMounts:
+      - path: /etc/wireguard

@@ -1,7 +1,15 @@
-name: wg-easy
-version: 1.0.0
 apiVersion: v2
 dependencies:
-  - name: templates
-    version: '*'
-    repository: file://../templates
+- name: common
+  repository: https://bjw-s-labs.github.io/helm-charts
+  version: 3.7.3
+- name: templates
+  version: '*'
+  repository: file://../templates
+description: Simple wireguard with web configuration management
+home: https://github.com/replicatedhq/platform-examples/
+maintainers:
+- name: Replicated, Inc.
+  url: https://github.com/replicatedhq/platform-examples/
+name: wg-easy
+version: 1.0.0

@@ -1,3 +1,0 @@
-{{/*
-Default NOTES.txt content.
-*/}}
