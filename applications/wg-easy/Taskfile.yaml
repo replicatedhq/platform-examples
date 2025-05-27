@@ -223,6 +223,28 @@ tasks:
       - setup-kubeconfig
       - cluster-ports-expose
 
+  helm-uninstall:
+    desc: Uninstall all charts using helm uninstall
+    silent: false
+    cmds:
+      - echo "Uninstalling all charts via helm"
+      - |
+        # Get cluster ID
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        if [ -z "$CLUSTER_ID" ]; then
+          echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
+          exit 1
+        fi
+
+        # Get the list of installed releases and uninstall them
+        KUBECONFIG={{.KUBECONFIG_FILE}} helm list --all-namespaces -o json | jq -r '.[] | .name + " -n " + .namespace' | while read release; do
+          echo "Uninstalling helm release: $release"
+          KUBECONFIG={{.KUBECONFIG_FILE}} helm uninstall $release
+        done
+      - echo "All charts uninstalled!"
+    deps:
+      - setup-kubeconfig
+
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
