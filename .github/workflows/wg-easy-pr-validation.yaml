@@ -7,6 +7,12 @@ on:
     paths:
       - 'applications/wg-easy/**'
       - '.github/workflows/wg-easy-pr-validation.yaml'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'true'
 
 env:
   APP_DIR: applications/wg-easy
