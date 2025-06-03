@@ -589,6 +589,7 @@ tasks:
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       SKIP_INSTALL: '{{.SKIP_INSTALL | default "false"}}'
+      AIRGAP: '{{.AIRGAP | default "false"}}'
       ADMIN_CONSOLE_PASSWORD:
         sh: uuidgen | cut -c1-13
     deps:
@@ -617,27 +618,43 @@ tasks:
         fi
         VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) {{.CMX_VM_USER}}@\(.direct_ssh_endpoint)\"")
 
+        # Determine download URL based on airgap setting
+        DOWNLOAD_URL="https://replicated.app/embedded/{{.APP_SLUG}}/{{.CHANNEL}}"
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          DOWNLOAD_URL="${DOWNLOAD_URL}?airgap=true"
+        fi
+
         echo "SSH base command: $SSH_BASE_CMD"
-        $VM_SSH_CMD << 'EOF'
+        $VM_SSH_CMD << EOF
         set -e
-        echo 'Downloading {{.APP_NAME}} installer...'
-        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+        echo 'Downloading {{.APP_SLUG}} installer...'
+        curl -f '$DOWNLOAD_URL' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_SLUG}}-{{.CHANNEL}}.tgz
 
         echo 'Extracting installer...'
-        tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
-
-        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
-          echo "Installing {{.APP_NAME}}..."
-          sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
-        else
-          echo "Skipping installation as requested. Binary is available at ./{{.APP_NAME}}"
-        fi
+        tar -xvzf {{.APP_SLUG}}-{{.CHANNEL}}.tgz
+        
+        echo "Binary is available at ./{{.APP_SLUG}}"
         EOF
 
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          echo "Updating network policy for airgap installation..."
+          NETWORK_ID=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | .network_id")
+          replicated network update policy $NETWORK_ID --policy airgap
+        fi
+
         if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          INSTALL_CMD="sudo ./{{.APP_SLUG}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes"
+          if [ "{{.AIRGAP}}" = "true" ]; then
+            INSTALL_CMD="${INSTALL_CMD} --airgap-bundle {{.APP_SLUG}}.airgap"
+          fi
+
+          echo "Running installation command: $INSTALL_CMD"
+        $VM_SSH_CMD << EOF
+        $INSTALL_CMD
+        EOF
+
           echo "Exposing port 30000 on the VM..."
           replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
 
           echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
         fi
-
