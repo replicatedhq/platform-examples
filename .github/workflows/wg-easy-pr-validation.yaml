@@ -115,12 +115,6 @@ jobs:
             -O /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Install helmfile
-        run: |
-          sudo wget https://github.com/helmfile/helmfile/releases/latest/download/helmfile_linux_amd64 \
-            -O /usr/local/bin/helmfile
-          sudo chmod +x /usr/local/bin/helmfile
-
       - name: Update dependencies
         run: task dependencies-update
 
@@ -144,16 +138,13 @@ jobs:
         run: task --list-all
 
       - name: Validate helmfile template
-        run: |
-          if [ -f helmfile.yaml.gotmpl ]; then
-            echo "Validating helmfile template syntax"
-            # Set required environment variables for helmfile template
-            export REPLICATED_APP="test-app"
-            export CHANNEL="unstable"
-            export REPLICATED_LICENSE_ID="test-license"
-            export TF_EXPOSED_URL="test.example.com"
-            
-            # Use helmfile to validate template syntax only
-            helmfile -f helmfile.yaml.gotmpl -e default build > /dev/null
-            echo "Helmfile template syntax is valid"
-          fi
+        uses: helmfile/helmfile-action@v2.0.4
+        if: hashFiles('helmfile.yaml.gotmpl') != ''
+        with:
+          helmfile-args: build
+          helmfile-workdirectory: ${{ env.APP_DIR }}
+        env:
+          REPLICATED_APP: "test-app"
+          CHANNEL: "unstable"
+          REPLICATED_LICENSE_ID: "test-license"
+          TF_EXPOSED_URL: "test.example.com"
