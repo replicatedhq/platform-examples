@@ -118,6 +118,9 @@ jobs:
             -O /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
       - name: Update dependencies
         run: task dependencies-update
 
