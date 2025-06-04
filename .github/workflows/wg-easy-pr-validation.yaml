@@ -25,7 +25,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         task:
           - dependencies-update
@@ -40,7 +40,7 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
-          version: '3.14.0'
+          version: '3.17.3'
 
       - name: Setup Task
         uses: arduino/setup-task@v2
