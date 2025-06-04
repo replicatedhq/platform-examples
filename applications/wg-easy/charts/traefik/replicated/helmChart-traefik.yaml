@@ -8,5 +8,10 @@ spec:
   weight: 2
   helmUpgradeFlags:
     - --wait
+  values:
+    traefik:
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "" }}/traefik'
   namespace: traefik
   builder: {}
