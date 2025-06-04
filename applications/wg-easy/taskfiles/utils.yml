@@ -1,6 +1,73 @@
 version: "3"
 
 tasks:
+  install-replicated-cli:
+    desc: Install the latest Replicated CLI binary
+    silent: false
+    run: once
+    status:
+      - command -v replicated >/dev/null 2>&1
+    cmds:
+      - |
+        echo "Installing Replicated CLI..."
+        
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        
+        # Map architecture names
+        case $ARCH in
+          x86_64)
+            ARCH="amd64"
+            ;;
+          aarch64|arm64)
+            ARCH="arm64"
+            ;;
+          *)
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+        esac
+        
+        echo "Detected OS: $OS, Architecture: $ARCH"
+        
+        # Download and install based on OS
+        if [ "$OS" = "linux" ]; then
+          echo "Downloading Replicated CLI for Linux..."
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*linux_${ARCH}.tar.gz" \
+            | cut -d '"' -f 4 \
+            | xargs curl -L -o replicated.tar.gz
+          
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          rm -f replicated.tar.gz
+          
+        elif [ "$OS" = "darwin" ]; then
+          echo "Downloading Replicated CLI for macOS..."
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*darwin_${ARCH}.tar.gz" \
+            | cut -d '"' -f 4 \
+            | xargs curl -L -o replicated.tar.gz
+          
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          rm -f replicated.tar.gz
+          
+        else
+          echo "Unsupported operating system: $OS"
+          echo "Please install manually from: https://docs.replicated.com/reference/replicated-cli-installing"
+          exit 1
+        fi
+        
+        # Verify installation
+        if command -v replicated >/dev/null 2>&1; then
+          echo "Replicated CLI installed successfully!"
+          replicated version
+        else
+          echo "Failed to install Replicated CLI"
+          exit 1
+        fi
   get-kubeconfig:
     desc: Get kubeconfig for the test cluster (internal)
     internal: true

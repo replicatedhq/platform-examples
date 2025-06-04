@@ -65,6 +65,9 @@ jobs:
             -O /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
 
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
       - name: Run task ${{ matrix.task }}
         run: task ${{ matrix.task }}
         timeout-minutes: 10
