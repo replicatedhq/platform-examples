@@ -133,3 +133,6 @@ persistence:
 preflight:
   image:
     repository: "docker.io/library/debian:bookworm-slim"
+
+defaultPodOptions:
+  imagePullSecrets: []

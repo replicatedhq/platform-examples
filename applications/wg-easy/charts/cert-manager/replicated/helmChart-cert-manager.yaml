@@ -10,6 +10,9 @@ spec:
     - --wait
   values:
     cert-manager:
+      global:
+        imagePullSecrets:
+          - name: '{{repl ImagePullSecretName }}'
       image:
         registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
         repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-controller'
