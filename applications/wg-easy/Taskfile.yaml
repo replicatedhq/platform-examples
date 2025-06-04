@@ -145,6 +145,32 @@ tasks:
       - cluster-create
       - verify-kubeconfig
 
+  helm-repo-add:
+    desc: Add all HTTP/HTTPS Helm repositories found in Chart.yaml files
+    silent: false
+    run: once
+    cmds:
+      - echo "Adding Helm repositories from Chart.yaml files..."
+      - |
+        # Find all Chart.yaml files and extract HTTP/HTTPS repositories
+        for chart_file in $(find charts/ -maxdepth 2 -name "Chart.yaml"); do
+          echo "Processing $chart_file"
+          
+          # Extract repository URLs that start with http:// or https://
+          yq eval '.dependencies[]?.repository' "$chart_file" 2>/dev/null | grep -E '^https?://' | while read -r repo_url; do
+            if [ -n "$repo_url" ]; then
+              # Generate a repository name from the URL
+              repo_name=$(echo "$repo_url" | sed 's|https\?://||' | sed 's|[./]|-|g' | sed 's|-*$||')
+              
+              echo "Adding repository: $repo_name -> $repo_url"
+              helm repo add "$repo_name" "$repo_url" || echo "Repository $repo_name may already exist"
+            fi
+          done
+        done
+      - echo "Updating Helm repository index..."
+      - helm repo update
+      - echo "All Helm repositories added and updated!"
+
   dependencies-update:
     desc: Update Helm dependencies for all charts
     silent: false
@@ -158,6 +184,8 @@ tasks:
           helm dependency update --skip-refresh "$chart_dir"
         done
       - echo "All dependencies updated!"
+    deps:
+      - helm-repo-add
 
   cluster-ports-expose:
     desc: Expose configured ports for a cluster and capture exposed URLs
