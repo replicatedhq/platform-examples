@@ -31,6 +31,10 @@ tasks:
         
         echo "Detected OS: $OS, Architecture: $ARCH"
         
+        # Create a temporary directory for extraction
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        
         # Download and install based on OS
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
@@ -41,7 +45,6 @@ tasks:
           
           tar xzf replicated.tar.gz
           sudo mv replicated /usr/local/bin/replicated
-          rm -f replicated.tar.gz
           
         elif [ "$OS" = "darwin" ]; then
           echo "Downloading Replicated CLI for macOS..."
@@ -52,13 +55,18 @@ tasks:
           
           tar xzf replicated.tar.gz
           sudo mv replicated /usr/local/bin/replicated
-          rm -f replicated.tar.gz
           
         else
           echo "Unsupported operating system: $OS"
           echo "Please install manually from: https://docs.replicated.com/reference/replicated-cli-installing"
+          cd - >/dev/null
+          rm -rf "$TEMP_DIR"
           exit 1
         fi
+        
+        # Clean up temporary directory
+        cd - >/dev/null
+        rm -rf "$TEMP_DIR"
         
         # Verify installation
         if command -v replicated >/dev/null 2>&1; then
