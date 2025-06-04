@@ -12,6 +12,6 @@ spec:
     traefik:
       image:
         registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
-        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "" }}/traefik'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/traefik'
   namespace: traefik
   builder: {}

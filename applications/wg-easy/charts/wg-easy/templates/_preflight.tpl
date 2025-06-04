@@ -6,7 +6,7 @@ metadata:
 spec:
   collectors:
     - sysctl:
-        image: debian:buster-slim
+        image: {{ .Values.preflight.image.repository }}
   analyzers:
     - sysctl:
         checkName: IP forwarding enabled

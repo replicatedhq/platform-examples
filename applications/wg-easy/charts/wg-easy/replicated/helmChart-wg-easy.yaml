@@ -35,5 +35,9 @@ spec:
           wg-container:
             image:
               repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "wg-easy" }}/wg-easy'
+    preflight:
+      image:
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/debian:bookworm-slim'
+
   namespace: wg-easy
   builder: {}
