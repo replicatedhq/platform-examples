@@ -71,6 +71,9 @@ jobs:
       - name: Run task ${{ matrix.task }}
         run: task ${{ matrix.task }}
         timeout-minutes: 10
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
       - name: Verify release directory contents
         if: matrix.task == 'release-prepare'
@@ -123,6 +126,9 @@ jobs:
 
       - name: Update dependencies
         run: task dependencies-update
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
       - name: Lint Helm charts
         run: |
