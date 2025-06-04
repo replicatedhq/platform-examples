@@ -15,6 +15,10 @@ spec:
     - --history-max=15
     - --wait
 
-  values: {}
+  values: 
+    replicated:
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "registry.replicated.com" }}'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/replicated-sdk-image'
   namespace: replicated
   builder: {}
