@@ -51,7 +51,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: '1.30.0'
+          version: 'v1.30.0'
 
       - name: Install preflight CLI
         run: |
