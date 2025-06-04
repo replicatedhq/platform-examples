@@ -16,21 +16,24 @@ spec:
     - --wait
 
   values:
-    wg-easy:
-      services:
-        vpn:
-          # TODO: Template for stand alone KOTS install?
-          #type: NodePort
-          ports:
-            udp:
-              nodePort: repl{{ ConfigOption `vpn-port` | ParseInt  }}
-      wireguard:
-        password: repl{{ ConfigOption `password` }}
-        host: repl{{ ConfigOption `domain` }}
-        port: repl{{ ConfigOption `vpn-port` | ParseInt }}
+    service:
+      vpn:
+        ports:
+          udp:
+            port: repl{{ ConfigOption `vpn-port` | ParseInt  }}
+    wireguard:
+      password: repl{{ ConfigOption `password` }}
+      host: repl{{ ConfigOption `domain` }}
+      port: repl{{ ConfigOption `vpn-port` | ParseInt }}
     templates:
       traefikRoutes:
         web-tls:
           hostName: repl{{ ConfigOption `domain` }}
+    controllers:
+      wg-easy:
+        containers:
+          wg-container:
+            image:
+              repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "wg-easy" }}/wg-easy'
   namespace: wg-easy
   builder: {}
