@@ -8,5 +8,27 @@ spec:
   weight: 0
   helmUpgradeFlags:
     - --wait
+  values:
+    cert-manager:
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-controller'
+      webhook:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
+          repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-webhook'
+      cainjector:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
+          repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-cainjector'
+      acmesolver:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
+          repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-acmesolver'
+      startupapicheck:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}'
+          repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "jetstack" }}/cert-manager-startupapicheck'
+  
   namespace: cert-manager
   builder: {}
