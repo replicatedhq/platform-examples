@@ -611,6 +611,46 @@ tasks:
           exit 1
         fi
 
+        # Check if airgap build is available when airgap mode is enabled
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          echo "Checking if airgap build is available for lastest release in channel {{.CHANNEL}}..."
+          
+          # Get release list and extract app ID and channel ID
+          RELEASE_DATA=$(replicated release ls -o json)
+          APP_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].appId')
+          CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.CHANNEL}}") | .id')
+          
+          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+            echo "Error: Could not retrieve app ID from releases"
+            exit 1
+          fi
+          
+          if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
+            echo "Error: Could not find channel ID for channel {{.CHANNEL}}"
+            exit 1
+          fi
+          
+          echo "Found app ID: $APP_ID, channel ID: $CHANNEL_ID"
+          
+          # Get channel releases and check airgap build status
+          CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
+          AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
+          AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
+          AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+          
+          echo "Airgap build status: $AIRGAP_BUILD_STATUS"
+          
+          if [ "$AIRGAP_BUILD_STATUS" != "built" ]; then
+            echo "Error: Airgap build is not ready. Status: $AIRGAP_BUILD_STATUS"
+            echo "Airgap build error (if any): $AIRGAP_BUILD_ERROR"
+            echo "Please wait for the airgap build to complete before installing in airgap mode."
+            exit 1
+          fi
+          
+          echo "Airgap build is ready. Proceeding with installation..."
+          echo "Contents of airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+        fi
+
         echo "SSH into the VM and download the app binary..."
         SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         if [ -n "{{.CMX_VM_PUBLIC_KEY}}" ]; then
