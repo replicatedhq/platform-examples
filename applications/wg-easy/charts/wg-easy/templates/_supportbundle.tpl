@@ -7,8 +7,8 @@ spec:
   collectors:
     - logs:
         namespace: {{ .Release.Namespace }}
-          selector:
-          - app.kubernetes.io/name=wg-easy
+        selector:
+        - app.kubernetes.io/name=wg-easy
     - sysctl:
         image: debian:buster-slim
   analyzers:
