@@ -637,8 +637,16 @@ tasks:
           AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
           AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
           AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
           
           echo "Airgap build status: $AIRGAP_BUILD_STATUS"
+
+          if [ "$AIRGAP_BUILD_STATUS" = "metadata" ]; then
+            echo "Airgap has not been built yet. Triggering build..."
+            replicated api post "v3/app/$APP_ID/channel/$CHANNEL_ID/release/$AIRGAP_LATEST_SEQUENCE/airgap/build"
+            echo "Airgap build triggered. Run the task again later to check if it's ready."
+            exit 1
+          fi
           
           if [ "$AIRGAP_BUILD_STATUS" != "built" ]; then
             echo "Error: Airgap build is not ready. Status: $AIRGAP_BUILD_STATUS"
