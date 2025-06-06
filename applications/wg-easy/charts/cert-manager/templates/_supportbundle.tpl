@@ -9,5 +9,4 @@ spec:
         namespace: {{ .Release.Namespace }}
         selector:
         - app.kubernetes.io/instance=cert-manager
-  analyzers: {}
 {{- end -}} 
