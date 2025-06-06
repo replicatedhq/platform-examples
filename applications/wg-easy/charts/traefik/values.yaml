@@ -4,6 +4,9 @@ certs:
   installStaging: false
   dnsNames: []
 traefik:
+  image:
+    registry: docker.io
+    repository: traefik
   service:
     type: NodePort
   ports:

@@ -1,3 +1,6 @@
 # Values for replicated-sdk chart
 replicated:
   enabled: true
+  image:
+    registry: registry.replicated.com
+    repository: "library/replicated-sdk-image"
