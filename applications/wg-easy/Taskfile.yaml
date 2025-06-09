@@ -49,17 +49,17 @@ vars:
   CMX_VM_USER: '{{.CMX_VS_USER}}'
   CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY}}'
 
+silent: true
+
 tasks:
   default:
     desc: Show available tasks
-    silent: true
     cmds:
       - task --list
 
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     run: once
-    silent: false
     vars:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
@@ -98,7 +98,6 @@ tasks:
 
   test:
     desc: Run a basic test suite
-    silent: false
     cmds:
       - echo "Running basic tests..."
       - echo "This is a placeholder for actual tests"
@@ -107,7 +106,6 @@ tasks:
 
   verify-kubeconfig:
     desc: Verify kubeconfig
-    silent: false
     run: once
     cmds:
       - |
@@ -125,7 +123,6 @@ tasks:
 
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
-    silent: false
     run: once
     cmds:
       - task: utils:get-kubeconfig
@@ -147,7 +144,6 @@ tasks:
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
-    silent: false
     run: once
     cmds:
       - echo "Updating Helm dependencies for all charts..."
@@ -161,7 +157,6 @@ tasks:
 
   cluster-ports-expose:
     desc: Expose configured ports for a cluster and capture exposed URLs
-    silent: false
     run: once
     status:
       - |
@@ -190,7 +185,6 @@ tasks:
 
   helm-preflight:
     desc: Run preflight checks on Helm charts using preflight CLI (use DRY_RUN=true for dry-run)
-    silent: false
     vars:
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
     cmds:
@@ -209,7 +203,6 @@ tasks:
 
   helm-install:
     desc: Install all charts using helmfile
-    silent: true
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
     cmds:
@@ -235,7 +228,6 @@ tasks:
 
   helm-uninstall:
     desc: Uninstall all charts using helm uninstall
-    silent: false
     cmds:
       - echo "Uninstalling all charts via helm"
       - |
@@ -257,7 +249,6 @@ tasks:
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
-    silent: false
     cmds:
       - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
       - |
@@ -281,7 +272,6 @@ tasks:
 
   release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
-    silent: false
     cmds:
       - echo "Preparing release files..."
       - rm -rf ./release
@@ -346,7 +336,6 @@ tasks:
 
   release-create:
     desc: Create and promote a release using the Replicated CLI
-    silent: false
     run: once
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
@@ -366,7 +355,6 @@ tasks:
 
   customer-create:
     desc: Create a new customer or get existing customer with matching name and return their ID
-    silent: false
     run: once
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
@@ -413,7 +401,6 @@ tasks:
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
-    silent: false
     vars:
       GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE | default "e2-standard-2"}}'
       GCP_DISK_SIZE: '{{.GCP_DISK_SIZE | default "100"}}'
@@ -434,7 +421,6 @@ tasks:
 
   gcp-vm-delete:
     desc: Delete the GCP VM instance for K8s and VPN
-    silent: false
     status:
       - "! gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} &>/dev/null"
     cmds:
@@ -447,7 +433,6 @@ tasks:
 
   embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
-    silent: false
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
@@ -470,7 +455,6 @@ tasks:
 
   customer-ls:
     desc: List customers for the application
-    silent: false
     vars:
       OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "table"}}'
     requires:
@@ -481,7 +465,6 @@ tasks:
 
   customer-delete:
     desc: Archive a customer by ID
-    silent: false
     vars:
       CUSTOMER_ID: '{{.CUSTOMER_ID}}'
     requires:
@@ -507,7 +490,6 @@ tasks:
 
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
-    silent: false
     cmds:
       - echo "Cleaning temporary directories and dependencies..."
       - |
@@ -535,7 +517,6 @@ tasks:
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts
-    silent: false
     cmds:
       - task: cluster-create
       - task: setup-kubeconfig
@@ -549,7 +530,6 @@ tasks:
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
     run: once
-    silent: true
     status:
       - |
         # Check if VM is running
@@ -575,7 +555,6 @@ tasks:
 
   cmx-vm-delete:
     desc: Delete a CMX VM instance
-    silent: true
     cmds:
       - |
         echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
@@ -583,7 +562,6 @@ tasks:
 
   cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
-    silent: true
     requires:
       vars: [REPLICATED_LICENSE_ID]
     vars:
