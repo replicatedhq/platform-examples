@@ -160,3 +160,46 @@ jobs:
           CHANNEL: "unstable"
           REPLICATED_LICENSE_ID: "test-license"
           TF_EXPOSED_URL: "test.example.com"
+
+  replicated-release:
+    runs-on: ubuntu-22.04
+    needs: task-validation
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.17.3'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0'
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Run replicated-release task
+        run: task replicated-release
+        timeout-minutes: 15
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
