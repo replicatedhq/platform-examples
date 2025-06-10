@@ -198,7 +198,7 @@ jobs:
         run: task utils:install-replicated-cli
 
       - name: Run replicated-release task
-        run: task replicated-release
+        run: task release-create
         timeout-minutes: 15
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
