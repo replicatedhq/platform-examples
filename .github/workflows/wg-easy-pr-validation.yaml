@@ -198,11 +198,15 @@ jobs:
         run: task utils:install-replicated-cli
 
       - name: Run replicated-release task
-        run: task release-create
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          task release-create
         timeout-minutes: 15
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+          CHANNEL: $CHANNEL_NAME
 
   create-customer:
     runs-on: ubuntu-22.04
@@ -227,7 +231,8 @@ jobs:
       - name: Create customer with branch name
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          replicated customer create --name "$BRANCH_NAME" --channel unstable
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          replicated customer create --name "$BRANCH_NAME" --channel "$CHANNEL_NAME"
         timeout-minutes: 5
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
