@@ -694,7 +694,7 @@ tasks:
         AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
         AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
         AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
-        AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
+        AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].channelSequence')
         
         echo "Airgap build status: $AIRGAP_BUILD_STATUS"
 
@@ -717,7 +717,7 @@ tasks:
           AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
           AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
           AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
-          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
+          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].channelSequence')
 
           echo "Airgap build current status: $AIRGAP_BUILD_STATUS"
 
