@@ -580,7 +580,7 @@ tasks:
       - |
         echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
         replicated vm rm {{.CMX_VM_NAME}}
-
+      
   cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
     silent: true
@@ -611,52 +611,10 @@ tasks:
           exit 1
         fi
 
-        # Check if airgap build is available when airgap mode is enabled
+        # Run airgap-build task if airgap mode is enabled
         if [ "{{.AIRGAP}}" = "true" ]; then
-          echo "Checking if airgap build is available for lastest release in channel {{.CHANNEL}}..."
-          
-          # Get release list and extract app ID and channel ID
-          RELEASE_DATA=$(replicated release ls -o json)
-          APP_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].appId')
-          CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.CHANNEL}}") | .id')
-          
-          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
-            echo "Error: Could not retrieve app ID from releases"
-            exit 1
-          fi
-          
-          if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
-            echo "Error: Could not find channel ID for channel {{.CHANNEL}}"
-            exit 1
-          fi
-          
-          echo "Found app ID: $APP_ID, channel ID: $CHANNEL_ID"
-          
-          # Get channel releases and check airgap build status
-          CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
-          AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
-          AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
-          AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
-          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
-          
-          echo "Airgap build status: $AIRGAP_BUILD_STATUS"
-
-          if [ "$AIRGAP_BUILD_STATUS" = "metadata" ]; then
-            echo "Airgap has not been built yet. Triggering build..."
-            replicated api post "v3/app/$APP_ID/channel/$CHANNEL_ID/release/$AIRGAP_LATEST_SEQUENCE/airgap/build"
-            echo "Airgap build triggered. Run the task again later to check if it's ready."
-            exit 1
-          fi
-          
-          if [ "$AIRGAP_BUILD_STATUS" != "built" ]; then
-            echo "Error: Airgap build is not ready. Status: $AIRGAP_BUILD_STATUS"
-            echo "Airgap build error (if any): $AIRGAP_BUILD_ERROR"
-            echo "Please wait for the airgap build to complete before installing in airgap mode."
-            exit 1
-          fi
-          
-          echo "Airgap build is ready. Proceeding with installation..."
-          echo "Contents of airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+          echo "Airgap mode enabled, ensuring airgap build is ready..."
+          task airgap-build
         fi
 
         echo "SSH into the VM and download the app binary..."
@@ -706,3 +664,72 @@ tasks:
 
           echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
         fi
+
+  airgap-build:
+    desc: Check and build airgap bundle for the latest release 
+    silent: true
+    cmds:
+      - |
+        echo "Checking if airgap build is available for latest release in channel {{.RELEASE_CHANNEL}}..."
+        
+        # Get release list and extract app ID and channel ID
+        RELEASE_DATA=$(replicated release ls -o json)
+        APP_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].appId')
+        CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.RELEASE_CHANNEL}}") | .id')
+        
+        if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+          echo "Error: Could not retrieve app ID from latest releases"
+          exit 1
+        fi
+        
+        if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
+          echo "Error: Could not find channel ID for channel {{.RELEASE_CHANNEL}}"
+          exit 1
+        fi
+        
+        echo "Found app ID: $APP_ID, channel ID: $CHANNEL_ID"
+        
+        # Get channel releases and check airgap build status
+        CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
+        AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
+        AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
+        AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+        AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
+        
+        echo "Airgap build status: $AIRGAP_BUILD_STATUS"
+
+        if [ "$AIRGAP_BUILD_STATUS" = "built" ]; then
+          echo "Airgap is already buit for sequence $AIRGAP_LATEST_SEQUENCE"
+          echo "Airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+          exit 0
+        fi
+
+        if [ "$AIRGAP_BUILD_STATUS" = "metadata" ]; then
+          echo "Airgap has not been built yet. Triggering build..."
+          replicated api post "v3/app/$APP_ID/channel/$CHANNEL_ID/release/$AIRGAP_LATEST_SEQUENCE/airgap/build"
+        fi
+
+        echo "Airgap build triggered. Polling every 10 seconds for up to 5 minutes..."
+        for i in $(seq 1 30); do
+          echo "Checking airgap build status... (attempt $i/30)"
+
+          CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
+          AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
+          AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
+          AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].sequence')
+
+          echo "Airgap build current status: $AIRGAP_BUILD_STATUS"
+
+          if [ "$AIRGAP_BUILD_STATUS" = "built" ]; then
+            echo "Airgap build completed successfully!"
+            echo "Airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+            exit 0
+          fi
+          sleep 10
+        done
+
+        echo "Timeout: Airgap build did not complete within 5 minutes."
+        echo "Last build status: $AIRGAP_BUILD_STATUS"
+        echo "Last build error: $AIRGAP_BUILD_ERROR"
+        exit 1
