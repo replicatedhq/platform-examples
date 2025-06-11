@@ -129,3 +129,10 @@ persistence:
     retain: false
     globalMounts:
       - path: /etc/wireguard
+
+preflight:
+  image:
+    repository: "docker.io/library/debian:bookworm-slim"
+
+defaultPodOptions:
+  imagePullSecrets: []

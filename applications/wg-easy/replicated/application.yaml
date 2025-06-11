@@ -8,8 +8,8 @@ spec:
   icon: https://www.logo.wine/a/logo/WireGuard/WireGuard-Icon-Logo.wine.svg
   #releaseNotes: These are our release notes
   allowRollback: true
-  #additionalImages:
-  #  - jenkins/jenkins:lts
+  additionalImages:
+   - debian:buster-slim
   #additionalNamespaces should be populated by the Task file
   #ports:
   #  - serviceName: wg-easy/web

@@ -4,6 +4,10 @@ cert-manager:
       # Override the namespace used to store the ConfigMap for leader election
       namespace: "cert-manager"
   installCRDs: true
+  # Controller image configuration
+  image:
+    registry: quay.io
+    repository: jetstack/cert-manager-controller
   extraArgs: 
       - --cluster-resource-namespace=cert-manager
       - --enable-certificate-owner-ref=true
@@ -11,16 +15,34 @@ cert-manager:
     requests:
       cpu: 5m
       memory: 45Mi
+  # Webhook image configuration
   webhook:
+    image:
+      registry: quay.io
+      repository: jetstack/cert-manager-webhook
     resources:
       requests:
         cpu: 5m
         memory: 22Mi
+  # CA Injector image configuration
   cainjector:
+    image:
+      registry: quay.io
+      repository: jetstack/cert-manager-cainjector
     resources:
       requests:
         cpu: 5m
         memory: 101Mi
+  # ACME Solver image configuration
+  acmesolver:
+    image:
+      registry: quay.io
+      repository: jetstack/cert-manager-acmesolver
+  # Startup API Check image configuration
+  startupapicheck:
+    image:
+      registry: quay.io
+      repository: jetstack/cert-manager-startupapicheck
 local:
   letsencrypt:
     production: false
