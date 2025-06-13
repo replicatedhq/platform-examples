@@ -41,6 +41,10 @@ dependencies:
     repository: https://charts.jetstack.io
 ```
 
+You can see examples of this wrapper chart structure:
+- [Wrapped cert-manager chart](https://github.com/replicatedhq/platform-examples/tree/main/applications/wg-easy/charts/cert-manager)
+- [Wrapped traefik chart](https://github.com/replicatedhq/platform-examples/tree/main/applications/wg-easy/charts/traefik)
+
 ## formatting
 
 To ease writing support bundles inside a secret, we can use a simple template `include` pattern to avoid having to write nested yaml structures.
@@ -74,3 +78,7 @@ spec:
         - app.kubernetes.io/instance=cert-manager
 {{- end -}} 
 ```
+
+Some further examples can be found:
+- [Traefik support bundles and preflights](https://github.com/replicatedhq/platform-examples/tree/main/applications/wg-easy/charts/traefik/templates)
+- [cert-manager support bundles and preflights](https://github.com/replicatedhq/platform-examples/tree/main/applications/wg-easy/charts/cert-manager/templates)
