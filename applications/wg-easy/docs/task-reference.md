@@ -2,6 +2,39 @@
 
 This document provides a concise reference for the tasks available in the WG-Easy Helm chart development pattern, organized by their purpose in the development workflow.
 
+## Task Control Options
+
+All tasks are configured to run in silent mode by default, showing only essential output. You can control the verbosity level using Task's built-in flags:
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--verbose` or `-v` | Show detailed task execution information including commands being run | `task -v cluster-create` |
+| `--silent` or `-s` | Suppress all output except errors | `task -s dependencies-update` |
+| (default) | Silent mode - shows command output but not task execution details | `task cluster-create` |
+
+### Verbose Mode Examples
+
+**Development and Debugging:**
+```bash
+# See detailed cluster creation process
+task -v cluster-create
+
+# Debug helm installation issues
+task -v helm-install
+
+# Watch full test cycle execution
+task -v full-test-cycle
+```
+
+**Production Use:**
+```bash
+# Suppress all output for automation
+task -s release-prepare
+
+# Standard output for CI/CD
+task release-create
+```
+
 ## Development Tasks
 
 These tasks support the iterative development process, focusing on fast feedback loops.
