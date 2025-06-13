@@ -1,0 +1,276 @@
+---
+name: WG-Easy PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-pr-validation.yaml'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'true'
+
+env:
+  APP_DIR: applications/wg-easy
+
+jobs:
+  task-validation:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        task:
+          - dependencies-update
+          # - helm-preflight
+          - release-prepare
+          - clean
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.17.3'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0'
+
+      - name: Install preflight CLI
+        run: |
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz \
+            | tar xz
+          sudo mv preflight /usr/local/bin/
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Run task ${{ matrix.task }}
+        run: task ${{ matrix.task }}
+        timeout-minutes: 10
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Verify release directory contents
+        if: matrix.task == 'release-prepare'
+        run: |
+          echo "Checking release directory contents:"
+          ls -la release/
+          echo "Verifying required files exist:"
+          test -f release/application.yaml
+          test -f release/config.yaml
+          test -f release/cluster.yaml
+          find release/ -name "*.tgz" | wc -l | grep -v "^0$"
+
+      - name: Upload release artifacts
+        if: matrix.task == 'release-prepare'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release/
+          retention-days: 7
+
+  lint-and-validate:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.14.0'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Update dependencies
+        run: task dependencies-update
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Lint Helm charts
+        run: |
+          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
+            xargs dirname); do
+            echo "Linting chart: $chart_dir"
+            helm lint "$chart_dir"
+          done
+
+      - name: Template Helm charts
+        run: |
+          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
+            xargs dirname); do
+            echo "Templating chart: $chart_dir"
+            helm template test-release "$chart_dir" --dry-run
+          done
+
+      - name: Validate Taskfile syntax
+        run: task --list-all
+
+      - name: Validate helmfile template
+        uses: helmfile/helmfile-action@v2.0.4
+        if: hashFiles('helmfile.yaml.gotmpl') != ''
+        with:
+          helmfile-args: build
+          helmfile-workdirectory: ${{ env.APP_DIR }}
+        env:
+          REPLICATED_APP: "test-app"
+          CHANNEL: "unstable"
+          REPLICATED_LICENSE_ID: "test-license"
+          TF_EXPOSED_URL: "test.example.com"
+
+  replicated-release:
+    runs-on: ubuntu-22.04
+    needs: task-validation
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.17.3'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0'
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
+            -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Run replicated-release task
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          task release-create
+        timeout-minutes: 15
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+          CHANNEL: $CHANNEL_NAME
+
+  create-customer:
+    runs-on: ubuntu-22.04
+    needs: replicated-release
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Create customer with branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          replicated customer create --name "$BRANCH_NAME" --channel "$CHANNEL_NAME"
+        timeout-minutes: 5
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Create cluster with branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          replicated cluster create --name "$BRANCH_NAME" --distribution embedded-cluster
+        timeout-minutes: 10
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+  cleanup:
+    runs-on: ubuntu-22.04
+    needs: [task-validation, lint-and-validate, replicated-release, create-customer]
+    if: always()
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Run clean task
+        run: task clean
+        timeout-minutes: 10
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
