@@ -48,9 +48,6 @@ spec:
                 - ttl.sh/shell:1h
                 - ttl.sh/cosign:1h
               resources:
-                limits:
-                  cpu: 500m
-                  memory: 256Mi
                 requests:
                   cpu: 100m
                   memory: 64Mi
@@ -132,9 +129,6 @@ spec:
                 - ttl.sh/shell:1h
                 - ttl.sh/cosign:1h
               resources:
-                limits:
-                  cpu: 500m
-                  memory: 256Mi
                 requests:
                   cpu: 100m
                   memory: 64Mi
