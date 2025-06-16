@@ -246,6 +246,7 @@ jobs:
         uses: ./.github/actions/setup-tools
         with:
           helm-version: ${{ env.HELM_VERSION }}
+          install-helmfile: 'true'
 
       - name: Helm registry login
         if: needs.create-customer-and-cluster.outputs.skip-customer-registry == 'false'
