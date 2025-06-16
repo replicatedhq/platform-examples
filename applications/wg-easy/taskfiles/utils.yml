@@ -232,6 +232,34 @@ tasks:
           exit 1
         fi
 
+  get-customer-license:
+    desc: Retrieve a customer's license ID by name
+    silent: false
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.CUSTOMER_NAME}}" ]; then
+          echo "ERROR: CUSTOMER_NAME is required"
+          echo "Usage: task utils:get-customer-license CUSTOMER_NAME=your-customer-name"
+          exit 1
+        fi
+        
+        echo "Looking up license ID for customer: {{.CUSTOMER_NAME}}"
+        
+        # Get customer license ID using Replicated CLI
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .license_id')
+        
+        if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
+          echo "ERROR: Could not find customer with name '{{.CUSTOMER_NAME}}'"
+          echo "Available customers:"
+          replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "Customer '{{.CUSTOMER_NAME}}' license ID: $LICENSE_ID"
+        echo "$LICENSE_ID"
+
   gcp-operations:
     desc: GCP VM operations
     internal: true

@@ -309,7 +309,7 @@ jobs:
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
 
           # Get customer license ID
-          LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
+          LICENSE_ID=$(task get-customer-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
 
           # Use taskfile helm-install with replicated helmfile environment
           task helm-install
