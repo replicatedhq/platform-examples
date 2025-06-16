@@ -1,5 +1,5 @@
 ---
-name: WG-Easy PR Validation
+name: WG-Easy PR Validation - build, release, install
 
 on:
   pull_request:
@@ -14,69 +14,69 @@ on:
         required: false
         default: 'true'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   APP_DIR: applications/wg-easy
+  REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+  HELM_VERSION: "3.17.3"
+  KUBECTL_VERSION: "v1.30.0"
 
 jobs:
+  setup:
+    runs-on: ubuntu-22.04
+    outputs:
+      branch-name: ${{ steps.vars.outputs.branch-name }}
+      channel-name: ${{ steps.vars.outputs.channel-name }}
+    steps:
+      - name: Set branch and channel variables
+        id: vars
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
+
   build-release:
     runs-on: ubuntu-22.04
+    needs: setup
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
-
-    strategy:
-      fail-fast: true
-      matrix:
-        task:
-          - dependencies-update
-          # - helm-preflight
-          - release-prepare
-          # - clean
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      - name: Cache Helm dependencies
+        uses: actions/cache@v4
         with:
-          version: '3.17.3'
+          path: |
+            applications/wg-easy/charts/*/charts
+            applications/wg-easy/Chart.lock
+          key: helm-deps-${{ hashFiles('applications/wg-easy/charts/*/Chart.yaml') }}
 
-      - name: Setup Task
-        uses: arduino/setup-task@v2
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
         with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          helm-version: ${{ env.HELM_VERSION }}
+          kubectl-version: ${{ env.KUBECTL_VERSION }}
+          install-kubectl: 'true'
+          install-preflight: 'true'
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: 'v1.30.0'
-
-      - name: Install preflight CLI
-        run: |
-          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/preflight_linux_amd64.tar.gz \
-            | tar xz
-          sudo mv preflight /usr/local/bin/
-
-      - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
-
-      - name: Run task ${{ matrix.task }}
-        run: task ${{ matrix.task }}
+      - name: Update dependencies
+        run: task dependencies-update
         timeout-minutes: 10
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Prepare release
+        run: task release-prepare
+        timeout-minutes: 10
 
       - name: Verify release directory contents
-        if: matrix.task == 'release-prepare'
         run: |
           echo "Checking release directory contents:"
           ls -la release/
@@ -87,7 +87,6 @@ jobs:
           find release/ -name "*.tgz" | wc -l | grep -v "^0$"
 
       - name: Upload release artifacts
-        if: matrix.task == 'release-prepare'
         uses: actions/upload-artifact@v4
         with:
           name: wg-easy-release-${{ github.run_number }}
@@ -96,6 +95,7 @@ jobs:
 
   lint-and-validate:
     runs-on: ubuntu-22.04
+    needs: setup
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -104,31 +104,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      - name: Cache Helm dependencies
+        uses: actions/cache@v4
         with:
-          version: '3.14.0'
+          path: |
+            applications/wg-easy/charts/*/charts
+            applications/wg-easy/Chart.lock
+          key: helm-deps-${{ hashFiles('applications/wg-easy/charts/*/Chart.yaml') }}
 
-      - name: Setup Task
-        uses: arduino/setup-task@v2
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
         with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
+          helm-version: ${{ env.HELM_VERSION }}
 
       - name: Update dependencies
         run: task dependencies-update
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
       - name: Lint Helm charts
         run: |
@@ -163,7 +153,7 @@ jobs:
 
   replicated-release:
     runs-on: ubuntu-22.04
-    needs: build-release
+    needs: [setup, build-release]
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -172,100 +162,72 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
         with:
-          version: '3.17.3'
-
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: 'v1.30.0'
-
-      - name: Install yq
-        run: |
-          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
-            -O /usr/local/bin/yq
-          sudo chmod +x /usr/local/bin/yq
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
+          helm-version: ${{ env.HELM_VERSION }}
+          kubectl-version: ${{ env.KUBECTL_VERSION }}
+          install-kubectl: 'true'
 
       - name: Create channel for branch
-        run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-          task channel-create RELEASE_CHANNEL="$CHANNEL_NAME"
+        run: task channel-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 5
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-      - name: run release-prepare task
+      - name: Prepare release
         run: task release-prepare
         timeout-minutes: 15
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-      - name: Run release-create task
-        run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-          task release-create RELEASE_CHANNEL="$CHANNEL_NAME"
+      - name: Create release
+        run: task release-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 15
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
   create-customer-and-cluster:
     runs-on: ubuntu-22.04
-    needs: replicated-release
+    needs: [setup, replicated-release]
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
+    outputs:
+      license-id: ${{ steps.license.outputs.license-id }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
-
-      - name: Create customer with branch name
+      - name: Validate prerequisites
         run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-          task customer-create CUSTOMER_NAME="$BRANCH_NAME" RELEASE_CHANNEL="$CHANNEL_NAME"
+          if [ -z "${{ secrets.WG_EASY_CUSTOMER_EMAIL }}" ]; then
+            echo "::error::WG_EASY_CUSTOMER_EMAIL secret is required"
+            exit 1
+          fi
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+
+      - name: Create customer
+        run: task customer-create CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 5
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-      - name: Create cluster with branch name
+      - name: Create cluster with retry
+        uses: nick-fields/retry@v3.0.2
+        with:
+          timeout_minutes: 20
+          retry_wait_seconds: 30
+          max_attempts: 3
+          command: |
+            cd ${{ env.APP_DIR }}
+            task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.branch-name }}"
+
+      - name: Get customer license ID
+        id: license
         run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          task cluster-create CLUSTER_NAME="$BRANCH_NAME"
-        timeout-minutes: 15
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
+          echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+          echo "::add-mask::$LICENSE_ID"
 
   helm-install-test:
     runs-on: ubuntu-22.04
-    needs: create-customer-and-cluster
+    needs: [setup, create-customer-and-cluster]
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -274,50 +236,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
         with:
-          version: '3.17.3'
-
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
+          helm-version: ${{ env.HELM_VERSION }}
 
       - name: Helm registry login
         run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          CUSTOMER_EMAIL="${{ secrets.WG_EASY_CUSTOMER_EMAIL }}"
-
-          # Get customer license ID from previous step
-          LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
-
-          # Login to Replicated registry
-          helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password "$LICENSE_ID"
+          helm registry login registry.replicated.com --username "${{ secrets.WG_EASY_CUSTOMER_EMAIL }}" --password "${{ needs.create-customer-and-cluster.outputs.license-id }}"
         timeout-minutes: 5
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
       - name: Helm install as customer
-        run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-
-          # Get customer license ID
-          LICENSE_ID=$(task get-customer-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
-
-          # Use taskfile helm-install with replicated helmfile environment
-          task helm-install
-        timeout-minutes: 10
+        run: task helm-install
+        timeout-minutes: 20
         env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
-          CHANNEL: $CHANNEL_NAME
-          REPLICATED_LICENSE_ID: $LICENSE_ID
+          CHANNEL: ${{ needs.setup.outputs.channel-name }}
+          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.license-id }}
           HELM_ENV: replicated
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
 

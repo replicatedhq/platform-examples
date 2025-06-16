@@ -1,0 +1,74 @@
+name: 'Setup Common Tools'
+description: 'Setup Helm, Task, yq, kubectl, preflight, and Replicated CLI'
+inputs:
+  helm-version:
+    description: 'Helm version'
+    default: '3.17.3'
+  kubectl-version:
+    description: 'kubectl version'
+    default: 'v1.30.0'
+  app-dir:
+    description: 'Application directory'
+    default: 'applications/wg-easy'
+  install-kubectl:
+    description: 'Whether to install kubectl'
+    default: 'false'
+  install-preflight:
+    description: 'Whether to install preflight'
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: ${{ inputs.helm-version }}
+    
+    - name: Setup Task
+      uses: arduino/setup-task@v2
+      with:
+        version: 3.x
+        repo-token: ${{ github.token }}
+    
+    - name: Setup kubectl
+      if: inputs.install-kubectl == 'true'
+      uses: azure/setup-kubectl@v4
+      with:
+        version: ${{ inputs.kubectl-version }}
+    
+    - name: Cache tools
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/bin/yq
+          /usr/local/bin/preflight
+        key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0
+    
+    - name: Install yq
+      shell: bash
+      run: |
+        if [ ! -f /usr/local/bin/yq ]; then
+          echo "Installing yq v4.44.3..."
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64 -O /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+        else
+          echo "yq already installed (cached)"
+        fi
+    
+    - name: Install preflight CLI
+      if: inputs.install-preflight == 'true'
+      shell: bash
+      run: |
+        if [ ! -f /usr/local/bin/preflight ]; then
+          echo "Installing preflight v0.95.0..."
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/download/v0.95.0/preflight_linux_amd64.tar.gz | tar xz
+          sudo mv preflight /usr/local/bin/
+        else
+          echo "preflight already installed (cached)"
+        fi
+    
+    - name: Install Replicated CLI
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: task utils:install-replicated-cli
