@@ -248,6 +248,9 @@ jobs:
           helm-version: ${{ env.HELM_VERSION }}
           install-helmfile: 'true'
 
+      - name: Update dependencies
+        run: task dependencies-update
+
       - name: Helm registry login
         if: needs.create-customer-and-cluster.outputs.skip-customer-registry == 'false'
         run: |
