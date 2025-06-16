@@ -189,7 +189,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
     outputs:
       license-id: ${{ steps.license.outputs.license-id }}
-      skip-customer-test: ${{ steps.prereqs.outputs.skip-customer-test }}
+      skip-customer-registry: ${{ steps.prereqs.outputs.skip-customer-registry }}
 
     steps:
       - name: Checkout code
@@ -199,22 +199,21 @@ jobs:
         id: prereqs
         run: |
           if [ -z "${{ secrets.WG_EASY_CUSTOMER_EMAIL }}" ]; then
-            echo "::warning::WG_EASY_CUSTOMER_EMAIL secret not found - skipping customer deployment test"
-            echo "skip-customer-test=true" >> $GITHUB_OUTPUT
+            echo "::warning::WG_EASY_CUSTOMER_EMAIL secret not found - skipping customer registry login"
+            echo "skip-customer-registry=true" >> $GITHUB_OUTPUT
           else
-            echo "skip-customer-test=false" >> $GITHUB_OUTPUT
+            echo "skip-customer-registry=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Setup tools
         uses: ./.github/actions/setup-tools
 
       - name: Create customer
-        if: steps.prereqs.outputs.skip-customer-test == 'false'
+        if: steps.prereqs.outputs.skip-customer-registry == 'false'
         run: task customer-create CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 5
 
       - name: Create cluster with retry
-        if: steps.prereqs.outputs.skip-customer-test == 'false'
         uses: nick-fields/retry@v3.0.2
         with:
           timeout_minutes: 20
@@ -225,7 +224,7 @@ jobs:
             task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.branch-name }}"
 
       - name: Get customer license ID
-        if: steps.prereqs.outputs.skip-customer-test == 'false'
+        if: steps.prereqs.outputs.skip-customer-registry == 'false'
         id: license
         run: |
           LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
@@ -235,7 +234,6 @@ jobs:
   helm-install-test:
     runs-on: ubuntu-22.04
     needs: [setup, create-customer-and-cluster]
-    if: needs.create-customer-and-cluster.outputs.skip-customer-test == 'false'
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -250,17 +248,18 @@ jobs:
           helm-version: ${{ env.HELM_VERSION }}
 
       - name: Helm registry login
+        if: needs.create-customer-and-cluster.outputs.skip-customer-registry == 'false'
         run: |
           helm registry login registry.replicated.com --username "${{ secrets.WG_EASY_CUSTOMER_EMAIL }}" --password "${{ needs.create-customer-and-cluster.outputs.license-id }}"
         timeout-minutes: 5
 
-      - name: Helm install as customer
+      - name: Helm install
         run: task helm-install
         timeout-minutes: 20
         env:
           CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.license-id }}
-          HELM_ENV: replicated
+          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.license-id || 'test-license' }}
+          HELM_ENV: ${{ needs.create-customer-and-cluster.outputs.skip-customer-registry == 'true' && 'default' || 'replicated' }}
 
       - name: Upload debug logs
         if: failure()
