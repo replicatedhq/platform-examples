@@ -242,7 +242,7 @@ jobs:
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-          replicated customer create --name "$BRANCH_NAME" --channel "$CHANNEL_NAME"
+          task customer-create CUSTOMER_NAME="$BRANCH_NAME" RELEASE_CHANNEL="$CHANNEL_NAME"
         timeout-minutes: 5
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
@@ -251,8 +251,8 @@ jobs:
       - name: Create cluster with branch name
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          replicated cluster create --name "$BRANCH_NAME" --distribution embedded-cluster
-        timeout-minutes: 10
+          task cluster-create CLUSTER_NAME="$BRANCH_NAME"
+        timeout-minutes: 15
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
