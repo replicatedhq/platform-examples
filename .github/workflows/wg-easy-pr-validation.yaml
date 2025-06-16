@@ -189,26 +189,32 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
     outputs:
       license-id: ${{ steps.license.outputs.license-id }}
+      skip-customer-test: ${{ steps.prereqs.outputs.skip-customer-test }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate prerequisites
+      - name: Check prerequisites
+        id: prereqs
         run: |
           if [ -z "${{ secrets.WG_EASY_CUSTOMER_EMAIL }}" ]; then
-            echo "::error::WG_EASY_CUSTOMER_EMAIL secret is required"
-            exit 1
+            echo "::warning::WG_EASY_CUSTOMER_EMAIL secret not found - skipping customer deployment test"
+            echo "skip-customer-test=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip-customer-test=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Setup tools
         uses: ./.github/actions/setup-tools
 
       - name: Create customer
+        if: steps.prereqs.outputs.skip-customer-test == 'false'
         run: task customer-create CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 5
 
       - name: Create cluster with retry
+        if: steps.prereqs.outputs.skip-customer-test == 'false'
         uses: nick-fields/retry@v3.0.2
         with:
           timeout_minutes: 20
@@ -219,6 +225,7 @@ jobs:
             task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.branch-name }}"
 
       - name: Get customer license ID
+        if: steps.prereqs.outputs.skip-customer-test == 'false'
         id: license
         run: |
           LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
@@ -228,6 +235,7 @@ jobs:
   helm-install-test:
     runs-on: ubuntu-22.04
     needs: [setup, create-customer-and-cluster]
+    if: needs.create-customer-and-cluster.outputs.skip-customer-test == 'false'
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
