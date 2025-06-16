@@ -18,7 +18,7 @@ env:
   APP_DIR: applications/wg-easy
 
 jobs:
-  task-validation:
+  build-release:
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -31,7 +31,7 @@ jobs:
           - dependencies-update
           # - helm-preflight
           - release-prepare
-          - clean
+          # - clean
 
     steps:
       - name: Checkout code
@@ -163,7 +163,7 @@ jobs:
 
   replicated-release:
     runs-on: ubuntu-22.04
-    needs: task-validation
+    needs: build-release
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -217,7 +217,7 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-  create-customer:
+  create-customer-and-cluster:
     runs-on: ubuntu-22.04
     needs: replicated-release
     defaults:
@@ -255,4 +255,62 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: create-customer-and-cluster
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.17.3'
+
+      - name: Setup Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Replicated CLI
+        run: task utils:install-replicated-cli
+
+      - name: Helm registry login
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CUSTOMER_EMAIL="${{ secrets.WG_EASY_CUSTOMER_EMAIL }}"
+          
+          # Get customer license ID from previous step
+          LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
+          
+          # Login to Replicated registry
+          helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password "$LICENSE_ID"
+        timeout-minutes: 5
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Helm install as customer
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          
+          # Get customer license ID
+          LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
+          
+          # Use taskfile helm-install with replicated helmfile environment
+          task helm-install
+        timeout-minutes: 10
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+          CHANNEL: $CHANNEL_NAME
+          REPLICATED_LICENSE_ID: $LICENSE_ID
+          HELM_ENV: replicated
 
