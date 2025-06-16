@@ -207,7 +207,14 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-      - name: Run replicated-release task
+      - name: run release-prepare task
+        run: task release-prepare
+        timeout-minutes: 15
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
+      - name: Run release-create task
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
@@ -285,10 +292,10 @@ jobs:
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           CUSTOMER_EMAIL="${{ secrets.WG_EASY_CUSTOMER_EMAIL }}"
-          
+
           # Get customer license ID from previous step
           LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
-          
+
           # Login to Replicated registry
           helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password "$LICENSE_ID"
         timeout-minutes: 5
@@ -300,10 +307,10 @@ jobs:
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
-          
+
           # Get customer license ID
           LICENSE_ID=$(task customer-get-license CUSTOMER_NAME="$BRANCH_NAME" | grep -o '[A-Za-z0-9]\{27\}' | head -1)
-          
+
           # Use taskfile helm-install with replicated helmfile environment
           task helm-install
         timeout-minutes: 10
