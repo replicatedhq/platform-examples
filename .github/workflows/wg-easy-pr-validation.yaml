@@ -257,30 +257,3 @@ jobs:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
           REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
-  cleanup:
-    runs-on: ubuntu-22.04
-    needs: [task-validation, lint-and-validate, replicated-release, create-customer]
-    if: always()
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install Replicated CLI
-        run: task utils:install-replicated-cli
-
-      - name: Run clean task
-        run: task clean
-        timeout-minutes: 10
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
