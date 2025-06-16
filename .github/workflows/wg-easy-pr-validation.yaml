@@ -197,6 +197,16 @@ jobs:
       - name: Install Replicated CLI
         run: task utils:install-replicated-cli
 
+      - name: Create channel for branch
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          task channel-create CHANNEL_NAME="$CHANNEL_NAME"
+        timeout-minutes: 5
+        env:
+          REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+          REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+
       - name: Run replicated-release task
         run: |
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"

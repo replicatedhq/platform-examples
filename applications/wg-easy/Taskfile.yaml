@@ -533,6 +533,50 @@ tasks:
         # Confirm archiving
         echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
 
+  channel-create:
+    desc: Create a Replicated release channel
+    silent: false
+    vars:
+      CHANNEL_NAME: '{{.CHANNEL_NAME}}'
+    requires:
+      vars: [APP_SLUG, CHANNEL_NAME]
+    cmds:
+      - echo "Creating channel {{.CHANNEL_NAME}} for app {{.APP_SLUG}}..."
+      - |
+        # Check if channel already exists
+        EXISTING_CHANNEL=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CHANNEL_NAME}}") | .name' | head -1)
+        
+        if [ -n "$EXISTING_CHANNEL" ]; then
+          echo "Channel {{.CHANNEL_NAME}} already exists for app {{.APP_SLUG}}"
+          exit 0
+        fi
+
+        # Create the channel
+        replicated channel create --app {{.APP_SLUG}} --name {{.CHANNEL_NAME}}
+        echo "Channel {{.CHANNEL_NAME}} created successfully"
+
+  channel-delete:
+    desc: Archive a Replicated release channel
+    silent: false
+    vars:
+      CHANNEL_NAME: '{{.CHANNEL_NAME}}'
+    requires:
+      vars: [APP_SLUG, CHANNEL_NAME]
+    cmds:
+      - echo "Archiving channel {{.CHANNEL_NAME}} for app {{.APP_SLUG}}..."
+      - |
+        # Get channel ID
+        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CHANNEL_NAME}}") | .id' | head -1)
+        
+        if [ -z "$CHANNEL_ID" ]; then
+          echo "Error: Channel {{.CHANNEL_NAME}} not found for app {{.APP_SLUG}}"
+          exit 1
+        fi
+
+        # Archive the channel
+        replicated channel archive --app {{.APP_SLUG}} $CHANNEL_ID
+        echo "Channel {{.CHANNEL_NAME}} (ID: $CHANNEL_ID) archived successfully"
+
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
     silent: false
