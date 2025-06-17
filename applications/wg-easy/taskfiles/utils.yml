@@ -248,7 +248,7 @@ tasks:
         echo "Looking up license ID for customer: {{.CUSTOMER_NAME}}"
         
         # Get customer license ID using Replicated CLI
-        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .license_id')
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .installationId')
         
         if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
           echo "ERROR: Could not find customer with name '{{.CUSTOMER_NAME}}'"
