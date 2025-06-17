@@ -208,9 +208,11 @@ jobs:
       - name: Create customer
         id: customer
         run: |
-          task customer-create CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-          # Extract customer email from the task - using default from customer-create task
-          CUSTOMER_EMAIL="test@example.com"
+          # Create customer and derive email from branch name
+          CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}"
+          task customer-create CUSTOMER_NAME="$CUSTOMER_NAME" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
+          # Derive customer email from customer name (branch name)
+          CUSTOMER_EMAIL="${CUSTOMER_NAME}@example.com"
           echo "customer-email=$CUSTOMER_EMAIL" >> $GITHUB_OUTPUT
           echo "Customer email: $CUSTOMER_EMAIL"
         timeout-minutes: 5
@@ -254,7 +256,7 @@ jobs:
 
       - name: Helm registry login
         run: |
-          helm registry login registry.replicated.com --username "${{ needs.create-customer-and-cluster.outputs.customer-email }}" --password "${{ needs.create-customer-and-cluster.outputs.license-id }}"
+          helm registry login registry.replicated.com --username "${{ needs.create-customer-and-cluster.outputs.license-id }}" --password "${{ needs.create-customer-and-cluster.outputs.license-id }}"
         timeout-minutes: 5
 
       - name: Helm install
