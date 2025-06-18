@@ -37,8 +37,8 @@ jobs:
         run: |
           # Branch name preserves original case for resource naming (clusters, customers)
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          # Channel name is normalized to lowercase for Replicated channels
-          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
+          # Channel name is normalized to lowercase with hyphens for Replicated channels
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
           echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
