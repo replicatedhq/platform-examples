@@ -188,7 +188,7 @@ jobs:
       run:
         working-directory: ${{ env.APP_DIR }}
     outputs:
-      license-id: ${{ steps.license.outputs.license-id }}
+      customer-license: ${{ steps.license.outputs.customer-license }}
       customer-email: ${{ steps.customer.outputs.customer-email }}
       skip-customer-registry: ${{ steps.prereqs.outputs.skip-customer-registry }}
 
@@ -231,7 +231,7 @@ jobs:
         id: license
         run: |
           LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
-          echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
           echo "::add-mask::$LICENSE_ID"
 
   helm-install-test:
@@ -256,7 +256,7 @@ jobs:
 
       - name: Helm registry login
         run: |
-          helm registry login registry.replicated.com --username "${{ needs.create-customer-and-cluster.outputs.license-id }}" --password "${{ needs.create-customer-and-cluster.outputs.license-id }}"
+          helm registry login registry.replicated.com --username "${{ needs.create-customer-and-cluster.outputs.customer-license }}" --password "${{ needs.create-customer-and-cluster.outputs.customer-license }}"
         timeout-minutes: 5
 
       - name: Helm install
@@ -264,7 +264,7 @@ jobs:
         timeout-minutes: 20
         env:
           CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.license-id }}
+          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.customer-license }}
           HELM_ENV: replicated
 
       - name: Upload debug logs
