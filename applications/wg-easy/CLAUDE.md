@@ -169,6 +169,12 @@ RELEASE_NOTES="Release notes"
 
 # Application configuration
 APP_SLUG=wg-easy-cre
+
+# Container registry options
+DEV_CONTAINER_REGISTRY=ghcr.io  # Default: GitHub Container Registry
+# For Google Artifact Registry:
+# DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+# DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
 ```
 
 ## Claude Code Configuration
@@ -209,6 +215,54 @@ Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` 
 5. Deploy application: `task helm-install`
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
+
+## Google Artifact Registry Setup
+
+The WG-Easy Image CI workflow publishes container images to both GitHub Container Registry (GHCR) and Google Artifact Registry (GAR) for maximum availability.
+
+### Required Secrets
+
+To enable Google Artifact Registry publishing, add these GitHub repository secrets:
+
+- `GCP_SA_KEY`: Service account JSON key with Artifact Registry Writer permissions
+
+### Google Cloud Setup
+
+1. Create Artifact Registry repository:
+```bash
+gcloud artifacts repositories create wg-easy \
+  --repository-format=docker \
+  --location=us-central1 \
+  --project=replicated-qa
+```
+
+2. Create service account with permissions:
+```bash
+gcloud iam service-accounts create github-actions-wg-easy \
+  --project=replicated-qa
+
+gcloud projects add-iam-policy-binding replicated-qa \
+  --member="serviceAccount:github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud iam service-accounts keys create sa-key.json \
+  --iam-account=github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com
+```
+
+3. Add the `sa-key.json` content as `GCP_SA_KEY` secret in GitHub repository settings.
+
+### Using Google Artifact Registry Images
+
+To use GAR images instead of GHCR:
+
+```bash
+# Set registry to GAR
+DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
+
+# Use GAR image
+task dev:start
+```
 
 ## Additional Resources
 
