@@ -41,9 +41,9 @@ jobs:
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
 
-  build-release:
+  build-release-and-helm-test:
     runs-on: ubuntu-22.04
-    needs: setup
+    needs: [setup, create-customer-and-cluster]
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -67,6 +67,7 @@ jobs:
           kubectl-version: ${{ env.KUBECTL_VERSION }}
           install-kubectl: 'true'
           install-preflight: 'true'
+          install-helmfile: 'true'
 
       - name: Update dependencies
         run: task dependencies-update
@@ -92,6 +93,43 @@ jobs:
           name: wg-easy-release-${{ github.run_number }}
           path: ${{ env.APP_DIR }}/release/
           retention-days: 7
+
+      - name: Create channel for branch
+        run: task channel-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
+        timeout-minutes: 5
+
+      - name: Create release
+        run: task release-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
+        timeout-minutes: 15
+
+      - name: Get customer license ID
+        id: license
+        run: |
+          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
+          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
+          echo "::add-mask::$LICENSE_ID"
+
+      - name: Helm registry login
+        run: |
+          helm registry login registry.replicated.com --username "${{ steps.license.outputs.customer-license }}" --password "${{ steps.license.outputs.customer-license }}"
+        timeout-minutes: 5
+
+      - name: Helm install
+        run: task helm-install
+        timeout-minutes: 20
+        env:
+          CHANNEL: ${{ needs.setup.outputs.channel-name }}
+          REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
+          HELM_ENV: replicated
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
 
   lint-and-validate:
     runs-on: ubuntu-22.04
@@ -151,44 +189,13 @@ jobs:
           REPLICATED_LICENSE_ID: "test-license"
           TF_EXPOSED_URL: "test.example.com"
 
-  replicated-release:
-    runs-on: ubuntu-22.04
-    needs: [setup, build-release]
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-        with:
-          helm-version: ${{ env.HELM_VERSION }}
-          kubectl-version: ${{ env.KUBECTL_VERSION }}
-          install-kubectl: 'true'
-
-      - name: Create channel for branch
-        run: task channel-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-        timeout-minutes: 5
-
-      - name: Prepare release
-        run: task release-prepare
-        timeout-minutes: 15
-
-      - name: Create release
-        run: task release-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-        timeout-minutes: 15
-
   create-customer-and-cluster:
     runs-on: ubuntu-22.04
-    needs: [setup, replicated-release]
+    needs: setup
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
     outputs:
-      customer-license: ${{ steps.license.outputs.customer-license }}
       customer-email: ${{ steps.customer.outputs.customer-email }}
       skip-customer-registry: ${{ steps.prereqs.outputs.skip-customer-registry }}
 
@@ -226,53 +233,4 @@ jobs:
           command: |
             cd ${{ env.APP_DIR }}
             task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.branch-name }}"
-
-      - name: Get customer license ID
-        id: license
-        run: |
-          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
-          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
-          echo "::add-mask::$LICENSE_ID"
-
-  helm-install-test:
-    runs-on: ubuntu-22.04
-    needs: [setup, create-customer-and-cluster]
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-        with:
-          helm-version: ${{ env.HELM_VERSION }}
-          install-helmfile: 'true'
-
-      - name: Update dependencies
-        run: task dependencies-update
-
-      - name: Helm registry login
-        run: |
-          helm registry login registry.replicated.com --username "${{ needs.create-customer-and-cluster.outputs.customer-license }}" --password "${{ needs.create-customer-and-cluster.outputs.customer-license }}"
-        timeout-minutes: 5
-
-      - name: Helm install
-        run: task helm-install
-        timeout-minutes: 20
-        env:
-          CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: ${{ needs.create-customer-and-cluster.outputs.customer-license }}
-          HELM_ENV: replicated
-
-      - name: Upload debug logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-logs-${{ github.run_number }}
-          path: |
-            /tmp/*.log
-            ~/.replicated/
 
