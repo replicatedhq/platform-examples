@@ -3,6 +3,7 @@ name: WG-Easy Image CI
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
     paths:
       - 'applications/wg-easy/**'
       - '.github/workflows/wg-easy-image.yml'
@@ -43,14 +44,23 @@ jobs:
       - name: Set branch variables
         id: vars
         run: |
-          # Get branch name and normalize to lowercase with hyphens
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-          NORMALIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-          IS_MAIN=${{ github.ref_name == 'main' || github.ref_name == 'refs/heads/main' }}
-          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "normalized-branch=$NORMALIZED_BRANCH" >> $GITHUB_OUTPUT
-          echo "is-main=$IS_MAIN" >> $GITHUB_OUTPUT
-          echo "Branch: $BRANCH_NAME, Normalized: $NORMALIZED_BRANCH, Is Main: $IS_MAIN"
+          # Check if this is a tag push
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+            echo "is-tag=true" >> $GITHUB_OUTPUT
+            echo "tag-name=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "Tag: $TAG_NAME"
+          else
+            # Get branch name and normalize to lowercase with hyphens
+            BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+            NORMALIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+            IS_MAIN=${{ github.ref_name == 'main' || github.ref_name == 'refs/heads/main' }}
+            echo "is-tag=false" >> $GITHUB_OUTPUT
+            echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "normalized-branch=$NORMALIZED_BRANCH" >> $GITHUB_OUTPUT
+            echo "is-main=$IS_MAIN" >> $GITHUB_OUTPUT
+            echo "Branch: $BRANCH_NAME, Normalized: $NORMALIZED_BRANCH, Is Main: $IS_MAIN"
+          fi
 
       - name: Extract metadata
         id: meta
@@ -58,13 +68,18 @@ jobs:
         with:
           images: ${{ env.DEV_CONTAINER_REGISTRY }}/${{ env.DEV_CONTAINER_IMAGE }}
           tags: |
+            # Git tag releases (semver tags)
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             # Main branch tags
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=sha-{{sha}},enable={{is_default_branch}}
             # Non-main branch tags - branch name as "latest" for that branch
-            type=raw,value=${{ steps.vars.outputs.normalized-branch }},enable=${{ steps.vars.outputs.is-main == 'false' }}
+            type=raw,value=${{ steps.vars.outputs.normalized-branch }},enable=${{ steps.vars.outputs.is-tag == 'false' && steps.vars.outputs.is-main == 'false' }}
             # SHA-suffixed tags for all branches (main and non-main)
-            type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-main == 'false' }}
+            type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-tag == 'false' && steps.vars.outputs.is-main == 'false' }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -72,7 +87,7 @@ jobs:
           context: applications/wg-easy
           file: applications/wg-easy/container/Containerfile
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' || startsWith(github.ref, 'refs/tags/') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

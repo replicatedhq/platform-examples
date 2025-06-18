@@ -35,8 +35,8 @@ vars:
   # Container workflow configuration
   DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
   DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
-  # Container tags: "latest" for main branch, "{branch-name}" for feature branches
-  # Override with DEV_CONTAINER_TAG=branch-name for feature branch containers
+  # Container tags: "latest" for main branch, "{branch-name}" for feature branches, semver for releases
+  # Override with DEV_CONTAINER_TAG=branch-name for feature branch containers or DEV_CONTAINER_TAG=v1.2.3 for releases
   DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
   DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
