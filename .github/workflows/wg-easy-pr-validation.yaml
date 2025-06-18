@@ -35,7 +35,9 @@ jobs:
       - name: Set branch and channel variables
         id: vars
         run: |
+          # Branch name preserves original case for resource naming (clusters, customers)
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Channel name is normalized to lowercase for Replicated channels
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]')
           echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
@@ -105,7 +107,7 @@ jobs:
       - name: Get customer license ID
         id: license
         run: |
-          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.create-customer-and-cluster.outputs.cluster-name }}" --silent | tail -1)
+          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
           echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
           echo "::add-mask::$LICENSE_ID"
 
@@ -121,7 +123,7 @@ jobs:
           CHANNEL: ${{ needs.setup.outputs.channel-name }}
           REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
           HELM_ENV: replicated
-          CLUSTER_NAME: ${{ needs.create-customer-and-cluster.outputs.cluster-name }}
+          CLUSTER_NAME: ${{ needs.setup.outputs.branch-name }}
 
       - name: Upload debug logs
         if: failure()
@@ -186,7 +188,7 @@ jobs:
           helmfile-workdirectory: ${{ env.APP_DIR }}
         env:
           REPLICATED_APP: "test-app"
-          CHANNEL: "unstable"
+          CHANNEL: ${{ needs.setup.outputs.channel-name }}
           REPLICATED_LICENSE_ID: "test-license"
           TF_EXPOSED_URL: "test.example.com"
 
