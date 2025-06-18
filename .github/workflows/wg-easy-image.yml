@@ -61,11 +61,9 @@ jobs:
             # Main branch tags (no prefix)
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=sha-{{sha}},enable={{is_default_branch}}
-            # Non-main branch tags (with branch prefix)
+            # Non-main branch tags (with branch prefix) - applies to both branch pushes and PRs
             type=raw,value=${{ steps.vars.outputs.normalized-branch }}-latest,enable=${{ steps.vars.outputs.is-main == 'false' }}
             type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-main == 'false' }}
-            # PR tags (include PR number and branch)
-            type=ref,event=pr,prefix=pr-${{ steps.vars.outputs.normalized-branch }}-
 
       - name: Build and push image
         uses: docker/build-push-action@v6
