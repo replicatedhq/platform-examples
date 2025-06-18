@@ -40,16 +40,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set branch variables
+        id: vars
+        run: |
+          # Get branch name and normalize to lowercase with hyphens
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          NORMALIZED_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          IS_MAIN=${{ github.ref_name == 'main' || github.ref_name == 'refs/heads/main' }}
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "normalized-branch=$NORMALIZED_BRANCH" >> $GITHUB_OUTPUT
+          echo "is-main=$IS_MAIN" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Normalized: $NORMALIZED_BRANCH, Is Main: $IS_MAIN"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.DEV_CONTAINER_REGISTRY }}/${{ env.DEV_CONTAINER_IMAGE }}
           tags: |
+            # Main branch tags (no prefix)
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,format=short
-            type=ref,event=branch
-            type=ref,event=pr
+            type=raw,value=sha-{{sha}},enable={{is_default_branch}}
+            # Non-main branch tags (with branch prefix)
+            type=raw,value=${{ steps.vars.outputs.normalized-branch }}-latest,enable=${{ steps.vars.outputs.is-main == 'false' }}
+            type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-main == 'false' }}
+            # PR tags (include PR number and branch)
+            type=ref,event=pr,prefix=pr-${{ steps.vars.outputs.normalized-branch }}-
 
       - name: Build and push image
         uses: docker/build-push-action@v6
