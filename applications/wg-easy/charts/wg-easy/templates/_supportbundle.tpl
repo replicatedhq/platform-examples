@@ -1,12 +1,16 @@
-{{- define "wg-easy.preflight" -}}
+{{- define "wg-easy.supportbundle" -}}
 apiVersion: troubleshoot.sh/v1beta2
-kind: Preflight
+kind: SupportBundle
 metadata:
-  name: wg-easy-preflights
+  name: wg-easy-supportbundle
 spec:
   collectors:
+    - logs:
+        namespace: {{ .Release.Namespace }}
+        selector:
+        - app.kubernetes.io/name=wg-easy
     - sysctl:
-        image: {{ .Values.preflight.image.repository }}
+        image: debian:buster-slim
   analyzers:
     - sysctl:
         checkName: IP forwarding enabled

@@ -49,17 +49,17 @@ vars:
   CMX_VM_USER: '{{.CMX_VS_USER}}'
   CMX_VM_PUBLIC_KEY: '{{.CMX_VM_PUBLIC_KEY}}'
 
+silent: true
+
 tasks:
   default:
     desc: Show available tasks
-    silent: true
     cmds:
       - task --list
 
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     run: once
-    silent: false
     vars:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
@@ -98,7 +98,6 @@ tasks:
 
   test:
     desc: Run a basic test suite
-    silent: false
     cmds:
       - echo "Running basic tests..."
       - echo "This is a placeholder for actual tests"
@@ -107,7 +106,6 @@ tasks:
 
   verify-kubeconfig:
     desc: Verify kubeconfig
-    silent: false
     run: once
     cmds:
       - |
@@ -125,7 +123,6 @@ tasks:
 
   setup-kubeconfig:
     desc: Get kubeconfig and prepare cluster for application deployment
-    silent: false
     run: once
     cmds:
       - task: utils:get-kubeconfig
@@ -147,7 +144,6 @@ tasks:
 
   dependencies-update:
     desc: Update Helm dependencies for all charts
-    silent: false
     run: once
     cmds:
       - echo "Updating Helm dependencies for all charts..."
@@ -161,7 +157,6 @@ tasks:
 
   cluster-ports-expose:
     desc: Expose configured ports for a cluster and capture exposed URLs
-    silent: false
     run: once
     status:
       - |
@@ -190,7 +185,6 @@ tasks:
 
   helm-preflight:
     desc: Run preflight checks on Helm charts using preflight CLI (use DRY_RUN=true for dry-run)
-    silent: false
     vars:
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
     cmds:
@@ -209,7 +203,6 @@ tasks:
 
   helm-install:
     desc: Install all charts using helmfile
-    silent: true
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
     cmds:
@@ -235,7 +228,6 @@ tasks:
 
   helm-uninstall:
     desc: Uninstall all charts using helm uninstall
-    silent: false
     cmds:
       - echo "Uninstalling all charts via helm"
       - |
@@ -257,7 +249,6 @@ tasks:
 
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
-    silent: false
     cmds:
       - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
       - |
@@ -281,7 +272,6 @@ tasks:
 
   release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
-    silent: false
     cmds:
       - echo "Preparing release files..."
       - rm -rf ./release
@@ -346,7 +336,6 @@ tasks:
 
   release-create:
     desc: Create and promote a release using the Replicated CLI
-    silent: false
     run: once
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
@@ -366,7 +355,6 @@ tasks:
 
   customer-create:
     desc: Create a new customer or get existing customer with matching name and return their ID
-    silent: false
     run: once
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
@@ -413,7 +401,6 @@ tasks:
 
   gcp-vm-create:
     desc: Create a simple GCP VM instance
-    silent: false
     vars:
       GCP_MACHINE_TYPE: '{{.GCP_MACHINE_TYPE | default "e2-standard-2"}}'
       GCP_DISK_SIZE: '{{.GCP_DISK_SIZE | default "100"}}'
@@ -434,7 +421,6 @@ tasks:
 
   gcp-vm-delete:
     desc: Delete the GCP VM instance for K8s and VPN
-    silent: false
     status:
       - "! gcloud compute instances describe {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}} &>/dev/null"
     cmds:
@@ -447,7 +433,6 @@ tasks:
 
   embedded-cluster-setup:
     desc: Setup Replicated embedded cluster on the GCP VM
-    silent: false
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       AUTH_TOKEN: '{{.AUTH_TOKEN | default "2usDXzovcJNcpn54yS5tFQVNvCq"}}'
@@ -470,7 +455,6 @@ tasks:
 
   customer-ls:
     desc: List customers for the application
-    silent: false
     vars:
       OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "table"}}'
     requires:
@@ -481,7 +465,6 @@ tasks:
 
   customer-delete:
     desc: Archive a customer by ID
-    silent: false
     vars:
       CUSTOMER_ID: '{{.CUSTOMER_ID}}'
     requires:
@@ -507,7 +490,6 @@ tasks:
 
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
-    silent: false
     cmds:
       - echo "Cleaning temporary directories and dependencies..."
       - |
@@ -535,7 +517,6 @@ tasks:
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts
-    silent: false
     cmds:
       - task: cluster-create
       - task: setup-kubeconfig
@@ -549,7 +530,6 @@ tasks:
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
     run: once
-    silent: true
     status:
       - |
         # Check if VM is running
@@ -575,20 +555,19 @@ tasks:
 
   cmx-vm-delete:
     desc: Delete a CMX VM instance
-    silent: true
     cmds:
       - |
         echo "Deleting CMX VM {{.CMX_VM_NAME}}..."
         replicated vm rm {{.CMX_VM_NAME}}
-
+      
   cmx-vm-install:
     desc: Download and install the app as Embedded Cluster on CMX VM
-    silent: true
     requires:
       vars: [REPLICATED_LICENSE_ID]
     vars:
       CHANNEL: '{{.CHANNEL | default "Unstable"}}'
       SKIP_INSTALL: '{{.SKIP_INSTALL | default "false"}}'
+      AIRGAP: '{{.AIRGAP | default "false"}}'
       ADMIN_CONSOLE_PASSWORD:
         sh: uuidgen | cut -c1-13
     deps:
@@ -610,6 +589,12 @@ tasks:
           exit 1
         fi
 
+        # Run airgap-build task if airgap mode is enabled
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          echo "Airgap mode enabled, ensuring airgap build is ready..."
+          task airgap-build
+        fi
+
         echo "SSH into the VM and download the app binary..."
         SSH_BASE_CMD="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
         if [ -n "{{.CMX_VM_PUBLIC_KEY}}" ]; then
@@ -617,27 +602,112 @@ tasks:
         fi
         VM_SSH_CMD=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | \"$SSH_BASE_CMD -p \(.direct_ssh_port) {{.CMX_VM_USER}}@\(.direct_ssh_endpoint)\"")
 
+        # Determine download URL based on airgap setting
+        DOWNLOAD_URL="https://replicated.app/embedded/{{.APP_SLUG}}/{{.CHANNEL}}"
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          DOWNLOAD_URL="${DOWNLOAD_URL}?airgap=true"
+        fi
+
         echo "SSH base command: $SSH_BASE_CMD"
-        $VM_SSH_CMD << 'EOF'
+        $VM_SSH_CMD << EOF
         set -e
-        echo 'Downloading {{.APP_NAME}} installer...'
-        curl -f 'https://replicated.app/embedded/{{.APP_NAME}}/{{.CHANNEL}}' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_NAME}}-{{.CHANNEL}}.tgz
+        echo 'Downloading {{.APP_SLUG}} installer...'
+        curl -f '$DOWNLOAD_URL' -H 'Authorization: {{.REPLICATED_LICENSE_ID}}' -o {{.APP_SLUG}}-{{.CHANNEL}}.tgz
 
         echo 'Extracting installer...'
-        tar -xvzf {{.APP_NAME}}-{{.CHANNEL}}.tgz
-
-        if [ "{{.SKIP_INSTALL}}" = "false" ]; then
-          echo "Installing {{.APP_NAME}}..."
-          sudo ./{{.APP_NAME}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes
-        else
-          echo "Skipping installation as requested. Binary is available at ./{{.APP_NAME}}"
-        fi
+        tar -xvzf {{.APP_SLUG}}-{{.CHANNEL}}.tgz
+        
+        echo "Binary is available at ./{{.APP_SLUG}}"
         EOF
 
+        if [ "{{.AIRGAP}}" = "true" ]; then
+          echo "Updating network policy for airgap installation..."
+          NETWORK_ID=$(replicated vm ls --output=json | jq -r ".[] | select(.name == \"{{.CMX_VM_NAME}}\") | .network_id")
+          replicated network update policy $NETWORK_ID --policy airgap
+        fi
+
         if [ "{{.SKIP_INSTALL}}" = "false" ]; then
+          INSTALL_CMD="sudo ./{{.APP_SLUG}} install --license license.yaml --admin-console-password {{.ADMIN_CONSOLE_PASSWORD}} --yes"
+          if [ "{{.AIRGAP}}" = "true" ]; then
+            INSTALL_CMD="${INSTALL_CMD} --airgap-bundle {{.APP_SLUG}}.airgap"
+          fi
+
+          echo "Running installation command: $INSTALL_CMD"
+        $VM_SSH_CMD << EOF
+        $INSTALL_CMD
+        EOF
+
           echo "Exposing port 30000 on the VM..."
           replicated vm port expose --port 30000 {{.CMX_VM_NAME}}
 
           echo "Visit above URL to access the Admin Console, password: {{.ADMIN_CONSOLE_PASSWORD}}"
         fi
 
+  airgap-build:
+    desc: Check and build airgap bundle for the latest release 
+    silent: true
+    cmds:
+      - |
+        echo "Checking if airgap build is available for latest release in channel {{.RELEASE_CHANNEL}}..."
+        
+        # Get release list and extract app ID and channel ID
+        RELEASE_DATA=$(replicated release ls -o json)
+        APP_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].appId')
+        CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.RELEASE_CHANNEL}}") | .id')
+        
+        if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+          echo "Error: Could not retrieve app ID from latest releases"
+          exit 1
+        fi
+        
+        if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
+          echo "Error: Could not find channel ID for channel {{.RELEASE_CHANNEL}}"
+          exit 1
+        fi
+        
+        echo "Found app ID: $APP_ID, channel ID: $CHANNEL_ID"
+        
+        # Get channel releases and check airgap build status
+        CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
+        AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
+        AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
+        AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+        AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].channelSequence')
+        
+        echo "Airgap build status: $AIRGAP_BUILD_STATUS"
+
+        if [ "$AIRGAP_BUILD_STATUS" = "built" ]; then
+          echo "Airgap is already buit for sequence $AIRGAP_LATEST_SEQUENCE"
+          echo "Airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+          exit 0
+        fi
+
+        if [ "$AIRGAP_BUILD_STATUS" = "metadata" ]; then
+          echo "Airgap has not been built yet. Triggering build..."
+          replicated api post "v3/app/$APP_ID/channel/$CHANNEL_ID/release/$AIRGAP_LATEST_SEQUENCE/airgap/build"
+        fi
+
+        echo "Airgap build triggered. Polling every 10 seconds for up to 5 minutes..."
+        for i in $(seq 1 30); do
+          echo "Checking airgap build status... (attempt $i/30)"
+
+          CHANNEL_RELEASES=$(replicated api get "v3/app/$APP_ID/channel/$CHANNEL_ID/releases")
+          AIRGAP_BUILD_STATUS=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildStatus // "none"')
+          AIRGAP_BUILD_ERROR=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBuildError // "none"')
+          AIRGAP_BUNDLE_IMAGES=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].airgapBundleImages // "none"')
+          AIRGAP_LATEST_SEQUENCE=$(echo "$CHANNEL_RELEASES" | jq -r '.releases[0].channelSequence')
+
+          echo "Airgap build current status: $AIRGAP_BUILD_STATUS"
+
+          if [ "$AIRGAP_BUILD_STATUS" = "built" ]; then
+            echo "Airgap build completed successfully!"
+            echo "Airgap bundle images: $AIRGAP_BUNDLE_IMAGES"
+            exit 0
+          fi
+          sleep 10
+        done
+
+        echo "Timeout: Airgap build did not complete within 5 minutes."
+        echo "Last build status: $AIRGAP_BUILD_STATUS"
+        echo "Last build error: $AIRGAP_BUILD_ERROR"
+        exit 1
