@@ -43,9 +43,9 @@ jobs:
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
 
-  build-release-and-helm-test:
+  build-and-release:
     runs-on: ubuntu-22.04
-    needs: [setup, create-customer-and-cluster]
+    needs: setup
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -103,36 +103,6 @@ jobs:
       - name: Create release
         run: task release-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
         timeout-minutes: 15
-
-      - name: Get customer license ID
-        id: license
-        run: |
-          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" --silent | tail -1)
-          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
-          echo "::add-mask::$LICENSE_ID"
-
-      - name: Helm registry login
-        run: |
-          helm registry login registry.replicated.com --username "${{ steps.license.outputs.customer-license }}" --password "${{ steps.license.outputs.customer-license }}"
-        timeout-minutes: 5
-
-      - name: Helm install
-        run: task helm-install
-        timeout-minutes: 20
-        env:
-          CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
-          HELM_ENV: replicated
-          CLUSTER_NAME: ${{ needs.setup.outputs.channel-name }}
-
-      - name: Upload debug logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-logs-${{ github.run_number }}
-          path: |
-            /tmp/*.log
-            ~/.replicated/
 
   lint-and-validate:
     runs-on: ubuntu-22.04
@@ -194,7 +164,7 @@ jobs:
 
   create-customer-and-cluster:
     runs-on: ubuntu-22.04
-    needs: setup
+    needs: [setup, build-and-release]
     defaults:
       run:
         working-directory: ${{ env.APP_DIR }}
@@ -237,4 +207,54 @@ jobs:
           command: |
             cd ${{ env.APP_DIR }}
             task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: [setup, create-customer-and-cluster]
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          helm-version: ${{ env.HELM_VERSION }}
+          install-helmfile: 'true'
+
+      - name: Update dependencies
+        run: task dependencies-update
+
+      - name: Get customer license ID
+        id: license
+        run: |
+          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" --silent | tail -1)
+          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
+          echo "::add-mask::$LICENSE_ID"
+
+      - name: Helm registry login
+        run: |
+          helm registry login registry.replicated.com --username "${{ steps.license.outputs.customer-license }}" --password "${{ steps.license.outputs.customer-license }}"
+        timeout-minutes: 5
+
+      - name: Helm install
+        run: task helm-install
+        timeout-minutes: 20
+        env:
+          CHANNEL: ${{ needs.setup.outputs.channel-name }}
+          REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
+          HELM_ENV: replicated
+          CLUSTER_NAME: ${{ needs.setup.outputs.channel-name }}
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
 
