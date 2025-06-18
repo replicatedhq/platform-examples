@@ -107,7 +107,7 @@ jobs:
       - name: Get customer license ID
         id: license
         run: |
-          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}" --silent | tail -1)
+          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" --silent | tail -1)
           echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
           echo "::add-mask::$LICENSE_ID"
 
@@ -123,7 +123,7 @@ jobs:
           CHANNEL: ${{ needs.setup.outputs.channel-name }}
           REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
           HELM_ENV: replicated
-          CLUSTER_NAME: ${{ needs.setup.outputs.branch-name }}
+          CLUSTER_NAME: ${{ needs.setup.outputs.channel-name }}
 
       - name: Upload debug logs
         if: failure()
@@ -201,7 +201,7 @@ jobs:
     outputs:
       customer-email: ${{ steps.customer.outputs.customer-email }}
       skip-customer-registry: ${{ steps.prereqs.outputs.skip-customer-registry }}
-      cluster-name: ${{ needs.setup.outputs.branch-name }}
+      cluster-name: ${{ needs.setup.outputs.channel-name }}
 
     steps:
       - name: Checkout code
@@ -220,7 +220,7 @@ jobs:
         id: customer
         run: |
           # Create customer and derive email from branch name
-          CUSTOMER_NAME="${{ needs.setup.outputs.branch-name }}"
+          CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}"
           task customer-create CUSTOMER_NAME="$CUSTOMER_NAME" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
           # Derive customer email from customer name (branch name)
           CUSTOMER_EMAIL="${CUSTOMER_NAME}@example.com"
@@ -236,5 +236,5 @@ jobs:
           max_attempts: 3
           command: |
             cd ${{ env.APP_DIR }}
-            task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.branch-name }}"
+            task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
 
