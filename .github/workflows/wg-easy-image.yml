@@ -58,11 +58,12 @@ jobs:
         with:
           images: ${{ env.DEV_CONTAINER_REGISTRY }}/${{ env.DEV_CONTAINER_IMAGE }}
           tags: |
-            # Main branch tags (no prefix)
+            # Main branch tags
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=sha-{{sha}},enable={{is_default_branch}}
-            # Non-main branch tags (with branch prefix) - applies to both branch pushes and PRs
-            type=raw,value=${{ steps.vars.outputs.normalized-branch }}-latest,enable=${{ steps.vars.outputs.is-main == 'false' }}
+            # Non-main branch tags - branch name as "latest" for that branch
+            type=raw,value=${{ steps.vars.outputs.normalized-branch }},enable=${{ steps.vars.outputs.is-main == 'false' }}
+            # SHA-suffixed tags for all branches (main and non-main)
             type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-main == 'false' }}
 
       - name: Build and push image
