@@ -68,6 +68,7 @@ Use tools to automate repetitive tasks, reducing human error and increasing deve
 ## Architecture Overview
 
 Key components:
+
 - **Taskfile**: Orchestrates the workflow with automated tasks
 - **Helmfile**: Manages chart dependencies and installation order
 - **Wrapped Charts**: Encapsulate upstream charts for consistency
@@ -216,19 +217,24 @@ Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` 
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
 
-## Google Artifact Registry Setup
+## Container Registry Setup
 
-The WG-Easy Image CI workflow publishes container images to both GitHub Container Registry (GHCR) and Google Artifact Registry (GAR) for maximum availability.
+The WG-Easy Image CI workflow publishes container images to three registries for maximum availability:
+- **GitHub Container Registry (GHCR)**: `ghcr.io/replicatedhq/platform-examples/wg-easy-tools`
+- **Google Artifact Registry (GAR)**: `us-central1-docker.pkg.dev/replicated-qa/wg-easy/wg-easy-tools`
+- **Replicated Registry**: `registry.replicated.com/wg-easy-cre/image`
 
 ### Required Secrets
 
-To enable Google Artifact Registry publishing, add these GitHub repository secrets:
+To enable multi-registry publishing, add these GitHub repository secrets:
 
 - `GCP_SA_KEY`: Service account JSON key with Artifact Registry Writer permissions
+- `WG_EASY_REPLICATED_API_TOKEN`: Replicated vendor portal API token
 
 ### Google Cloud Setup
 
 1. Create Artifact Registry repository:
+
 ```bash
 gcloud artifacts repositories create wg-easy \
   --repository-format=docker \
@@ -237,6 +243,7 @@ gcloud artifacts repositories create wg-easy \
 ```
 
 2. Create service account with permissions:
+
 ```bash
 gcloud iam service-accounts create github-actions-wg-easy \
   --project=replicated-qa
@@ -250,6 +257,12 @@ gcloud iam service-accounts keys create sa-key.json \
 ```
 
 3. Add the `sa-key.json` content as `GCP_SA_KEY` secret in GitHub repository settings.
+
+### Replicated Registry Setup
+
+1. Get your Replicated API Token from the vendor portal
+2. Add `WG_EASY_REPLICATED_API_TOKEN` as a GitHub repository secret
+3. The workflow automatically uses the `replicated` CLI to authenticate with `registry.replicated.com`
 
 ### Using Google Artifact Registry Images
 
