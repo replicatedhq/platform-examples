@@ -68,6 +68,7 @@ Use tools to automate repetitive tasks, reducing human error and increasing deve
 ## Architecture Overview
 
 Key components:
+
 - **Taskfile**: Orchestrates the workflow with automated tasks
 - **Helmfile**: Manages chart dependencies and installation order
 - **Wrapped Charts**: Encapsulate upstream charts for consistency
@@ -169,6 +170,12 @@ RELEASE_NOTES="Release notes"
 
 # Application configuration
 APP_SLUG=wg-easy-cre
+
+# Container registry options
+DEV_CONTAINER_REGISTRY=ghcr.io  # Default: GitHub Container Registry
+# For Google Artifact Registry:
+# DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+# DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
 ```
 
 ## Claude Code Configuration
@@ -209,6 +216,66 @@ Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` 
 5. Deploy application: `task helm-install`
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
+
+## Container Registry Setup
+
+The WG-Easy Image CI workflow publishes container images to three registries for maximum availability:
+- **GitHub Container Registry (GHCR)**: `ghcr.io/replicatedhq/platform-examples/wg-easy-tools`
+- **Google Artifact Registry (GAR)**: `us-central1-docker.pkg.dev/replicated-qa/wg-easy/wg-easy-tools`
+- **Replicated Registry**: `registry.replicated.com/wg-easy-cre/image`
+
+### Required Secrets
+
+To enable multi-registry publishing, add these GitHub repository secrets:
+
+- `GCP_SA_KEY`: Service account JSON key with Artifact Registry Writer permissions
+- `WG_EASY_REPLICATED_API_TOKEN`: Replicated vendor portal API token
+
+### Google Cloud Setup
+
+1. Create Artifact Registry repository:
+
+```bash
+gcloud artifacts repositories create wg-easy \
+  --repository-format=docker \
+  --location=us-central1 \
+  --project=replicated-qa
+```
+
+2. Create service account with permissions:
+
+```bash
+gcloud iam service-accounts create github-actions-wg-easy \
+  --project=replicated-qa
+
+gcloud projects add-iam-policy-binding replicated-qa \
+  --member="serviceAccount:github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud iam service-accounts keys create sa-key.json \
+  --iam-account=github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com
+```
+
+3. Add the `sa-key.json` content as `GCP_SA_KEY` secret in GitHub repository settings.
+
+### Replicated Registry Setup
+
+1. Get your Replicated API Token from the vendor portal
+2. Add `WG_EASY_REPLICATED_API_TOKEN` as a GitHub repository secret
+3. The workflow automatically uses the `replicated` CLI to authenticate with `registry.replicated.com`
+
+### Using Google Artifact Registry Images
+
+To use GAR images instead of GHCR:
+
+```bash
+# Set registry to GAR
+DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
+
+# Use GAR image
+task dev:start
+```
 
 ## Additional Resources
 

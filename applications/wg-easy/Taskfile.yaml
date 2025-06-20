@@ -33,8 +33,14 @@ vars:
   VM_NAME: '{{.VM_NAME | default (printf "%s-dev" (or (env "GUSER") "user"))}}'
 
   # Container workflow configuration
+  # Available in GitHub Container Registry, Google Artifact Registry, and Replicated Registry
   DEV_CONTAINER_REGISTRY: '{{.DEV_CONTAINER_REGISTRY | default "ghcr.io"}}'
   DEV_CONTAINER_IMAGE: '{{.DEV_CONTAINER_IMAGE | default "replicatedhq/platform-examples/wg-easy-tools"}}'
+  # Alternative registries:
+  # - Google Artifact Registry: DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
+  # - Replicated Registry: DEV_CONTAINER_REGISTRY=registry.replicated.com DEV_CONTAINER_IMAGE=wg-easy-cre/image
+  # Container tags: "latest" for main branch, "{branch-name}" for feature branches, semver for releases
+  # Override with DEV_CONTAINER_TAG=branch-name for feature branch containers or DEV_CONTAINER_TAG=v1.2.3 for releases
   DEV_CONTAINER_TAG: '{{.DEV_CONTAINER_TAG | default "latest"}}'
   DEV_CONTAINER_NAME: '{{.DEV_CONTAINER_NAME | default "wg-easy-tools"}}'
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "podman"}}'
@@ -142,6 +148,32 @@ tasks:
       - cluster-create
       - verify-kubeconfig
 
+  helm-repo-add:
+    desc: Add all HTTP/HTTPS Helm repositories found in Chart.yaml files
+    silent: false
+    run: once
+    cmds:
+      - echo "Adding Helm repositories from Chart.yaml files..."
+      - |
+        # Find all Chart.yaml files and extract HTTP/HTTPS repositories
+        for chart_file in $(find charts/ -maxdepth 2 -name "Chart.yaml"); do
+          echo "Processing $chart_file"
+
+          # Extract repository URLs that start with http:// or https://
+          yq eval '.dependencies[]?.repository' "$chart_file" 2>/dev/null | grep -E '^https?://' | while read -r repo_url; do
+            if [ -n "$repo_url" ]; then
+              # Generate a repository name from the URL
+              repo_name=$(echo "$repo_url" | sed 's|https\?://||' | sed 's|[./]|-|g' | sed 's|-*$||')
+
+              echo "Adding repository: $repo_name -> $repo_url"
+              helm repo add "$repo_name" "$repo_url" || echo "Repository $repo_name may already exist"
+            fi
+          done
+        done
+      - echo "Updating Helm repository index..."
+      - helm repo update
+      - echo "All Helm repositories added and updated!"
+
   dependencies-update:
     desc: Update Helm dependencies for all charts
     run: once
@@ -154,6 +186,8 @@ tasks:
           helm dependency update --skip-refresh "$chart_dir"
         done
       - echo "All dependencies updated!"
+    deps:
+      - helm-repo-add
 
   cluster-ports-expose:
     desc: Expose configured ports for a cluster and capture exposed URLs
@@ -487,6 +521,50 @@ tasks:
 
         # Confirm archiving
         echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
+
+  channel-create:
+    desc: Create a Replicated release channel
+    silent: false
+    vars:
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
+    requires:
+      vars: [APP_SLUG, RELEASE_CHANNEL]
+    cmds:
+      - echo "Creating channel {{.RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
+      - |
+        # Check if channel already exists
+        EXISTING_CHANNEL=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.RELEASE_CHANNEL}}") | .name' | head -1)
+
+        if [ -n "$EXISTING_CHANNEL" ]; then
+          echo "Channel {{.RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}}"
+          exit 0
+        fi
+
+        # Create the channel
+        replicated channel create --app {{.APP_SLUG}} --name {{.RELEASE_CHANNEL}}
+        echo "Channel {{.RELEASE_CHANNEL}} created successfully"
+
+  channel-delete:
+    desc: Archive a Replicated release channel
+    silent: false
+    vars:
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
+    requires:
+      vars: [APP_SLUG, RELEASE_CHANNEL]
+    cmds:
+      - echo "Archiving channel {{.RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
+      - |
+        # Get channel ID
+        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.RELEASE_CHANNEL}}") | .id' | head -1)
+
+        if [ -z "$CHANNEL_ID" ]; then
+          echo "Error: Channel {{.RELEASE_CHANNEL}} not found for app {{.APP_SLUG}}"
+          exit 1
+        fi
+
+        # Archive the channel
+        replicated channel archive --app {{.APP_SLUG}} $CHANNEL_ID
+        echo "Channel {{.RELEASE_CHANNEL}} (ID: $CHANNEL_ID) archived successfully"
 
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
