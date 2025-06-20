@@ -25,7 +25,7 @@ env:
   # Replicated Registry
   REPLICATED_REGISTRY: registry.replicated.com
   REPLICATED_APP: wg-easy-cre
-  REPLICATED_IMAGE: image
+  REPLICATED_IMAGE: wg-easy-tools
 
 jobs:
   build:
