@@ -88,7 +88,7 @@ jobs:
             # SHA-suffixed tags for all branches (main and non-main)
             type=raw,value=${{ steps.vars.outputs.normalized-branch }}-sha-{{sha}},enable=${{ steps.vars.outputs.is-tag == 'false' && steps.vars.outputs.is-main == 'false' }}
 
-      - name: Build and export image
+      - name: Build multi-arch image
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -98,16 +98,8 @@ jobs:
           push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=oci,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image
-          path: /tmp/image.tar
-          retention-days: 1
 
   push-ghcr:
     runs-on: ubuntu-latest
@@ -116,17 +108,14 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: /tmp
-
-      - name: Load Docker image
-        run: docker load -i /tmp/image.tar
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -135,28 +124,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GHCR
+      - name: Extract GHCR tags
+        id: ghcr-tags
         run: |
-          echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.GHCR_REGISTRY }}" | while read tag; do
-            echo "Pushing $tag"
-            docker push "$tag"
-          done
+          GHCR_TAGS=$(echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.GHCR_REGISTRY }}" | tr '\n' ',')
+          echo "tags=${GHCR_TAGS%,}" >> $GITHUB_OUTPUT
+          echo "GHCR tags: ${GHCR_TAGS%,}"
+
+      - name: Build and push to GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: applications/wg-easy
+          file: applications/wg-easy/container/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.ghcr-tags.outputs.tags }}
+          labels: ${{ needs.build.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   push-gar:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: /tmp
-
-      - name: Load Docker image
-        run: docker load -i /tmp/image.tar
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -173,12 +171,23 @@ jobs:
           username: _json_key
           password: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Push to GAR
+      - name: Extract GAR tags
+        id: gar-tags
         run: |
-          echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.GAR_LOCATION }}-docker.pkg.dev" | while read tag; do
-            echo "Pushing $tag"
-            docker push "$tag"
-          done
+          GAR_TAGS=$(echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.GAR_LOCATION }}-docker.pkg.dev" | tr '\n' ',')
+          echo "tags=${GAR_TAGS%,}" >> $GITHUB_OUTPUT
+          echo "GAR tags: ${GAR_TAGS%,}"
+
+      - name: Build and push to GAR
+        uses: docker/build-push-action@v6
+        with:
+          context: applications/wg-easy
+          file: applications/wg-easy/container/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.gar-tags.outputs.tags }}
+          labels: ${{ needs.build.outputs.labels }}
+          cache-from: type=gha
 
   push-replicated:
     runs-on: ubuntu-latest
@@ -187,17 +196,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: docker-image
-          path: /tmp
-
-      - name: Load Docker image
-        run: docker load -i /tmp/image.tar
 
       - name: Setup tools
         uses: ./.github/actions/setup-tools
@@ -211,9 +214,20 @@ jobs:
         env:
           REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
 
-      - name: Push to Replicated Registry
+      - name: Extract Replicated tags
+        id: replicated-tags
         run: |
-          echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.REPLICATED_REGISTRY }}" | while read tag; do
-            echo "Pushing $tag"
-            docker push "$tag"
-          done
+          REPLICATED_TAGS=$(echo '${{ needs.build.outputs.metadata }}' | jq -r '.tags[]' | grep "^${{ env.REPLICATED_REGISTRY }}" | tr '\n' ',')
+          echo "tags=${REPLICATED_TAGS%,}" >> $GITHUB_OUTPUT
+          echo "Replicated tags: ${REPLICATED_TAGS%,}"
+
+      - name: Build and push to Replicated Registry
+        uses: docker/build-push-action@v6
+        with:
+          context: applications/wg-easy
+          file: applications/wg-easy/container/Containerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.replicated-tags.outputs.tags }}
+          labels: ${{ needs.build.outputs.labels }}
+          cache-from: type=gha
