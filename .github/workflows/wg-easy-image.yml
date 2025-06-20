@@ -98,7 +98,7 @@ jobs:
           push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=docker,dest=/tmp/image.tar
+          outputs: type=oci,dest=/tmp/image.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
