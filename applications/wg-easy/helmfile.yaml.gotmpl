@@ -36,7 +36,6 @@ environments:
           wgEasy:
             image:
               repository: proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy
-              tag: 14.0
           traefik:
             image:
               registry: proxy.replicated.com/proxy/wg-easy-cre/docker.io
@@ -53,6 +52,10 @@ environments:
               image:
                 registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
                 repository: jetstack/cert-manager-cainjector
+            startupapicheck:
+              image:
+                registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
+                repository: jetstack/cert-manager-startupapicheck
 ---
 {{- if eq .Environment.Name "replicated" }}
 repositories:
@@ -75,7 +78,22 @@ releases:
     skipDeps: true
 {{- if eq .Environment.Name "replicated" }}
     values:
-      - cert-manager: {{ .Values.proxyImages.certManager | toYaml | nindent 10 }}
+      - cert-manager:
+          image:
+            registry: {{ .Values.proxyImages.certManager.image.registry }}
+            repository: {{ .Values.proxyImages.certManager.image.repository }}
+          webhook:
+            image:
+              registry: {{ .Values.proxyImages.certManager.webhook.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.webhook.image.repository }}
+          cainjector:
+            image:
+              registry: {{ .Values.proxyImages.certManager.cainjector.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.cainjector.image.repository }}
+          startupapicheck:
+            image:
+              registry: {{ .Values.proxyImages.certManager.startupapicheck.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.startupapicheck.image.repository }}
 {{- end }}
 
   # Install issuers separately after cert-manager is ready
@@ -89,6 +107,13 @@ releases:
     skipDeps: true
     needs:
       - cert-manager/cert-manager
+{{- if eq .Environment.Name "replicated" }}
+    values:
+      - cert-manager:
+          image:
+            registry: {{ .Values.proxyImages.certManager.image.registry }}
+            repository: {{ .Values.proxyImages.certManager.image.repository }}
+{{- end }}
 
   - name: traefik
     namespace: traefik
@@ -108,7 +133,9 @@ releases:
             websecure:
               nodePort: 30443
 {{- if eq .Environment.Name "replicated" }}
-          {{- toYaml .Values.proxyImages.traefik | nindent 10 }}
+          image:
+            registry: {{ .Values.proxyImages.traefik.image.registry }}
+            repository: {{ .Values.proxyImages.traefik.image.repository }}
 {{- end }}
 
   # Install replicated-sdk (only in replicated environment)
@@ -123,6 +150,7 @@ releases:
     needs:
       - traefik/traefik
 
+  # Install wg-easy
   - name: wg-easy
     namespace: wg-easy
     chart: {{ .Values.chartSources.wgEasy }}
@@ -141,7 +169,9 @@ releases:
           controllers:
             wg-easy:
               containers:
-                wg-container: {{ .Values.proxyImages.wgEasy | toYaml | nindent 20 }}
+                wg-container:
+                  image:
+                    repository: {{ .Values.proxyImages.wgEasy.image.repository }}
 {{- end }}
       - templates:
           traefikRoutes:
