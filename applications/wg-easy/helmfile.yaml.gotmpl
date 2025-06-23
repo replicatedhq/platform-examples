@@ -94,6 +94,9 @@ releases:
             image:
               registry: {{ .Values.proxyImages.certManager.startupapicheck.image.registry }}
               repository: {{ .Values.proxyImages.certManager.startupapicheck.image.repository }}
+          global:
+            imagePullSecrets:
+              - name: replicated-pull-secret
 {{- end }}
 
   # Install issuers separately after cert-manager is ready
@@ -113,6 +116,9 @@ releases:
           image:
             registry: {{ .Values.proxyImages.certManager.image.registry }}
             repository: {{ .Values.proxyImages.certManager.image.repository }}
+          global:
+            imagePullSecrets:
+              - name: replicated-pull-secret
 {{- end }}
 
   - name: traefik
@@ -136,6 +142,8 @@ releases:
           image:
             registry: {{ .Values.proxyImages.traefik.image.registry }}
             repository: {{ .Values.proxyImages.traefik.image.repository }}
+          imagePullSecrets:
+            - name: replicated-pull-secret
 {{- end }}
 
   # Install replicated-sdk (only in replicated environment)
@@ -172,6 +180,8 @@ releases:
                 wg-container:
                   image:
                     repository: {{ .Values.proxyImages.wgEasy.image.repository }}
+          imagePullSecrets:
+            - name: replicated-pull-secret
 {{- end }}
       - templates:
           traefikRoutes:
