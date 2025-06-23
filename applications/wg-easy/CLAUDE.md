@@ -277,6 +277,37 @@ DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
 task dev:start
 ```
 
+## Replicated Registry Proxy
+
+When deploying in the `replicated` environment, the helmfile automatically configures all container images to use the Replicated Registry proxy for improved performance and reliability.
+
+### Proxy Configuration
+
+The proxy automatically rewrites image URLs following this pattern:
+
+- **Original**: `ghcr.io/wg-easy/wg-easy:14.0`
+- **Proxy**: `proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy:14.0`
+
+### Supported Images
+
+The following images are automatically proxied in the `replicated` environment:
+
+- **WG-Easy**: `ghcr.io/wg-easy/wg-easy` → `proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy`
+- **Traefik**: `docker.io/traefik/traefik` → `proxy.replicated.com/proxy/wg-easy-cre/docker.io/traefik/traefik`
+- **Cert-Manager**: `quay.io/jetstack/cert-manager-*` → `proxy.replicated.com/proxy/wg-easy-cre/quay.io/jetstack/cert-manager-*`
+
+### Usage
+
+The proxy configuration is automatically applied when using the `replicated` environment:
+
+```bash
+# Deploy with proxy (replicated environment)
+helmfile -e replicated apply
+
+# Deploy without proxy (default environment)  
+helmfile apply
+```
+
 ## Additional Resources
 
 - [Chart Structure Guide](docs/chart-structure.md)
