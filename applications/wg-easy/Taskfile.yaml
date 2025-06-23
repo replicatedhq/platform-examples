@@ -261,7 +261,11 @@ tasks:
 
         # Deploy with helmfile
         echo "Using $ENV_VARS"
-        eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT={{.HELM_ENV}} REPLICATED_APP={{.APP_SLUG}} $ENV_VARS helmfile sync --wait"
+        if [ "{{.HELM_ENV}}" = "replicated" ]; then
+          eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT={{.HELM_ENV}} REPLICATED_APP={{.APP_SLUG}} REPLICATED_LICENSE_ID={{.REPLICATED_LICENSE_ID}} $ENV_VARS helmfile sync --wait"
+        else
+          eval "KUBECONFIG={{.KUBECONFIG_FILE}} HELMFILE_ENVIRONMENT={{.HELM_ENV}} REPLICATED_APP={{.APP_SLUG}} $ENV_VARS helmfile sync --wait"
+        fi
       - echo "All charts installed!"
     deps:
       - setup-kubeconfig
