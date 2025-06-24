@@ -78,6 +78,10 @@ releases:
     skipDeps: true
 {{- if eq .Environment.Name "replicated" }}
     values:
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
       - cert-manager:
           image:
             registry: {{ .Values.proxyImages.certManager.image.registry }}
@@ -142,8 +146,13 @@ releases:
           image:
             registry: {{ .Values.proxyImages.traefik.image.registry }}
             repository: {{ .Values.proxyImages.traefik.image.repository }}
-          imagePullSecrets:
-            - name: replicated-pull-secret
+          deployment:
+            imagePullSecrets:
+              - name: replicated-pull-secret
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
 {{- end }}
 
   # Install replicated-sdk (only in replicated environment)
@@ -157,6 +166,11 @@ releases:
     skipDeps: true
     needs:
       - traefik/traefik
+    values:
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
 
   # Install wg-easy
   - name: wg-easy
@@ -180,8 +194,13 @@ releases:
                 wg-container:
                   image:
                     repository: {{ .Values.proxyImages.wgEasy.image.repository }}
-          imagePullSecrets:
-            - name: replicated-pull-secret
+              pod:
+                imagePullSecrets:
+                  - name: replicated-pull-secret
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
 {{- end }}
       - templates:
           traefikRoutes:
