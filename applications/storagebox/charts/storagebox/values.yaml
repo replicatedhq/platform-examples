@@ -1,6 +1,7 @@
 replicated:
   enabled: true
 nfs-server:
+  # nfs-server helm values are defined in a library chart: https://raw.githubusercontent.com/k8s-at-home/library-charts/refs/heads/main/charts/stable/common/values.yaml
   enabled: true
   securityContext:
     privileged: true

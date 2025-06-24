@@ -5,7 +5,10 @@ metadata:
 spec:
   title: StorageBox
   allowRollback: false
+  additionalNamespaces:
+    - "*"
   statusInformers:
     - deployment/kotsadm
-    - statefulset/kotsadm-rqlite
-    - statefulset/storagebox-cassandra
+    - repl{{ if ConfigOptionEquals "enable_cassandra" "1" }}statefulset/storagebox-cassandra repl{{ else }}repl{{ end }}
+    - repl{{ if ConfigOptionEquals "enable_postgres" "1" }}clusters.postgresql.cnpg.io/postgres repl{{ else }}repl{{ end }}
+    - repl{{ if ConfigOptionEquals "enable_minio" "1" }}deployment/storagebox-minio repl{{ else }}repl{{ end }}
