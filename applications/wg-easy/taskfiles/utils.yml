@@ -81,6 +81,9 @@ tasks:
     internal: true
     silent: false
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     cmds:
       - |
         echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
@@ -93,6 +96,9 @@ tasks:
     internal: true
     silent: false
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     status:
       - |
         # Only check if we need to run this for k3s distributions

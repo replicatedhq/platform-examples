@@ -20,7 +20,6 @@ vars:
   DISK_SIZE: '{{.DISK_SIZE | default "100"}}'
   INSTANCE_TYPE: '{{.INSTANCE_TYPE | default "r1.small"}}'
   DISTRIBUTION: '{{.DISTRIBUTION | default "k3s"}}'
-  KUBECONFIG_FILE: './test-cluster.kubeconfig'
 
   # Ports configuration
   EXPOSE_PORTS:
@@ -115,6 +114,8 @@ tasks:
     desc: Verify kubeconfig
     silent: false
     run: once
+    vars:
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - |
         if [ -f {{.KUBECONFIG_FILE}} ]; then
@@ -133,9 +134,19 @@ tasks:
     desc: Get kubeconfig and prepare cluster for application deployment
     silent: false
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME | default .CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - task: utils:get-kubeconfig
+        vars:
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
       - task: utils:remove-k3s-traefik
+        vars:
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
+      - echo "{{.KUBECONFIG_FILE}}"
     status:
       - |
         # Check if kubeconfig exists
@@ -227,6 +238,7 @@ tasks:
     silent: false
     vars:
       DRY_RUN: '{{.DRY_RUN | default "false"}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - |
         PREFLIGHT_FLAGS=""
@@ -236,7 +248,7 @@ tasks:
 
         for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
           echo "Running preflight on $chart_dir"
-          helm template $chart_dir | kubectl preflight - $PREFLIGHT_FLAGS
+          KUBECONFIG={{.KUBECONFIG_FILE}} helm template $chart_dir | KUBECONFIG={{.KUBECONFIG_FILE}} kubectl preflight - $PREFLIGHT_FLAGS
         done
     deps:
       - setup-kubeconfig
@@ -246,6 +258,7 @@ tasks:
     silent: true
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -274,6 +287,8 @@ tasks:
   helm-uninstall:
     desc: Uninstall all charts using helm uninstall
     silent: false
+    vars:
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - echo "Uninstalling all charts via helm"
       - |
@@ -296,6 +311,8 @@ tasks:
   cluster-delete:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
+    vars:
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
     cmds:
       - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
       - |
