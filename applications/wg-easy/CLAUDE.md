@@ -188,6 +188,19 @@ When using Claude Code with this repository, use these timeout settings for long
 
 Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` parameter.
 
+### Early Timeout Detection
+
+During `helm install` or `helm-install` operations, you can skip waiting for the full timeout if pods end up in the `ImagePullBackOff` state. This indicates image pull failures that won't resolve by waiting longer. Use `kubectl get pods` to check pod status and terminate early if multiple pods show `ImagePullBackOff` or `ErrImagePull` states.
+
+### Local Testing Configuration
+
+When testing Helm installations locally (including with helmfile), avoid using the `--atomic` flag so that failed resources remain in the cluster for debugging:
+
+- Remove `atomic: true` from helmfile.yaml.gotmpl during debugging sessions
+- Use `helm install` without `--atomic` for manual testing
+- Failed pods and resources will persist, allowing inspection with `kubectl describe` and `kubectl logs`
+- Clean up manually with `helm uninstall` after debugging is complete
+
 ## Common Workflows
 
 ### Local Development
@@ -304,7 +317,7 @@ The proxy configuration is automatically applied when using the `replicated` env
 # Deploy with proxy (replicated environment)
 helmfile -e replicated apply
 
-# Deploy without proxy (default environment)  
+# Deploy without proxy (default environment)
 helmfile apply
 ```
 
