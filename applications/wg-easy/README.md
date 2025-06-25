@@ -68,6 +68,30 @@ applications/wg-easy/
 └── Taskfile.yaml               # Main task definitions
 ```
 
+## Quick Start
+
+The pattern provides a complete workflow from development to deployment. Here are the essential commands:
+
+```bash
+# List all available tasks
+task --list
+
+# Create a test environment and deploy (verbose mode for detailed output)
+task -v full-test-cycle
+
+# Individual development tasks
+task cluster-create           # Create test cluster
+task -v helm-install         # Deploy charts with detailed output
+task test                    # Run validation tests
+task cluster-delete          # Clean up resources
+
+# Release preparation
+task release-prepare         # Package charts and merge configs
+task release-create          # Create and promote release
+```
+
+**Tip**: Use `task -v <taskname>` for detailed execution output during development and debugging.
+
 ## Architecture Overview
 
 Key components:

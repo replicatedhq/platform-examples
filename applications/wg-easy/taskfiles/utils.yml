@@ -79,7 +79,6 @@ tasks:
   get-kubeconfig:
     desc: Get kubeconfig for the test cluster (internal)
     internal: true
-    silent: false
     run: once
     vars:
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
@@ -94,7 +93,6 @@ tasks:
   remove-k3s-traefik:
     desc: Remove pre-installed Traefik from k3s clusters (internal)
     internal: true
-    silent: false
     run: once
     vars:
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
@@ -139,7 +137,6 @@ tasks:
   wait-for-cluster:
     desc: Wait for cluster to be in running state
     internal: true
-    silent: true
     vars:
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       TIMEOUT: '{{.TIMEOUT | default "300"}}'
@@ -171,7 +168,6 @@ tasks:
 
   port-operations:
     desc: Expose and check status of ports
-    silent: true
     vars:
       OPERATION: '{{.OPERATION | default "expose"}}'
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
@@ -206,7 +202,6 @@ tasks:
         
   vendor-api-auth:
     desc: Verify authorization against Replicated Vendor API
-    silent: false
     vars:
       API_TOKEN: '{{.REPLICATED_API_TOKEN | default (env "REPLICATED_API_TOKEN")}}'
     cmds:
@@ -269,7 +264,6 @@ tasks:
   gcp-operations:
     desc: GCP VM operations
     internal: true
-    silent: true
     vars:
       OPERATION: '{{.OPERATION}}'
       GCP_PROJECT: '{{.GCP_PROJECT}}'

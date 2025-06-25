@@ -26,6 +26,20 @@ Before starting the development workflow, ensure you have the following tools in
 
 All other tools will be automatically provided through task commands and containers.
 
+### Debugging with Verbose Mode
+
+All tasks run in silent mode by default. When debugging issues or understanding what's happening during development, use the verbose flag:
+
+```bash
+# Show detailed execution for debugging
+task -v cluster-create
+task -v helm-install
+
+# Standard silent output for production use
+task cluster-create
+task helm-install
+```
+
 ## Workflow Stages
 
 ### Stage 1: Chart Dependencies and Verification
@@ -135,12 +149,28 @@ Deploy individual charts to a test cluster to verify functionality.
    task setup-kubeconfig
    ```
 
+   **Debugging cluster issues:**
+   ```bash
+   # Use verbose mode to see detailed cluster creation process
+   task -v cluster-create
+   task -v setup-kubeconfig
+   
+   # Check cluster status manually
+   task cluster-list
+   ```
+
 2. Run preflight checks on your chart:
 
    ```bash
    task helm-preflight
    # Or for a single chart with dry-run:
    helm template ./charts/wg-easy | kubectl preflight - --dry-run
+   ```
+
+   **Debugging preflight issues:**
+   ```bash
+   # See detailed preflight execution
+   task -v helm-preflight
    ```
 
 3. Install a single chart:
