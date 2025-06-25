@@ -1,4 +1,4 @@
-#traefikRoutes:
+# traefikRoutes:
 #  host.example.com:
 #    serviceName: my-serviceName
 #    servicePort: my-servicePort
@@ -25,6 +25,6 @@
 #     servicePort:
 #     entryPoints:
 #       - <from traefik config>
-#replicated:
-#  imagePullSecret:
-#    enabled: true
+replicated:
+  imagePullSecret:
+    enabled: false
