@@ -645,6 +645,55 @@ tasks:
       - task: test
       - task: cluster-delete
 
+  customer-helm-install:
+    desc: Create cluster, customer, and deploy using replicated environment with customer license (no cleanup for CD)
+    silent: false
+    cmds:
+      - echo "Starting customer helm install workflow..."
+      - echo "Using cluster name{{":"}} {{.CLUSTER_NAME}}"
+      - echo "Using customer name{{":"}} {{.CUSTOMER_NAME}}"
+      
+      # Setup cluster infrastructure
+      - task: cluster-create
+      - task: setup-kubeconfig
+      - task: cluster-ports-expose
+      - task: dependencies-update
+      
+      # Create and promote a release to customer's channel
+      - echo "Preparing release for customer channel..."
+      - task: release-prepare
+      
+      # Setup customer and get license
+      - echo "Creating/finding customer {{.CUSTOMER_NAME}}..."
+      - task: customer-create
+      - echo "Getting license ID and channel for customer {{.CUSTOMER_NAME}}..."
+      - |
+        LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME={{.CUSTOMER_NAME}})
+        echo "License ID: $LICENSE_ID"
+        
+        # Get customer's channel info
+        CUSTOMER_CHANNEL_NAME=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .channels[0].name')
+        CUSTOMER_CHANNEL_SLUG=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .channels[0].channelSlug')
+        echo "Customer channel name: $CUSTOMER_CHANNEL_NAME"
+        echo "Customer channel slug: $CUSTOMER_CHANNEL_SLUG"
+        
+        # Create and promote release to customer's channel (use channel name for promotion)
+        echo "Creating release and promoting to channel: $CUSTOMER_CHANNEL_NAME"
+        RELEASE_VERSION=$(date +"%Y%m%d-%H%M%S")
+        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "PR validation release $RELEASE_VERSION" --promote "$CUSTOMER_CHANNEL_NAME" --version "$RELEASE_VERSION"
+        
+        export REPLICATED_LICENSE_ID="$LICENSE_ID"
+        export CHANNEL="$CUSTOMER_CHANNEL_SLUG"
+        echo "Deploying using replicated environment with channel slug $CUSTOMER_CHANNEL_SLUG..."
+        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="$LICENSE_ID" CHANNEL="$CUSTOMER_CHANNEL_SLUG"
+      
+      # Run tests
+      - task: test
+      
+      - echo "Customer helm install complete! Environment left running for continuous deployment."
+      - echo "Cluster{{":"}} {{.CLUSTER_NAME}}"
+      - echo "Customer{{":"}} {{.CUSTOMER_NAME}}"
+
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
     run: once
