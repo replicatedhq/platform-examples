@@ -129,11 +129,17 @@ task dependencies-update
 # Install all charts using Helmfile
 task helm-install
 
+# Install charts for a specific customer (requires pre-setup)
+task customer-helm-install CUSTOMER_NAME=example CLUSTER_NAME=test REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=example-channel
+
 # Run tests
 task test
 
 # Full test cycle (create cluster, deploy, test, delete)
 task full-test-cycle
+
+# Complete customer workflow (create cluster, customer, deploy, test, no cleanup)
+task customer-full-test-cycle CUSTOMER_NAME=example CLUSTER_NAME=test
 ```
 
 ## Release Management
@@ -222,11 +228,19 @@ When testing Helm installations locally (including with helmfile), avoid using t
 
 ### Testing a Release
 
+#### Option 1: Complete Customer Workflow
+
+```bash
+task customer-full-test-cycle CUSTOMER_NAME=test-customer CLUSTER_NAME=test-cluster
+```
+
+#### Option 2: Manual Step-by-Step
+
 1. Create a customer if needed: `task customer-create CUSTOMER_NAME=test-customer`
 2. Create a test cluster: `task cluster-create`
 3. Set up kubeconfig: `task setup-kubeconfig`
 4. Expose ports: `task cluster-ports-expose`
-5. Deploy application: `task helm-install`
+5. Deploy application: `task customer-helm-install CUSTOMER_NAME=test-customer CLUSTER_NAME=test-cluster REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=test-channel`
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
 
