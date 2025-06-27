@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(task --list)",
+      "Bash(task cluster-create)",
+      "Bash(task cluster-delete)",
+      "Bash(task cluster-list)",
+      "Bash(task cluster-ports-expose)",
+      "Bash(task customer-create:*)",
+      "Bash(task customer-ls)",
+      "Bash(task customer-delete:*)",
+      "Bash(task dependencies-update)",
+      "Bash(task dev:start)",
+      "Bash(task dev:shell)",
+      "Bash(task dev:stop)",
+      "Bash(task dev:build-image)",
+      "Bash(task full-test-cycle)",
+      "Bash(task helm-install)",
+      "Bash(task release-create:*)",
+      "Bash(task release-prepare)",
+      "Bash(task setup-kubeconfig)",
+      "Bash(task test)",
+      "Bash(helm lint:*)",
+      "Bash(helmfile template:*)",
+      "Bash(kubectl:*)",
+      "Bash(KUBECONFIG=./test-cluster.kubeconfig kubectl:*)"
+    ],
+    "deny": []
+  },
+  "timeout": {
+    "Bash(task helm-install)": 1200000,
+    "Bash(task full-test-cycle)": 1800000,
+    "Bash(task cluster-create)": 600000
+  }
+}
