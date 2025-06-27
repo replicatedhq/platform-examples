@@ -238,6 +238,9 @@ tasks:
     silent: false
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+      # Normalize customer name by replacing common git branch delimiters with hyphens
+      NORMALIZED_CUSTOMER_NAME:
+        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     cmds:
       - |
         if [ -z "{{.CUSTOMER_NAME}}" ]; then
@@ -246,19 +249,19 @@ tasks:
           exit 1
         fi
         
-        echo "Looking up license ID for customer: {{.CUSTOMER_NAME}}"
+        echo "Looking up license ID for customer: {{.NORMALIZED_CUSTOMER_NAME}}"
         
         # Get customer license ID using Replicated CLI
-        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .installationId')
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId')
         
         if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
-          echo "ERROR: Could not find customer with name '{{.CUSTOMER_NAME}}'"
+          echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
           echo "Available customers:"
           replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
           exit 1
         fi
         
-        echo "Customer '{{.CUSTOMER_NAME}}' license ID: $LICENSE_ID"
+        echo "Customer '{{.NORMALIZED_CUSTOMER_NAME}}' license ID: $LICENSE_ID"
         echo "$LICENSE_ID"
 
   gcp-operations:

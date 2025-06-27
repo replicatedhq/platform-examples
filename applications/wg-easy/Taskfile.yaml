@@ -69,37 +69,45 @@ tasks:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
       TTL: '{{.TTL | default "4h"}}'
+      # Normalize cluster name by replacing common git branch delimiters with hyphens
+      NORMALIZED_CLUSTER_NAME:
+        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     status:
       - |
         # Check if cluster exists and output info if it does
-        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}")')
+        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}")')
         if [ -n "$CLUSTER_INFO" ]; then
-          echo "Found existing cluster {{.CLUSTER_NAME}}:"
+          echo "Found existing cluster {{.NORMALIZED_CLUSTER_NAME}}:"
           echo "$CLUSTER_INFO" | jq -r '"  ID: " + .id + "\n  Status: " + .status + "\n  Distribution: " + .distribution + "\n  Created: " + .created_at + "\n  Expires: " + .expires_at'
           exit 0
         fi
         exit 1
     cmds:
       - |
-        echo "Creating new cluster {{.CLUSTER_NAME}}..."
+        echo "Creating new cluster {{.NORMALIZED_CLUSTER_NAME}}..."
         if [ "{{.EMBEDDED}}" = "true" ]; then
-          echo "Creating embedded cluster {{.CLUSTER_NAME}} with license ID {{.REPLICATED_LICENSE_ID}}..."
-          replicated cluster create --distribution embedded-cluster --name {{.CLUSTER_NAME}} --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
+          echo "Creating embedded cluster {{.NORMALIZED_CLUSTER_NAME}} with license ID {{.REPLICATED_LICENSE_ID}}..."
+          replicated cluster create --distribution embedded-cluster --name {{.NORMALIZED_CLUSTER_NAME}} --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
         else
-          echo "Creating cluster {{.CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
-          replicated cluster create --name {{.CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
+          echo "Creating cluster {{.NORMALIZED_CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
+          replicated cluster create --name {{.NORMALIZED_CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
         fi
       - task: utils:wait-for-cluster
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
+          CLUSTER_NAME: "{{.NORMALIZED_CLUSTER_NAME}}"
 
   cluster-list:
     desc: List the cluster
+    vars:
+      # Normalize cluster name by replacing common git branch delimiters with hyphens
+      NORMALIZED_CLUSTER_NAME:
+        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     cmds:
       - |
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
-        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .expires_at')
-        echo "{{.CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}") | .id')
+        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}") | .expires_at')
+        echo "{{.NORMALIZED_CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
 
   test:
     desc: Run a basic test suite
@@ -310,13 +318,16 @@ tasks:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
     vars:
-      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
+      # Normalize cluster name by replacing common git branch delimiters with hyphens
+      NORMALIZED_CLUSTER_NAME:
+        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
     cmds:
-      - echo "Deleting clusters named {{.CLUSTER_NAME}}..."
+      - echo "Deleting clusters named {{.NORMALIZED_CLUSTER_NAME}}..."
       - |
-        CLUSTER_IDS=$(replicated cluster ls | grep "{{.CLUSTER_NAME}}" | awk '{print $1}')
+        CLUSTER_IDS=$(replicated cluster ls | grep "{{.NORMALIZED_CLUSTER_NAME}}" | awk '{print $1}')
         if [ -z "$CLUSTER_IDS" ]; then
-          echo "No clusters found with name {{.CLUSTER_NAME}}"
+          echo "No clusters found with name {{.NORMALIZED_CLUSTER_NAME}}"
           exit 0
         fi
 
@@ -424,27 +435,30 @@ tasks:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
+      # Normalize customer name by replacing common git branch delimiters with hyphens
+      NORMALIZED_CUSTOMER_NAME:
+        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [APP_SLUG]
     cmds:
       - |
         # First check if customer already exists
-        echo "Looking for existing customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
-        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.CUSTOMER_NAME}}") | .id' | head -1)
+        echo "Looking for existing customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CUSTOMER_NAME}}") | .id' | head -1)
 
         if [ -n "$EXISTING_CUSTOMER" ]; then
-          echo "Found existing customer {{.CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
+          echo "Found existing customer {{.NORMALIZED_CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
           echo "$EXISTING_CUSTOMER"
           exit 0
         fi
 
         # No existing customer found, create a new one
-        echo "Creating new customer {{.CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+        echo "Creating new customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
 
         # Build the command with optional expiration
         CMD="replicated customer create \
           --app {{.APP_SLUG}} \
-          --name {{.CUSTOMER_NAME}} \
+          --name {{.NORMALIZED_CUSTOMER_NAME}} \
           --email {{.CUSTOMER_EMAIL}} \
           --channel {{.RELEASE_CHANNEL}} \
           --type {{.LICENSE_TYPE}} \
@@ -555,22 +569,25 @@ tasks:
     silent: false
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
+      # Normalize channel name by replacing common git branch delimiters with hyphens
+      NORMALIZED_RELEASE_CHANNEL:
+        sh: echo "{{.RELEASE_CHANNEL}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [APP_SLUG, RELEASE_CHANNEL]
     cmds:
-      - echo "Creating channel {{.RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
+      - echo "Creating channel {{.NORMALIZED_RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
       - |
         # Check if channel already exists
-        EXISTING_CHANNEL=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.RELEASE_CHANNEL}}") | .name' | head -1)
+        EXISTING_CHANNEL=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .name' | head -1)
 
         if [ -n "$EXISTING_CHANNEL" ]; then
-          echo "Channel {{.RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}}"
+          echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}}"
           exit 0
         fi
 
         # Create the channel
-        replicated channel create --app {{.APP_SLUG}} --name {{.RELEASE_CHANNEL}}
-        echo "Channel {{.RELEASE_CHANNEL}} created successfully"
+        replicated channel create --app {{.APP_SLUG}} --name {{.NORMALIZED_RELEASE_CHANNEL}}
+        echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} created successfully"
 
   channel-delete:
     desc: Archive a Replicated release channel
@@ -640,18 +657,25 @@ tasks:
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
       CHANNEL_SLUG: '{{.CHANNEL_SLUG}}'
-      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
+      # Normalize names by replacing common git branch delimiters with hyphens
+      NORMALIZED_CUSTOMER_NAME:
+        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      NORMALIZED_CLUSTER_NAME:
+        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      NORMALIZED_CHANNEL_SLUG:
+        sh: echo "{{.CHANNEL_SLUG}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
     requires:
       vars: [CUSTOMER_NAME, CLUSTER_NAME, REPLICATED_LICENSE_ID, CHANNEL_SLUG]
     cmds:
-      - echo "Deploying charts for customer {{.CUSTOMER_NAME}} using replicated environment..."
-      - echo "Cluster:{{.CLUSTER_NAME}}"
-      - echo "Channel:{{.CHANNEL_SLUG}}"
+      - echo "Deploying charts for customer {{.NORMALIZED_CUSTOMER_NAME}} using replicated environment..."
+      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
+      - echo "Channel:{{.NORMALIZED_CHANNEL_SLUG}}"
       - echo "License ID:{{.REPLICATED_LICENSE_ID}}"
       - |
         # Get customer email for registry authentication
         echo "Getting customer email for registry authentication..."
-        CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
+        CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
         echo "Customer email: $CUSTOMER_EMAIL"
         
         # Authenticate with Replicated registry using customer email and license ID
@@ -659,54 +683,59 @@ tasks:
         echo "{{.REPLICATED_LICENSE_ID}}" | helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password-stdin
       - |
         # Deploy using replicated environment with customer-specific settings
-        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="{{.CHANNEL_SLUG}}" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="{{.CLUSTER_NAME}}"
-      - echo "Customer helm install complete for {{.CUSTOMER_NAME}}"
+        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="{{.NORMALIZED_CHANNEL_SLUG}}" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="{{.NORMALIZED_CLUSTER_NAME}}"
+      - echo "Customer helm install complete for {{.NORMALIZED_CUSTOMER_NAME}}"
 
   customer-full-test-cycle:
     desc: Complete customer workflow - create cluster, find customer, deploy using existing releases, test (no cleanup for CD)
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      # Normalize names by replacing common git branch delimiters with hyphens
+      NORMALIZED_CUSTOMER_NAME:
+        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      NORMALIZED_CLUSTER_NAME:
+        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [CUSTOMER_NAME, CLUSTER_NAME]
     cmds:
       - echo "Starting customer full test cycle..."
-      - echo "Customer:{{.CUSTOMER_NAME}}"
-      - echo "Cluster:{{.CLUSTER_NAME}}"
+      - echo "Customer:{{.NORMALIZED_CUSTOMER_NAME}}"
+      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
 
       # Setup cluster infrastructure
       - task: cluster-create
         vars:
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
       - task: setup-kubeconfig
         vars:
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
       - task: cluster-ports-expose
         vars:
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
       - task: dependencies-update
 
       # Setup customer and get license (use existing releases)
-      - echo "Creating/finding customer {{.CUSTOMER_NAME}}..."
+      - echo "Creating/finding customer {{.NORMALIZED_CUSTOMER_NAME}}..."
       - task: customer-create
         vars:
-          CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
-      - echo "Getting license ID and channel for customer {{.CUSTOMER_NAME}}..."
+          CUSTOMER_NAME: '{{.NORMALIZED_CUSTOMER_NAME}}'
+      - echo "Getting license ID and channel for customer {{.NORMALIZED_CUSTOMER_NAME}}..."
       - task: customer-helm-install
         vars:
-          CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
-          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+          CUSTOMER_NAME: '{{.NORMALIZED_CUSTOMER_NAME}}'
+          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
           REPLICATED_LICENSE_ID:
-            sh: task utils:get-customer-license CUSTOMER_NAME={{.CUSTOMER_NAME}}
+            sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_CUSTOMER_NAME}}
           CHANNEL_SLUG:
-            sh: replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.CUSTOMER_NAME}}") | .channels[0].channelSlug'
+            sh: replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .channels[0].channelSlug'
 
       # Run tests
       - task: test
 
       - echo "Customer full test cycle complete! Environment left running for continuous deployment."
-      - echo "Cluster:{{.CLUSTER_NAME}}"
-      - echo "Customer:{{.CUSTOMER_NAME}}"
+      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
+      - echo "Customer:{{.NORMALIZED_CUSTOMER_NAME}}"
 
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
