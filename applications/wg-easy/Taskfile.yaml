@@ -718,16 +718,16 @@ tasks:
       vars: [BRANCH_NAME]
     cmds:
       - echo "Starting PR validation cycle for branch {{.NORMALIZED_BRANCH_NAME}}"
-      - echo "Step 1: Validating charts..."
+      - echo "Step 1 - Validating charts..."
       - task: chart-validate
-      - echo "Step 2: Building and creating release..."
+      - echo "Step 2 - Building and creating release..."
       - task: channel-create
         vars:
           RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
       - task: release-create
         vars:
           RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
-      - echo "Step 3: Testing deployment..."
+      - echo "Step 3 - Testing deployment..."
       - task: customer-create
         vars:
           CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
@@ -749,7 +749,6 @@ tasks:
           REPLICATED_LICENSE_ID:
             sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_BRANCH_NAME}}
       - task: test
-      
       - echo "PR validation cycle completed successfully!"
 
   cleanup-pr-resources:
