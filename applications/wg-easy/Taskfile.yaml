@@ -70,6 +70,7 @@ tasks:
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
       TTL: '{{.TTL | default "4h"}}'
       # Normalize cluster name by replacing common git branch delimiters with hyphens
+      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CLUSTER_NAME:
         sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     status:
@@ -101,6 +102,7 @@ tasks:
     desc: List the cluster
     vars:
       # Normalize cluster name by replacing common git branch delimiters with hyphens
+      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CLUSTER_NAME:
         sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     cmds:
@@ -319,6 +321,7 @@ tasks:
     silent: false
     vars:
       # Normalize cluster name by replacing common git branch delimiters with hyphens
+      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CLUSTER_NAME:
         sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
@@ -436,6 +439,7 @@ tasks:
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
       # Normalize customer name by replacing common git branch delimiters with hyphens
+      # This matches how customer slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
         sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
@@ -570,6 +574,7 @@ tasks:
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
       # Normalize channel name by replacing common git branch delimiters with hyphens
+      # This matches how channel slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_RELEASE_CHANNEL:
         sh: echo "{{.RELEASE_CHANNEL}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
@@ -658,6 +663,7 @@ tasks:
       REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
       CHANNEL_SLUG: '{{.CHANNEL_SLUG}}'
       # Normalize names by replacing common git branch delimiters with hyphens
+      # This matches how slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
         sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       NORMALIZED_CLUSTER_NAME:
@@ -692,6 +698,7 @@ tasks:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       # Normalize names by replacing common git branch delimiters with hyphens
+      # This matches how slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
         sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       NORMALIZED_CLUSTER_NAME:

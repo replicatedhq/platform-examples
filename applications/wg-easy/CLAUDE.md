@@ -16,7 +16,7 @@ This file contains common commands and workflows for working with the WG-Easy He
 - Enhanced background monitoring capabilities for detecting early deployment failures
 
 ### Key Features
-- **Automatic Name Normalization**: Git branch names are automatically normalized (replacing `/`, `_`, `.` with `-`) in all tasks
+- **Automatic Name Normalization**: Git branch names are automatically normalized (replacing `/`, `_`, `.` with `-`) to match Replicated Vendor Portal backend slug format
 - **Enhanced Customer Workflow**: Complete customer lifecycle management from creation to deployment
 - **Improved Error Detection**: Background monitoring and early timeout detection for ImagePullBackOff scenarios
 - **Multi-Registry Support**: Container images published to GHCR, Google Artifact Registry, and Replicated Registry
@@ -189,6 +189,30 @@ task customer-ls
 task customer-delete CUSTOMER_ID=your-customer-id
 ```
 
+## Name Normalization
+
+The WG-Easy workflow automatically normalizes customer, cluster, and channel names by replacing common git branch delimiters (`/`, `_`, `.`) with hyphens (`-`). This normalization serves two important purposes:
+
+1. **Vendor Portal Backend Compatibility**: Cluster and channel slugs in the Replicated Vendor Portal backend use hyphenated naming conventions
+2. **Kubernetes Naming Requirements**: Kubernetes resources require names that conform to DNS-1123 label standards
+
+### Examples
+
+| Git Branch Name | Normalized Name |
+|----------------|----------------|
+| `feature/new-ui` | `feature-new-ui` |
+| `user_story_123` | `user-story-123` |
+| `v1.2.3` | `v1-2-3` |
+| `adamancini/gh-actions` | `adamancini-gh-actions` |
+
+This means you can use git branch names directly in task commands without manual transformation:
+
+```bash
+# Works with any git branch name
+task customer-create CUSTOMER_NAME=$(git branch --show-current)
+task cluster-create CLUSTER_NAME=$(git branch --show-current)
+```
+
 ## Customization Options
 
 Common variables that can be overridden:
@@ -299,7 +323,7 @@ task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
 
-**Note:** All customer, cluster, and channel names are automatically normalized by replacing `/`, `_`, and `.` characters with `-` to ensure compatibility with Kubernetes and Replicated naming requirements.
+**Note:** All customer, cluster, and channel names are automatically normalized by replacing `/`, `_`, and `.` characters with `-` to match how slugs are represented in the Replicated Vendor Portal backend and ensure compatibility with Kubernetes naming requirements.
 
 ## Container Registry Setup
 

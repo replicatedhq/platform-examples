@@ -239,6 +239,7 @@ tasks:
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
       # Normalize customer name by replacing common git branch delimiters with hyphens
+      # This matches how customer slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
         sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     cmds:
