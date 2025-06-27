@@ -616,6 +616,66 @@ tasks:
         replicated channel archive --app {{.APP_SLUG}} $CHANNEL_ID
         echo "Channel {{.RELEASE_CHANNEL}} (ID: $CHANNEL_ID) archived successfully"
 
+  chart-lint-all:
+    desc: Lint all Helm charts in the project
+    run: once
+    cmds:
+      - echo "Linting all Helm charts..."
+      - |
+        # Find all charts and lint them
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+          echo "Linting chart: $chart_dir"
+          helm lint "$chart_dir"
+        done
+      - echo "All charts linted successfully!"
+    deps:
+      - dependencies-update
+
+  chart-template-all:
+    desc: Template all Helm charts to validate syntax
+    run: once
+    cmds:
+      - echo "Templating all Helm charts..."
+      - |
+        # Find all charts and template them
+        for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | xargs dirname); do
+          echo "Templating chart: $chart_dir"
+          helm template test-release "$chart_dir" --dry-run >/dev/null
+        done
+      - echo "All charts templated successfully!"
+    deps:
+      - dependencies-update
+
+  chart-validate:
+    desc: Validate all Helm charts (lint + template + helmfile)
+    cmds:
+      - task: chart-lint-all
+      - task: chart-template-all
+      - echo "Validating helmfile template..."
+      - |
+        if [ -f "helmfile.yaml.gotmpl" ]; then
+          # Set required environment variables for helmfile validation
+          export REPLICATED_APP="test-app"
+          export CHANNEL="test-channel"
+          export REPLICATED_LICENSE_ID="test-license"
+          export TF_EXPOSED_URL="test.example.com"
+          export HELMFILE_ENVIRONMENT="default"
+          
+          echo "Building helmfile template..."
+          helmfile build >/dev/null
+          echo "Helmfile template validation successful!"
+        else
+          echo "No helmfile.yaml.gotmpl found, skipping helmfile validation"
+        fi
+
+  chart-package-all:
+    desc: Package all Helm charts for distribution
+    cmds:
+      - echo "Packaging all Helm charts..."
+      - task: dependencies-update
+      - task: release-prepare
+      - echo "All charts packaged successfully!"
+
   clean:
     desc: Remove temporary Helm directories, chart dependencies, and release folder
     cmds:
@@ -642,6 +702,87 @@ tasks:
         find . -type d -name "tmpcharts-*" -print
         find . -type d -name "tmpcharts-*" -exec rm -rf {} \; 2>/dev/null || true
       - echo "Cleaning complete!"
+
+  pr-validation-cycle:
+    desc: Complete PR validation workflow (validate charts, create release, test deployment)
+    vars:
+      BRANCH_NAME: '{{.BRANCH_NAME | default "pr-test"}}'
+      CHANNEL_NAME: '{{.CHANNEL_NAME | default .BRANCH_NAME}}'
+      # Normalize names by replacing common git branch delimiters with hyphens
+      # This matches how slugs are represented in the Replicated Vendor Portal backend
+      NORMALIZED_BRANCH_NAME:
+        sh: echo "{{.BRANCH_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      NORMALIZED_CHANNEL_NAME:
+        sh: echo "{{.CHANNEL_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+    requires:
+      vars: [BRANCH_NAME]
+    cmds:
+      - echo "Starting PR validation cycle for branch {{.NORMALIZED_BRANCH_NAME}}"
+      - echo "Step 1: Validating charts..."
+      - task: chart-validate
+      - echo "Step 2: Building and creating release..."
+      - task: channel-create
+        vars:
+          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
+      - task: release-create
+        vars:
+          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
+      - echo "Step 3: Testing deployment..."
+      - task: customer-create
+        vars:
+          CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
+      - task: cluster-create
+        vars:
+          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+      - task: setup-kubeconfig
+        vars:
+          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+      - task: cluster-ports-expose
+        vars:
+          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+      - task: customer-helm-install
+        vars:
+          CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CHANNEL_SLUG: "{{.NORMALIZED_CHANNEL_NAME}}"
+          REPLICATED_LICENSE_ID:
+            sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_BRANCH_NAME}}
+      - task: test
+      
+      - echo "PR validation cycle completed successfully!"
+
+  cleanup-pr-resources:
+    desc: Cleanup PR-related resources (clusters, customers, channels)
+    vars:
+      BRANCH_NAME: '{{.BRANCH_NAME | default "pr-test"}}'
+      CHANNEL_NAME: '{{.CHANNEL_NAME | default .BRANCH_NAME}}'
+      # Normalize names by replacing common git branch delimiters with hyphens
+      # This matches how slugs are represented in the Replicated Vendor Portal backend
+      NORMALIZED_BRANCH_NAME:
+        sh: echo "{{.BRANCH_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      NORMALIZED_CHANNEL_NAME:
+        sh: echo "{{.CHANNEL_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+    requires:
+      vars: [BRANCH_NAME]
+    cmds:
+      - echo "Cleaning up PR resources for branch {{.NORMALIZED_BRANCH_NAME}}"
+      - echo "Deleting cluster..."
+      - |
+        task cluster-delete CLUSTER_NAME="{{.NORMALIZED_BRANCH_NAME}}" || echo "Cluster deletion failed or cluster not found"
+      - echo "Archiving customer..."
+      - |
+        CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_BRANCH_NAME}}") | .id' 2>/dev/null | head -1)
+        if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
+          task customer-delete CUSTOMER_ID="$CUSTOMER_ID" || echo "Customer deletion failed"
+        else
+          echo "No customer found with name {{.NORMALIZED_BRANCH_NAME}}"
+        fi
+      - echo "Archiving channel..."
+      - |
+        task channel-delete RELEASE_CHANNEL="{{.NORMALIZED_CHANNEL_NAME}}" || echo "Channel deletion failed or channel not found"
+      
+      - echo "PR resource cleanup completed!"
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts

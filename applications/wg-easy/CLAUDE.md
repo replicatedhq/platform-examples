@@ -27,6 +27,9 @@ This file contains common commands and workflows for working with the WG-Easy He
 - Improved utils.yml with normalized customer name handling in license retrieval
 - Updated documentation with comprehensive guidance for background monitoring and timeout detection
 - Streamlined customer workflow commands to use git branch names directly
+- **Optimized GitHub Actions workflows** with Task-based operations and reusable actions
+- **Added chart validation tasks** for consistent linting and templating across environments
+- **Implemented PR validation cycle** with automated cleanup and better error handling
 
 ## Core Principles
 
@@ -152,6 +155,12 @@ task cluster-delete
 # Update Helm dependencies for all charts
 task dependencies-update
 
+# Chart validation and linting
+task chart-lint-all        # Lint all charts
+task chart-template-all    # Template all charts for syntax validation
+task chart-validate        # Complete validation (lint + template + helmfile)
+task chart-package-all     # Package all charts for distribution
+
 # Install all charts using Helmfile
 task helm-install
 
@@ -170,6 +179,10 @@ task full-test-cycle
 # By default, use current git branch name for customer and cluster names
 # Note: names are automatically normalized (/, _, . replaced with -) by the tasks
 task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current)
+
+# PR validation and cleanup
+task pr-validation-cycle BRANCH_NAME=$(git branch --show-current)  # Complete PR validation workflow
+task cleanup-pr-resources BRANCH_NAME=$(git branch --show-current) # Cleanup PR-related resources
 ```
 
 ## Release Management
@@ -415,6 +428,37 @@ helmfile -e replicated apply
 # Deploy without proxy (default environment)
 helmfile apply
 ```
+
+## GitHub Actions Integration
+
+The project includes optimized GitHub Actions workflows that leverage the Task-based architecture:
+
+### PR Validation Workflow
+The `wg-easy-pr-validation.yaml` workflow is structured for maximum efficiency:
+
+1. **Chart Validation** - Uses `task chart-validate` via reusable action
+2. **Chart Packaging** - Builds once, shares artifacts between jobs  
+3. **Release Creation** - Creates Replicated channel and release
+4. **Deployment Testing** - Tests full customer workflow
+5. **Automatic Cleanup** - Cleans up PR resources
+
+### Reusable Actions
+Located in `.github/actions/` for consistent tool setup and operations:
+
+- **setup-tools** - Enhanced with improved caching for tools and dependencies
+- **chart-validate** - Validates charts using `task chart-validate`
+- **chart-package** - Packages charts using `task chart-package-all`
+- **replicated-release** - Creates channels and releases using tasks
+- **test-deployment** - Complete deployment testing workflow
+
+### Benefits of Task Integration
+- **Consistency** - Same operations work locally and in CI
+- **Reduced Duplication** - Charts built once, shared via artifacts
+- **Better Caching** - Helm dependencies and tools cached effectively
+- **Maintainability** - Logic centralized in Taskfile, not scattered in YAML
+
+### Usage
+PR validation runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
 
 ## Additional Resources
 

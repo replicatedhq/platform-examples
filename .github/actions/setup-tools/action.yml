@@ -47,7 +47,10 @@ runs:
           /usr/local/bin/yq
           /usr/local/bin/preflight
           /usr/local/bin/helmfile
-        key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0
+          ~/.replicated
+        key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-replicated-latest
+        restore-keys: |
+          tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-
     
     - name: Install yq
       shell: bash

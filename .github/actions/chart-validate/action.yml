@@ -1,0 +1,35 @@
+name: 'Validate Helm Charts'
+description: 'Validate all Helm charts using Task-based operations'
+inputs:
+  app-dir:
+    description: 'Application directory containing charts'
+    default: 'applications/wg-easy'
+  helm-version:
+    description: 'Helm version to use'
+    default: '3.17.3'
+  use-cache:
+    description: 'Whether to use dependency cache'
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        helm-version: ${{ inputs.helm-version }}
+        install-helmfile: 'true'
+    
+    - name: Cache Helm dependencies
+      if: inputs.use-cache == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.app-dir }}/charts/*/charts
+          ${{ inputs.app-dir }}/Chart.lock
+        key: helm-deps-${{ hashFiles(format('{0}/charts/*/Chart.yaml', inputs.app-dir)) }}
+    
+    - name: Validate charts
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: task chart-validate

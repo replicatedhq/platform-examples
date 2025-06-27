@@ -43,211 +43,82 @@ jobs:
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
           echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
 
-  build-and-release:
+  validate-charts:
     runs-on: ubuntu-22.04
     needs: setup
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Helm dependencies
-        uses: actions/cache@v4
+      - name: Validate charts
+        uses: ./.github/actions/chart-validate
         with:
-          path: |
-            applications/wg-easy/charts/*/charts
-            applications/wg-easy/Chart.lock
-          key: helm-deps-${{ hashFiles('applications/wg-easy/charts/*/Chart.yaml') }}
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-        with:
+          app-dir: ${{ env.APP_DIR }}
           helm-version: ${{ env.HELM_VERSION }}
-          kubectl-version: ${{ env.KUBECTL_VERSION }}
-          install-kubectl: 'true'
-          install-preflight: 'true'
-          install-helmfile: 'true'
 
-      - name: Update dependencies
-        run: task dependencies-update
-        timeout-minutes: 10
+      - name: Validate Taskfile syntax
+        run: task --list-all
+        working-directory: ${{ env.APP_DIR }}
 
-      - name: Prepare release
-        run: task release-prepare
-        timeout-minutes: 10
+  build-and-package:
+    runs-on: ubuntu-22.04
+    needs: [setup, validate-charts]
+    outputs:
+      release-path: ${{ steps.package.outputs.release-path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Verify release directory contents
-        run: |
-          echo "Checking release directory contents:"
-          ls -la release/
-          echo "Verifying required files exist:"
-          test -f release/application.yaml
-          test -f release/config.yaml
-          test -f release/cluster.yaml
-          find release/ -name "*.tgz" | wc -l | grep -v "^0$"
+      - name: Package charts
+        id: package
+        uses: ./.github/actions/chart-package
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: wg-easy-release-${{ github.run_number }}
-          path: ${{ env.APP_DIR }}/release/
+          path: ${{ steps.package.outputs.release-path }}
           retention-days: 7
 
-      - name: Create channel for branch
-        run: task channel-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-        timeout-minutes: 5
-
-      - name: Create release
-        run: task release-create RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-        timeout-minutes: 15
-
-  lint-and-validate:
+  create-release:
     runs-on: ubuntu-22.04
-    needs: setup
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
+    needs: [setup, build-and-package]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache Helm dependencies
-        uses: actions/cache@v4
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
         with:
-          path: |
-            applications/wg-easy/charts/*/charts
-            applications/wg-easy/Chart.lock
-          key: helm-deps-${{ hashFiles('applications/wg-easy/charts/*/Chart.yaml') }}
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release
 
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
+      - name: Create Replicated release
+        uses: ./.github/actions/replicated-release
         with:
+          app-dir: ${{ env.APP_DIR }}
+          channel-name: ${{ needs.setup.outputs.channel-name }}
+          release-notes: "PR validation release for ${{ needs.setup.outputs.branch-name }}"
+
+  test-deployment:
+    runs-on: ubuntu-22.04
+    needs: [setup, create-release]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test deployment
+        uses: ./.github/actions/test-deployment
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          customer-name: ${{ needs.setup.outputs.channel-name }}
+          cluster-name: ${{ needs.setup.outputs.channel-name }}
+          channel-name: ${{ needs.setup.outputs.channel-name }}
           helm-version: ${{ env.HELM_VERSION }}
-
-      - name: Update dependencies
-        run: task dependencies-update
-
-      - name: Lint Helm charts
-        run: |
-          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
-            xargs dirname); do
-            echo "Linting chart: $chart_dir"
-            helm lint "$chart_dir"
-          done
-
-      - name: Template Helm charts
-        run: |
-          for chart_dir in $(find charts/ -maxdepth 2 -name "Chart.yaml" | \
-            xargs dirname); do
-            echo "Templating chart: $chart_dir"
-            helm template test-release "$chart_dir" --dry-run
-          done
-
-      - name: Validate Taskfile syntax
-        run: task --list-all
-
-      - name: Validate helmfile template
-        uses: helmfile/helmfile-action@v2.0.4
-        if: hashFiles('helmfile.yaml.gotmpl') != ''
-        with:
-          helmfile-args: build
-          helmfile-workdirectory: ${{ env.APP_DIR }}
-        env:
-          REPLICATED_APP: "test-app"
-          CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: "test-license"
-          TF_EXPOSED_URL: "test.example.com"
-
-  create-customer-and-cluster:
-    runs-on: ubuntu-22.04
-    needs: [setup, build-and-release]
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-    outputs:
-      customer-email: ${{ steps.customer.outputs.customer-email }}
-      skip-customer-registry: ${{ steps.prereqs.outputs.skip-customer-registry }}
-      cluster-name: ${{ needs.setup.outputs.channel-name }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check prerequisites
-        id: prereqs
-        run: |
-          echo "Prerequisites check complete"
-          echo "skip-customer-registry=false" >> $GITHUB_OUTPUT
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-
-      - name: Create customer
-        id: customer
-        run: |
-          # Create customer and derive email from branch name
-          CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}"
-          task customer-create CUSTOMER_NAME="$CUSTOMER_NAME" RELEASE_CHANNEL="${{ needs.setup.outputs.channel-name }}"
-          # Derive customer email from customer name (branch name)
-          CUSTOMER_EMAIL="${CUSTOMER_NAME}@example.com"
-          echo "customer-email=$CUSTOMER_EMAIL" >> $GITHUB_OUTPUT
-          echo "Customer email: $CUSTOMER_EMAIL"
-        timeout-minutes: 5
-
-      - name: Create cluster with retry
-        uses: nick-fields/retry@v3.0.2
-        with:
-          timeout_minutes: 20
-          retry_wait_seconds: 30
-          max_attempts: 3
-          command: |
-            cd ${{ env.APP_DIR }}
-            task cluster-create CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
-
-  helm-install-test:
-    runs-on: ubuntu-22.04
-    needs: [setup, create-customer-and-cluster]
-    defaults:
-      run:
-        working-directory: ${{ env.APP_DIR }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-        with:
-          helm-version: ${{ env.HELM_VERSION }}
-          install-helmfile: 'true'
-
-      - name: Update dependencies
-        run: task dependencies-update
-
-      - name: Get customer license ID
-        id: license
-        run: |
-          LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" --silent | tail -1)
-          echo "customer-license=$LICENSE_ID" >> $GITHUB_OUTPUT
-          echo "::add-mask::$LICENSE_ID"
-
-      - name: Helm registry login
-        run: |
-          helm registry login registry.replicated.com --username "${{ steps.license.outputs.customer-license }}" --password "${{ steps.license.outputs.customer-license }}"
-        timeout-minutes: 5
-
-      - name: Helm install
-        run: task helm-install
-        timeout-minutes: 20
-        env:
-          CHANNEL: ${{ needs.setup.outputs.channel-name }}
-          REPLICATED_LICENSE_ID: ${{ steps.license.outputs.customer-license }}
-          HELM_ENV: replicated
-          CLUSTER_NAME: ${{ needs.setup.outputs.channel-name }}
+          cleanup: 'false'
 
       - name: Upload debug logs
         if: failure()
@@ -257,4 +128,22 @@ jobs:
           path: |
             /tmp/*.log
             ~/.replicated/
+
+  cleanup:
+    runs-on: ubuntu-22.04
+    needs: [setup, test-deployment]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          app-dir: ${{ env.APP_DIR }}
+
+      - name: Cleanup PR resources
+        run: |
+          task cleanup-pr-resources BRANCH_NAME="${{ needs.setup.outputs.channel-name }}" || echo "Cleanup completed with some warnings"
+        working-directory: ${{ env.APP_DIR }}
 

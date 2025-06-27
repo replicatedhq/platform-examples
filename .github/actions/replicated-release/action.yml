@@ -1,0 +1,35 @@
+name: 'Create Replicated Release'
+description: 'Create channel and release using Task-based operations'
+inputs:
+  app-dir:
+    description: 'Application directory containing charts'
+    default: 'applications/wg-easy'
+  channel-name:
+    description: 'Release channel name'
+    required: true
+  release-version:
+    description: 'Release version'
+    default: '0.0.1'
+  release-notes:
+    description: 'Release notes'
+    default: 'Release created via GitHub Actions'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+    
+    - name: Create channel
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: task channel-create RELEASE_CHANNEL="${{ inputs.channel-name }}"
+    
+    - name: Create release
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        task release-create \
+          RELEASE_CHANNEL="${{ inputs.channel-name }}" \
+          RELEASE_VERSION="${{ inputs.release-version }}" \
+          RELEASE_NOTES="${{ inputs.release-notes }}"
