@@ -2,6 +2,32 @@
 
 This file contains common commands and workflows for working with the WG-Easy Helm chart project.
 
+## Current Project Status
+
+**Branch:** `adamancini/gh-actions`  
+**Last Updated:** December 27, 2024
+
+### Recent Changes
+- Enhanced customer workflow with full test cycle and improved task documentation
+- Updated Helm chart dependencies and fixed imagePullSecret template
+- Added customer-helm-install task for deployment using replicated environment
+- Implemented automatic name normalization for git branch names in cluster, customer, and channel creation
+- Added comprehensive timeout and monitoring guidance for Helm operations
+- Enhanced background monitoring capabilities for detecting early deployment failures
+
+### Key Features
+- **Automatic Name Normalization**: Git branch names are automatically normalized (replacing `/`, `_`, `.` with `-`) in all tasks
+- **Enhanced Customer Workflow**: Complete customer lifecycle management from creation to deployment
+- **Improved Error Detection**: Background monitoring and early timeout detection for ImagePullBackOff scenarios
+- **Multi-Registry Support**: Container images published to GHCR, Google Artifact Registry, and Replicated Registry
+- **Comprehensive Testing**: Full test cycles with cluster creation, deployment, and cleanup automation
+
+### Recent Improvements
+- Enhanced Taskfile.yaml with automatic name normalization for cluster, customer, and channel operations
+- Improved utils.yml with normalized customer name handling in license retrieval
+- Updated documentation with comprehensive guidance for background monitoring and timeout detection
+- Streamlined customer workflow commands to use git branch names directly
+
 ## Core Principles
 
 The WG-Easy Helm Chart pattern is built on five fundamental principles:
@@ -130,7 +156,9 @@ task dependencies-update
 task helm-install
 
 # Install charts for a specific customer (requires pre-setup)
-task customer-helm-install CUSTOMER_NAME=example CLUSTER_NAME=test REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=example-channel
+# By default, use current git branch name for customer, cluster, and channel names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=$(git branch --show-current)
 
 # Run tests
 task test
@@ -139,7 +167,9 @@ task test
 task full-test-cycle
 
 # Complete customer workflow (create cluster, customer, deploy, test, no cleanup)
-task customer-full-test-cycle CUSTOMER_NAME=example CLUSTER_NAME=test
+# By default, use current git branch name for customer and cluster names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current)
 ```
 
 ## Release Management
@@ -152,7 +182,9 @@ task release-prepare
 task release-create RELEASE_VERSION=x.y.z RELEASE_CHANNEL=Unstable
 
 # Customer management
-task customer-create CUSTOMER_NAME=example
+# By default, use current git branch name for customer name
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-create CUSTOMER_NAME=$(git branch --show-current)
 task customer-ls
 task customer-delete CUSTOMER_ID=your-customer-id
 ```
@@ -198,6 +230,27 @@ Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` 
 
 During `helm install` or `helm-install` operations, you can skip waiting for the full timeout if pods end up in the `ImagePullBackOff` state. This indicates image pull failures that won't resolve by waiting longer. Use `kubectl get pods` to check pod status and terminate early if multiple pods show `ImagePullBackOff` or `ErrImagePull` states.
 
+### Background Monitoring for Helm Operations
+
+When running any task that calls `helm-install` (including `task helm-install`, `task customer-helm-install`, `task full-test-cycle`, and `task customer-full-test-cycle`), you can monitor the deployment in the background to detect early failures:
+
+```bash
+# In a separate terminal or background process, monitor pod status
+watch kubectl get pods --all-namespaces
+
+# Or check for specific error states
+kubectl get pods --all-namespaces --field-selector=status.phase=Failed
+kubectl get pods --all-namespaces | grep -E "(ImagePullBackOff|ErrImagePull|CrashLoopBackOff)"
+```
+
+Common failure patterns that indicate early termination should be considered:
+- Multiple pods in `ImagePullBackOff` or `ErrImagePull` states
+- Persistent `CrashLoopBackOff` across multiple restarts
+- Resource quota exceeded errors
+- Persistent volume claim binding failures
+
+When these conditions are detected, the helm operation can be terminated early rather than waiting for the full timeout period.
+
 ### Local Testing Configuration
 
 When testing Helm installations locally (including with helmfile), avoid using the `--atomic` flag so that failed resources remain in the cluster for debugging:
@@ -231,18 +284,22 @@ When testing Helm installations locally (including with helmfile), avoid using t
 #### Option 1: Complete Customer Workflow
 
 ```bash
-task customer-full-test-cycle CUSTOMER_NAME=test-customer CLUSTER_NAME=test-cluster
+# Use current git branch name as default for customer and cluster names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current)
 ```
 
 #### Option 2: Manual Step-by-Step
 
-1. Create a customer if needed: `task customer-create CUSTOMER_NAME=test-customer`
+1. Create a customer if needed: `task customer-create CUSTOMER_NAME=$(git branch --show-current)`
 2. Create a test cluster: `task cluster-create`
 3. Set up kubeconfig: `task setup-kubeconfig`
 4. Expose ports: `task cluster-ports-expose`
-5. Deploy application: `task customer-helm-install CUSTOMER_NAME=test-customer CLUSTER_NAME=test-cluster REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=test-channel`
+5. Deploy application: `task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=$(git branch --show-current)`
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
+
+**Note:** All customer, cluster, and channel names are automatically normalized by replacing `/`, `_`, and `.` characters with `-` to ensure compatibility with Kubernetes and Replicated naming requirements.
 
 ## Container Registry Setup
 
