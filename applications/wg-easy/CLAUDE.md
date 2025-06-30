@@ -460,6 +460,108 @@ Located in `.github/actions/` for consistent tool setup and operations:
 ### Usage
 PR validation runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
 
+## Future Considerations
+
+### Refactoring PR Validation Workflow Using Replicated Actions
+
+The current GitHub Actions workflow uses custom composite actions that wrap Task-based operations. The [replicated-actions](https://github.com/replicatedhq/replicated-actions) repository provides official actions that could replace several of these custom implementations for improved reliability and reduced maintenance burden.
+
+#### Current State Analysis
+
+The current workflow uses custom composite actions:
+- `./.github/actions/replicated-release` (uses Task + Replicated CLI)
+- `./.github/actions/test-deployment` (complex composite with multiple Task calls)
+- Custom cluster and customer management via Task wrappers
+
+#### Proposed Refactoring Opportunities
+
+##### 1. Replace Custom Release Creation
+**Current**: `./.github/actions/replicated-release` (uses Task + Replicated CLI)  
+**Replace with**: `replicatedhq/replicated-actions/create-release@v1`
+
+**Benefits:**
+- Official Replicated action with better error handling
+- Direct API integration (no Task wrapper needed)
+- Built-in airgap build support with configurable timeout
+- Outputs channel-slug and release-sequence for downstream jobs
+
+##### 2. Replace Custom Customer Creation
+**Current**: `task customer-create` within test-deployment action  
+**Replace with**: `replicatedhq/replicated-actions/create-customer@v1`
+
+**Benefits:**
+- Direct customer creation without Task wrapper
+- Returns customer-id and license-id as outputs
+- Configurable license parameters (expiration, entitlements)
+- Better error handling and validation
+
+##### 3. Replace Custom Cluster Management
+**Current**: `task cluster-create` and `task cluster-delete`  
+**Replace with**: 
+- `replicatedhq/replicated-actions/create-cluster@v1`
+- `replicatedhq/replicated-actions/remove-cluster@v1`
+
+**Benefits:**
+- Direct cluster provisioning without Task wrapper
+- Returns cluster-id and kubeconfig as outputs
+- More granular configuration options (node groups, instance types)
+- Automatic kubeconfig export
+
+##### 4. Enhance Cleanup Process
+**Current**: `task cleanup-pr-resources`  
+**Replace with**: Individual replicated-actions for cleanup:
+- `replicatedhq/replicated-actions/archive-customer@v1`
+- `replicatedhq/replicated-actions/remove-cluster@v1`
+
+**Benefits:**
+- More reliable cleanup using official actions
+- Better resource tracking via action outputs
+- Parallel cleanup operations possible
+
+##### 5. Simplify Test Deployment Action
+**Current**: Large composite action with multiple Task calls  
+**Refactor to**: Use replicated-actions directly in workflow
+
+**Benefits:**
+- Reduced complexity and maintenance burden
+- Better visibility in GitHub Actions UI
+- Easier debugging and monitoring
+- Consistent error handling across all operations
+
+#### Implementation Phases
+
+**Phase 1: Release Creation Refactoring**
+- Replace `.github/actions/replicated-release` with direct use of `replicatedhq/replicated-actions/create-release@v1`
+- Update workflow to pass chart directory and release parameters directly
+- Test release creation functionality
+
+**Phase 2: Customer and Cluster Management**
+- Replace customer creation in test-deployment with `create-customer@v1`
+- Replace cluster operations with `create-cluster@v1`
+- Update workflow to capture and pass IDs between jobs
+- Test customer and cluster provisioning
+
+**Phase 3: Deployment Testing Simplification**
+- Break down test-deployment composite action into individual workflow steps
+- Use replicated-actions directly in workflow jobs
+- Maintain existing retry logic for cluster creation
+- Test end-to-end deployment flow
+
+**Phase 4: Enhanced Cleanup**
+- Replace cleanup task with individual replicated-actions
+- Implement parallel cleanup using job matrices
+- Add proper error handling for cleanup failures
+- Test resource cleanup functionality
+
+#### Expected Outcomes
+- **Reduced Maintenance**: Fewer custom actions to maintain
+- **Better Reliability**: Official actions with better error handling
+- **Improved Visibility**: Direct action usage in workflow logs
+- **Enhanced Features**: Access to advanced features like airgap builds
+- **Consistent API Usage**: All operations use official Replicated actions
+
+This refactoring would maintain the current Task-based local development workflow while leveraging official actions for CI/CD operations, providing the best of both worlds.
+
 ## Additional Resources
 
 - [Chart Structure Guide](docs/chart-structure.md)
