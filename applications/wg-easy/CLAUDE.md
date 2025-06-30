@@ -440,7 +440,14 @@ The `wg-easy-pr-validation.yaml` workflow is structured for maximum efficiency:
 2. **Chart Packaging** - Builds once, shares artifacts between jobs  
 3. **Release Creation** - Creates Replicated channel and release
 4. **Deployment Testing** - Tests full customer workflow
-5. **Automatic Cleanup** - Cleans up PR resources
+
+### PR Cleanup Workflow
+The `wg-easy-pr-cleanup.yaml` workflow handles resource cleanup:
+
+- **Triggers**: Only runs when PRs are merged to main (not on every PR update)
+- **Resources Cleaned**: Customers, clusters, and channels created during PR validation
+- **Smart Cleanup**: Uses the same `task cleanup-pr-resources` with proper branch name normalization
+- **Graceful Handling**: Continues cleanup even if some resources are already deleted
 
 ### Reusable Actions
 Located in `.github/actions/` for consistent tool setup and operations:
@@ -458,7 +465,14 @@ Located in `.github/actions/` for consistent tool setup and operations:
 - **Maintainability** - Logic centralized in Taskfile, not scattered in YAML
 
 ### Usage
-PR validation runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
+**PR Validation**: Runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
+
+**PR Cleanup**: Runs automatically when PRs are merged to main. Resources remain available during PR development for testing and debugging.
+
+**Manual Cleanup**: If needed, cleanup can be run manually:
+```bash
+task cleanup-pr-resources BRANCH_NAME=$(git branch --show-current)
+```
 
 ## Future Considerations
 
