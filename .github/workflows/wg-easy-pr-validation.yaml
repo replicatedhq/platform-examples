@@ -129,14 +129,21 @@ jobs:
             /tmp/*.log
             ~/.replicated/
 
-      - name: PR validation info
+  cleanup:
+    runs-on: ubuntu-22.04
+    needs: [setup, test-deployment]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          app-dir: ${{ env.APP_DIR }}
+
+      - name: Cleanup PR resources
         run: |
-          echo "🎉 PR validation completed successfully!"
-          echo "📋 Resources created for this PR:"
-          echo "  - Customer: ${{ needs.setup.outputs.channel-name }}"
-          echo "  - Cluster: ${{ needs.setup.outputs.channel-name }}"
-          echo "  - Channel: ${{ needs.setup.outputs.channel-name }}"
-          echo ""
-          echo "ℹ️  Resources will be automatically cleaned up when this PR is merged to main."
-          echo "   For manual cleanup, run: task cleanup-pr-resources BRANCH_NAME=${{ needs.setup.outputs.channel-name }}"
+          task cleanup-pr-resources BRANCH_NAME="${{ needs.setup.outputs.channel-name }}" || echo "Cleanup completed with some warnings"
+        working-directory: ${{ env.APP_DIR }}
 
