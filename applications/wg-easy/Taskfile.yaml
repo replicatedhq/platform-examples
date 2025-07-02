@@ -660,7 +660,7 @@ tasks:
           export REPLICATED_LICENSE_ID="test-license"
           export TF_EXPOSED_URL="test.example.com"
           export HELMFILE_ENVIRONMENT="default"
-          
+
           echo "Building helmfile template..."
           helmfile build >/dev/null
           echo "Helmfile template validation successful!"
@@ -780,7 +780,7 @@ tasks:
       - echo "Archiving channel..."
       - |
         task channel-delete RELEASE_CHANNEL="{{.NORMALIZED_CHANNEL_NAME}}" || echo "Channel deletion failed or channel not found"
-      
+
       - echo "PR resource cleanup completed!"
 
   full-test-cycle:
@@ -823,7 +823,7 @@ tasks:
         echo "Getting customer email for registry authentication..."
         CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
         echo "Customer email: $CUSTOMER_EMAIL"
-        
+
         # Authenticate with Replicated registry using customer email and license ID
         echo "Authenticating with Replicated registry..."
         echo "{{.REPLICATED_LICENSE_ID}}" | helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password-stdin
@@ -860,7 +860,7 @@ tasks:
       - task: cluster-ports-expose
         vars:
           CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
-      - task: dependencies-update
+      # - task: dependencies-update
 
       # Setup customer and get license (use existing releases)
       - echo "Creating/finding customer {{.NORMALIZED_CUSTOMER_NAME}}..."
