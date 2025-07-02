@@ -104,6 +104,12 @@ Key components:
 - **Shared Templates**: Provide reusable components across charts
 - **Replicated Integration**: Enables enterprise distribution
 
+### Taskfile Development Guidelines
+
+When developing or modifying tasks in the Taskfile:
+
+⚠️ **Important**: Always update the [task dependency graph](task-dependency-graph.md) when adding, removing, or changing task dependencies. The graph provides critical visibility into task relationships and workflow dependencies for both development and CI/CD operations.
+
 ## `wg-easy` Chart
 
 wg-easy uses the `bjw-s/common` [library chart](https://github.com/bjw-s-labs/helm-charts/tree/main) to generate Kubernetes resources. Library charts are commonly used to create DRY templates when authoring Helm charts.
