@@ -132,21 +132,3 @@ jobs:
             /tmp/*.log
             ~/.replicated/
 
-  cleanup:
-    runs-on: ubuntu-22.04
-    needs: [setup, test-deployment]
-    if: always()
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup tools
-        uses: ./.github/actions/setup-tools
-        with:
-          app-dir: ${{ env.APP_DIR }}
-
-      - name: Cleanup PR resources
-        run: |
-          task cleanup-pr-resources BRANCH_NAME="${{ needs.setup.outputs.channel-name }}" || echo "Cleanup completed with some warnings"
-        working-directory: ${{ env.APP_DIR }}
-
