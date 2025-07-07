@@ -39,17 +39,23 @@ tasks:
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
           echo "DEBUG: Looking for pattern: _linux_${ARCH}.tar.gz"
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
-            | cut -d '"' -f 4)
+          
+          # Try API call with error handling
+          API_RESPONSE=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest 2>/dev/null || echo "null")
+          
+          if [ "$API_RESPONSE" = "null" ] || [ -z "$API_RESPONSE" ]; then
+            echo "GitHub API unavailable, using direct download URL..."
+            DOWNLOAD_URL="https://github.com/replicatedhq/replicated/releases/latest/download/replicated_linux_${ARCH}.tar.gz"
+          else
+            DOWNLOAD_URL=$(echo "$API_RESPONSE" | grep "browser_download_url.*_linux_${ARCH}.tar.gz" | cut -d '"' -f 4)
+          fi
           
           echo "DEBUG: Found download URL: $DOWNLOAD_URL"
           
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Error: Could not find download URL for linux_${ARCH}.tar.gz"
-            echo "DEBUG: Available assets:"
-            curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest | jq -r '.assets[].name'
-            exit 1
+            echo "DEBUG: Trying fallback URL pattern..."
+            DOWNLOAD_URL="https://github.com/replicatedhq/replicated/releases/latest/download/replicated_linux_${ARCH}.tar.gz"
           fi
           
           curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
