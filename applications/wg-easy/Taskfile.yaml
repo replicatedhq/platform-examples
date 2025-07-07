@@ -473,9 +473,9 @@ tasks:
         # No existing customer found, create a new one
         echo "Creating new customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
 
-        # Determine which channel parameter to use
+        # Determine which channel parameter to use (--channel accepts both names and IDs)
         if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
-          CHANNEL_PARAM="--channel-id {{.RELEASE_CHANNEL_ID}}"
+          CHANNEL_PARAM="--channel {{.RELEASE_CHANNEL_ID}}"
           echo "Using channel ID: {{.RELEASE_CHANNEL_ID}}"
         else
           CHANNEL_PARAM="--channel {{.RELEASE_CHANNEL}}"
