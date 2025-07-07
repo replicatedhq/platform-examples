@@ -30,6 +30,7 @@ This file contains common commands and workflows for working with the WG-Easy He
 - **Optimized GitHub Actions workflows** with Task-based operations and reusable actions
 - **Added chart validation tasks** for consistent linting and templating across environments
 - **Implemented PR validation cycle** with automated cleanup and better error handling
+- **Enhanced channel management** with unique channel ID support to avoid ambiguous channel names
 
 ## Core Principles
 
@@ -173,7 +174,8 @@ task helm-install
 # Install charts for a specific customer (requires pre-setup)
 # By default, use current git branch name for customer, cluster, and channel names
 # Note: names are automatically normalized (/, _, . replaced with -) by the tasks
-task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=$(git branch --show-current)
+# Use CHANNEL_ID for precise channel targeting or CHANNEL_SLUG for channel name
+task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_ID=your-channel-id
 
 # Run tests
 task test
@@ -200,10 +202,15 @@ task release-prepare
 # Create and promote a release
 task release-create RELEASE_VERSION=x.y.z RELEASE_CHANNEL=Unstable
 
+# Channel management (returns channel ID for unique identification)
+task channel-create RELEASE_CHANNEL=channel-name
+task channel-delete RELEASE_CHANNEL_ID=channel-id
+
 # Customer management
 # By default, use current git branch name for customer name
 # Note: names are automatically normalized (/, _, . replaced with -) by the tasks
-task customer-create CUSTOMER_NAME=$(git branch --show-current)
+# Use RELEASE_CHANNEL_ID for precise channel targeting or RELEASE_CHANNEL for channel name
+task customer-create CUSTOMER_NAME=$(git branch --show-current) RELEASE_CHANNEL_ID=your-channel-id
 task customer-ls
 task customer-delete CUSTOMER_ID=your-customer-id
 ```

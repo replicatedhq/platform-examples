@@ -10,6 +10,7 @@ vars:
 
   # Release configuration
   RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+  RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
   RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
   REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
@@ -436,6 +437,7 @@ tasks:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default "test-customer"}}'
       CUSTOMER_EMAIL: '{{.CUSTOMER_EMAIL | default "test@example.com"}}'
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
       # Normalize customer name by replacing common git branch delimiters with hyphens
@@ -450,7 +452,7 @@ tasks:
         echo "Looking for existing customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
         EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CUSTOMER_NAME}}") | .id' | head -1)
 
-        if [ -n "$EXISTING_CUSTOMER" ]; then
+        if [ -n "$EXISTING_CUSTOMER" ] && [ "$EXISTING_CUSTOMER" != "null" ]; then
           echo "Found existing customer {{.NORMALIZED_CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
           echo "$EXISTING_CUSTOMER"
           exit 0
@@ -459,12 +461,21 @@ tasks:
         # No existing customer found, create a new one
         echo "Creating new customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
 
+        # Determine which channel parameter to use
+        if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
+          CHANNEL_PARAM="--channel-id {{.RELEASE_CHANNEL_ID}}"
+          echo "Using channel ID: {{.RELEASE_CHANNEL_ID}}"
+        else
+          CHANNEL_PARAM="--channel {{.RELEASE_CHANNEL}}"
+          echo "Using channel name: {{.RELEASE_CHANNEL}}"
+        fi
+
         # Build the command with optional expiration
         CMD="replicated customer create \
           --app {{.APP_SLUG}} \
           --name {{.NORMALIZED_CUSTOMER_NAME}} \
           --email {{.CUSTOMER_EMAIL}} \
-          --channel {{.RELEASE_CHANNEL}} \
+          $CHANNEL_PARAM \
           --type {{.LICENSE_TYPE}} \
           --output json"
 
@@ -474,7 +485,7 @@ tasks:
         fi
 
         # Create the customer and capture the output
-        CUSTOMER_JSON=$($CMD)
+        CUSTOMER_JSON=$(eval $CMD)
 
         # Extract and output just the customer ID
         echo "$CUSTOMER_JSON" | jq -r '.id'
@@ -569,7 +580,7 @@ tasks:
         echo "Customer '$CUSTOMER_NAME' (ID: {{.CUSTOMER_ID}}) successfully archived"
 
   channel-create:
-    desc: Create a Replicated release channel
+    desc: Create a Replicated release channel and return its ID
     silent: false
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
@@ -583,38 +594,41 @@ tasks:
       - echo "Creating channel {{.NORMALIZED_RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
       - |
         # Check if channel already exists
-        EXISTING_CHANNEL=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .name' | head -1)
+        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .id' | head -1)
 
-        if [ -n "$EXISTING_CHANNEL" ]; then
-          echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}}"
+        if [ -n "$EXISTING_CHANNEL_ID" ] && [ "$EXISTING_CHANNEL_ID" != "null" ]; then
+          echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}} with ID: $EXISTING_CHANNEL_ID"
+          echo "$EXISTING_CHANNEL_ID"
           exit 0
         fi
 
-        # Create the channel
-        replicated channel create --app {{.APP_SLUG}} --name {{.NORMALIZED_RELEASE_CHANNEL}}
-        echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} created successfully"
+        # Create the channel and capture its ID
+        CHANNEL_OUTPUT=$(replicated channel create --app {{.APP_SLUG}} --name {{.NORMALIZED_RELEASE_CHANNEL}} --output json)
+        CHANNEL_ID=$(echo "$CHANNEL_OUTPUT" | jq -r '.id')
+        echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} created successfully with ID: $CHANNEL_ID"
+        echo "$CHANNEL_ID"
 
   channel-delete:
-    desc: Archive a Replicated release channel
+    desc: Archive a Replicated release channel by ID
     silent: false
     vars:
-      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
+      RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
     requires:
-      vars: [APP_SLUG, RELEASE_CHANNEL]
+      vars: [APP_SLUG, RELEASE_CHANNEL_ID]
     cmds:
-      - echo "Archiving channel {{.RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
+      - echo "Archiving channel ID {{.RELEASE_CHANNEL_ID}} for app {{.APP_SLUG}}..."
       - |
-        # Get channel ID
-        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.RELEASE_CHANNEL}}") | .id' | head -1)
+        # Get channel name for logging
+        CHANNEL_NAME=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.RELEASE_CHANNEL_ID}}") | .name' | head -1)
 
-        if [ -z "$CHANNEL_ID" ]; then
-          echo "Error: Channel {{.RELEASE_CHANNEL}} not found for app {{.APP_SLUG}}"
+        if [ -z "$CHANNEL_NAME" ] || [ "$CHANNEL_NAME" = "null" ]; then
+          echo "Error: Channel ID {{.RELEASE_CHANNEL_ID}} not found for app {{.APP_SLUG}}"
           exit 1
         fi
 
         # Archive the channel
-        replicated channel archive --app {{.APP_SLUG}} $CHANNEL_ID
-        echo "Channel {{.RELEASE_CHANNEL}} (ID: $CHANNEL_ID) archived successfully"
+        replicated channel archive --app {{.APP_SLUG}} {{.RELEASE_CHANNEL_ID}}
+        echo "Channel $CHANNEL_NAME (ID: {{.RELEASE_CHANNEL_ID}}) archived successfully"
 
   chart-lint-all:
     desc: Lint all Helm charts in the project
@@ -714,6 +728,8 @@ tasks:
         sh: echo "{{.BRANCH_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       NORMALIZED_CHANNEL_NAME:
         sh: echo "{{.CHANNEL_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      CHANNEL_ID:
+        sh: task channel-create RELEASE_CHANNEL={{.NORMALIZED_CHANNEL_NAME}}
     requires:
       vars: [BRANCH_NAME]
     cmds:
@@ -721,9 +737,6 @@ tasks:
       - echo "Step 1 - Validating charts..."
       - task: chart-validate
       - echo "Step 2 - Building and creating release..."
-      - task: channel-create
-        vars:
-          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
       - task: release-create
         vars:
           RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
@@ -731,7 +744,7 @@ tasks:
       - task: customer-create
         vars:
           CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
-          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
+          RELEASE_CHANNEL_ID: "{{.CHANNEL_ID}}"
       - task: cluster-create
         vars:
           CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
@@ -745,7 +758,7 @@ tasks:
         vars:
           CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
           CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
-          CHANNEL_SLUG: "{{.NORMALIZED_CHANNEL_NAME}}"
+          CHANNEL_ID: "{{.CHANNEL_ID}}"
           REPLICATED_LICENSE_ID:
             sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_BRANCH_NAME}}
       - task: test
@@ -779,7 +792,13 @@ tasks:
         fi
       - echo "Archiving channel..."
       - |
-        task channel-delete RELEASE_CHANNEL="{{.NORMALIZED_CHANNEL_NAME}}" || echo "Channel deletion failed or channel not found"
+        # Get channel ID and delete it
+        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CHANNEL_NAME}}") | .id' 2>/dev/null | head -1)
+        if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
+          task channel-delete RELEASE_CHANNEL_ID="$CHANNEL_ID" || echo "Channel deletion failed"
+        else
+          echo "No channel found with name {{.NORMALIZED_CHANNEL_NAME}}"
+        fi
 
       - echo "PR resource cleanup completed!"
 
@@ -802,6 +821,7 @@ tasks:
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
       CHANNEL_SLUG: '{{.CHANNEL_SLUG}}'
+      CHANNEL_ID: '{{.CHANNEL_ID}}'
       # Normalize names by replacing common git branch delimiters with hyphens
       # This matches how slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
@@ -812,12 +832,20 @@ tasks:
         sh: echo "{{.CHANNEL_SLUG}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
     requires:
-      vars: [CUSTOMER_NAME, CLUSTER_NAME, REPLICATED_LICENSE_ID, CHANNEL_SLUG]
+      vars: [CUSTOMER_NAME, CLUSTER_NAME, REPLICATED_LICENSE_ID]
     cmds:
       - echo "Deploying charts for customer {{.NORMALIZED_CUSTOMER_NAME}} using replicated environment..."
       - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
-      - echo "Channel:{{.NORMALIZED_CHANNEL_SLUG}}"
-      - echo "License ID:{{.REPLICATED_LICENSE_ID}}"
+      - |
+        # Determine channel identifier to use and log it
+        if [ -n "{{.CHANNEL_ID}}" ]; then
+          echo "Channel ID:{{.CHANNEL_ID}}"
+          CHANNEL_PARAM="{{.CHANNEL_ID}}"
+        else
+          echo "Channel Slug:{{.NORMALIZED_CHANNEL_SLUG}}"
+          CHANNEL_PARAM="{{.NORMALIZED_CHANNEL_SLUG}}"
+        fi
+        echo "License ID:{{.REPLICATED_LICENSE_ID}}"
       - |
         # Get customer email for registry authentication
         echo "Getting customer email for registry authentication..."
@@ -828,8 +856,15 @@ tasks:
         echo "Authenticating with Replicated registry..."
         echo "{{.REPLICATED_LICENSE_ID}}" | helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password-stdin
       - |
+        # Determine which channel parameter to use for helm install
+        if [ -n "{{.CHANNEL_ID}}" ]; then
+          CHANNEL_PARAM="{{.CHANNEL_ID}}"
+        else
+          CHANNEL_PARAM="{{.NORMALIZED_CHANNEL_SLUG}}"
+        fi
+        
         # Deploy using replicated environment with customer-specific settings
-        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="{{.NORMALIZED_CHANNEL_SLUG}}" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="{{.NORMALIZED_CLUSTER_NAME}}"
+        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="{{.NORMALIZED_CLUSTER_NAME}}"
       - echo "Customer helm install complete for {{.NORMALIZED_CUSTOMER_NAME}}"
 
   customer-full-test-cycle:
@@ -874,8 +909,8 @@ tasks:
           CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
           REPLICATED_LICENSE_ID:
             sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_CUSTOMER_NAME}}
-          CHANNEL_SLUG:
-            sh: replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .channels[0].channelSlug'
+          CHANNEL_ID:
+            sh: replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .channels[0].channelId'
 
       # Run tests
       - task: test
@@ -1010,7 +1045,14 @@ tasks:
         # Get release list and extract app ID and channel ID
         RELEASE_DATA=$(replicated release ls -o json)
         APP_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].appId')
-        CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.RELEASE_CHANNEL}}") | .id')
+        # Try to get channel ID from parameter first, fall back to channel name lookup
+        if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
+          CHANNEL_ID="{{.RELEASE_CHANNEL_ID}}"
+          echo "Using provided channel ID: $CHANNEL_ID"
+        else
+          CHANNEL_ID=$(echo "$RELEASE_DATA" | jq -r '.[0].activeChannels[] | select(.name == "{{.RELEASE_CHANNEL}}") | .id')
+          echo "Looked up channel ID for {{.RELEASE_CHANNEL}}: $CHANNEL_ID"
+        fi
 
         if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
           echo "Error: Could not retrieve app ID from latest releases"

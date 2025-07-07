@@ -7,12 +7,20 @@ inputs:
   channel-name:
     description: 'Release channel name'
     required: true
+  channel-id:
+    description: 'Release channel ID (optional, takes precedence over channel-name)'
+    required: false
   release-version:
     description: 'Release version'
     default: '0.0.1'
   release-notes:
     description: 'Release notes'
     default: 'Release created via GitHub Actions'
+
+outputs:
+  channel-id:
+    description: 'Channel ID created or found'
+    value: ${{ steps.channel.outputs.channel-id }}
 
 runs:
   using: 'composite'
@@ -21,9 +29,13 @@ runs:
       uses: ./.github/actions/setup-tools
     
     - name: Create channel
+      id: channel
       shell: bash
       working-directory: ${{ inputs.app-dir }}
-      run: task channel-create RELEASE_CHANNEL="${{ inputs.channel-name }}"
+      run: |
+        CHANNEL_ID=$(task channel-create RELEASE_CHANNEL="${{ inputs.channel-name }}" --silent | tail -1)
+        echo "channel-id=$CHANNEL_ID" >> $GITHUB_OUTPUT
+        echo "Created/found channel with ID: $CHANNEL_ID"
     
     - name: Create release
       shell: bash

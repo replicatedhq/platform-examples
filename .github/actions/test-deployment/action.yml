@@ -12,7 +12,10 @@ inputs:
     required: true
   channel-name:
     description: 'Channel name for testing'
-    required: true
+    required: false
+  channel-id:
+    description: 'Channel ID for testing (optional, takes precedence over channel-name)'
+    required: false
   helm-version:
     description: 'Helm version to use'
     default: '3.17.3'
@@ -38,9 +41,15 @@ runs:
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: |
-        task customer-create \
-          CUSTOMER_NAME="${{ inputs.customer-name }}" \
-          RELEASE_CHANNEL="${{ inputs.channel-name }}"
+        if [ -n "${{ inputs.channel-id }}" ]; then
+          task customer-create \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            RELEASE_CHANNEL_ID="${{ inputs.channel-id }}"
+        else
+          task customer-create \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            RELEASE_CHANNEL="${{ inputs.channel-name }}"
+        fi
 
     - name: Get customer license
       id: license
@@ -72,11 +81,19 @@ runs:
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: |
-        task customer-helm-install \
-          CUSTOMER_NAME="${{ inputs.customer-name }}" \
-          CLUSTER_NAME="${{ inputs.cluster-name }}" \
-          CHANNEL_SLUG="${{ inputs.channel-name }}" \
-          REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        if [ -n "${{ inputs.channel-id }}" ]; then
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            CLUSTER_NAME="${{ inputs.cluster-name }}" \
+            CHANNEL_ID="${{ inputs.channel-id }}" \
+            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        else
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            CLUSTER_NAME="${{ inputs.cluster-name }}" \
+            CHANNEL_SLUG="${{ inputs.channel-name }}" \
+            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        fi
 
     - name: Run tests
       shell: bash

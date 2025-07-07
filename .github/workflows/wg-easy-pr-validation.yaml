@@ -86,6 +86,8 @@ jobs:
   create-release:
     runs-on: ubuntu-22.04
     needs: [setup, build-and-package]
+    outputs:
+      channel-id: ${{ steps.release.outputs.channel-id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -97,6 +99,7 @@ jobs:
           path: ${{ env.APP_DIR }}/release
 
       - name: Create Replicated release
+        id: release
         uses: ./.github/actions/replicated-release
         with:
           app-dir: ${{ env.APP_DIR }}
@@ -116,7 +119,7 @@ jobs:
           app-dir: ${{ env.APP_DIR }}
           customer-name: ${{ needs.setup.outputs.channel-name }}
           cluster-name: ${{ needs.setup.outputs.channel-name }}
-          channel-name: ${{ needs.setup.outputs.channel-name }}
+          channel-id: ${{ needs.create-release.outputs.channel-id }}
           helm-version: ${{ env.HELM_VERSION }}
           cleanup: 'false'
 
