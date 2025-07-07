@@ -33,7 +33,7 @@ runs:
       with:
         helm-version: ${{ inputs.helm-version }}
         install-helmfile: 'true'
-    
+
     - name: Create customer
       shell: bash
       working-directory: ${{ inputs.app-dir }}
@@ -41,7 +41,7 @@ runs:
         task customer-create \
           CUSTOMER_NAME="${{ inputs.customer-name }}" \
           RELEASE_CHANNEL="${{ inputs.channel-name }}"
-    
+
     - name: Get customer license
       id: license
       shell: bash
@@ -50,7 +50,7 @@ runs:
         LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ inputs.customer-name }}" --silent | tail -1)
         echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
         echo "::add-mask::$LICENSE_ID"
-    
+
     - name: Create cluster with retry
       uses: nick-fields/retry@v3.0.2
       with:
@@ -60,19 +60,14 @@ runs:
         command: |
           cd ${{ inputs.app-dir }}
           task cluster-create CLUSTER_NAME="${{ inputs.cluster-name }}"
-    
+
     - name: Setup cluster
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: |
         task setup-kubeconfig CLUSTER_NAME="${{ inputs.cluster-name }}"
         task cluster-ports-expose CLUSTER_NAME="${{ inputs.cluster-name }}"
-    
-    - name: Update dependencies
-      shell: bash
-      working-directory: ${{ inputs.app-dir }}
-      run: task dependencies-update
-    
+
     - name: Deploy application
       shell: bash
       working-directory: ${{ inputs.app-dir }}
@@ -82,15 +77,15 @@ runs:
           CLUSTER_NAME="${{ inputs.cluster-name }}" \
           CHANNEL_SLUG="${{ inputs.channel-name }}" \
           REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
-    
+
     - name: Run tests
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: task test
-    
-    - name: Cleanup resources
-      if: inputs.cleanup == 'true'
-      shell: bash
-      working-directory: ${{ inputs.app-dir }}
-      run: |
-        task cleanup-pr-resources BRANCH_NAME="${{ inputs.customer-name }}"
+
+    # - name: Cleanup resources
+    #   if: inputs.cleanup == 'true'
+    #   shell: bash
+    #   working-directory: ${{ inputs.app-dir }}
+    #   run: |
+    #     task cleanup-pr-resources BRANCH_NAME="${{ inputs.customer-name }}"
