@@ -31,14 +31,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Debug environment variables
-      shell: bash
-      working-directory: ${{ inputs.app-dir }}
-      run: |
-        echo "DEBUG: REPLICATED_APP=$REPLICATED_APP"
-        echo "DEBUG: REPLICATED_API_TOKEN first 10 chars=${REPLICATED_API_TOKEN:0:10}..."
-        task debug-env
-
     - name: Setup tools
       uses: ./.github/actions/setup-tools
       with:
@@ -103,8 +95,6 @@ runs:
         REPLICATED_APP: ${{ env.REPLICATED_APP }}
         REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: |
-        echo "DEBUG: Deploy step - REPLICATED_APP=$REPLICATED_APP"
-        echo "DEBUG: Deploy step - APP_SLUG should resolve from REPLICATED_APP"
         if [ -n "${{ inputs.channel-id }}" ]; then
           task customer-helm-install \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
