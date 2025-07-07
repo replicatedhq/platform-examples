@@ -48,7 +48,7 @@ runs:
           /usr/local/bin/preflight
           /usr/local/bin/helmfile
           ~/.replicated
-        key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-replicated-latest
+        key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-replicated-${{ hashFiles('**/taskfiles/utils.yml') }}
         restore-keys: |
           tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-
     
