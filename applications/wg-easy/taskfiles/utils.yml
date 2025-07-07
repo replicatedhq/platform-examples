@@ -39,7 +39,7 @@ tasks:
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*linux_${ARCH}.tar.gz" \
+            | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
             | cut -d '"' -f 4)
           
           if [ -z "$DOWNLOAD_URL" ]; then
@@ -54,7 +54,7 @@ tasks:
         elif [ "$OS" = "darwin" ]; then
           echo "Downloading Replicated CLI for macOS..."
           DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*darwin_${ARCH}.tar.gz" \
+            | grep "browser_download_url.*_darwin_${ARCH}.tar.gz" \
             | cut -d '"' -f 4)
           
           if [ -z "$DOWNLOAD_URL" ]; then
