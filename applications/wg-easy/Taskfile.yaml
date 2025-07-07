@@ -269,7 +269,7 @@ tasks:
         echo "   Task APP_SLUG variable = '{{.APP_SLUG}}'"
         echo "   REPLICATED_APP env var = '$REPLICATED_APP'"
         echo ""
-        echo "2. Via direct parameter (proposed method):"
+        echo "2. Via direct parameter (test method):"
         echo "   Direct APP_SLUG parameter = '{{.APP_SLUG}}'"
         echo ""
         echo "3. Testing helmfile template resolution:"
