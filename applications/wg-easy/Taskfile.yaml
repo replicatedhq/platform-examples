@@ -63,6 +63,14 @@ tasks:
     cmds:
       - task --list
 
+  debug-env:
+    desc: Debug environment variables and task variables
+    cmds:
+      - echo "DEBUG: Raw REPLICATED_APP env var=$REPLICATED_APP"
+      - echo "DEBUG: Resolved APP_SLUG={{.APP_SLUG}}"
+      - echo "DEBUG: REPLICATED_API_TOKEN first 10 chars=${REPLICATED_API_TOKEN:0:10}..."
+      - echo "DEBUG: All task vars - APP_SLUG={{.APP_SLUG}} RELEASE_CHANNEL={{.RELEASE_CHANNEL}}"
+
   cluster-create:
     desc: Create a test cluster using Replicated Compatibility Matrix (use EMBEDDED=true for embedded clusters)
     run: once
@@ -270,6 +278,9 @@ tasks:
       CHANNEL: '{{.CHANNEL}}'
     cmds:
       - echo "Installing all charts via helmfile"
+      - echo "DEBUG: APP_SLUG={{.APP_SLUG}}"
+      - echo "DEBUG: REPLICATED_APP env var=$REPLICATED_APP"
+      - echo "DEBUG: HELM_ENV={{.HELM_ENV}}"
       - |
         # Get cluster ID
         CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
@@ -851,6 +862,8 @@ tasks:
     cmds:
       - echo "Deploying charts for customer {{.NORMALIZED_CUSTOMER_NAME}} using replicated environment..."
       - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
+      - echo "DEBUG: APP_SLUG={{.APP_SLUG}}"
+      - echo "DEBUG: REPLICATED_APP env var=$REPLICATED_APP"
       - |
         # Determine channel identifier to use and log it
         if [ -n "{{.CHANNEL_ID}}" ]; then

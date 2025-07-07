@@ -31,6 +31,14 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Debug environment variables
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        echo "DEBUG: REPLICATED_APP=$REPLICATED_APP"
+        echo "DEBUG: REPLICATED_API_TOKEN first 10 chars=${REPLICATED_API_TOKEN:0:10}..."
+        task debug-env
+
     - name: Setup tools
       uses: ./.github/actions/setup-tools
       with:
@@ -40,6 +48,9 @@ runs:
     - name: Create customer
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: |
         if [ -n "${{ inputs.channel-id }}" ]; then
           task customer-create \
@@ -55,6 +66,9 @@ runs:
       id: license
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: |
         LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ inputs.customer-name }}" --silent | tail -1)
         echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
@@ -68,11 +82,16 @@ runs:
         max_attempts: 3
         command: |
           cd ${{ inputs.app-dir }}
+          export REPLICATED_APP="${{ env.REPLICATED_APP }}"
+          export REPLICATED_API_TOKEN="${{ env.REPLICATED_API_TOKEN }}"
           task cluster-create CLUSTER_NAME="${{ inputs.cluster-name }}"
 
     - name: Setup cluster
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: |
         task setup-kubeconfig CLUSTER_NAME="${{ inputs.cluster-name }}"
         task cluster-ports-expose CLUSTER_NAME="${{ inputs.cluster-name }}"
@@ -80,7 +99,12 @@ runs:
     - name: Deploy application
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: |
+        echo "DEBUG: Deploy step - REPLICATED_APP=$REPLICATED_APP"
+        echo "DEBUG: Deploy step - APP_SLUG should resolve from REPLICATED_APP"
         if [ -n "${{ inputs.channel-id }}" ]; then
           task customer-helm-install \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
@@ -98,6 +122,9 @@ runs:
     - name: Run tests
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
       run: task test
 
     # - name: Cleanup resources
