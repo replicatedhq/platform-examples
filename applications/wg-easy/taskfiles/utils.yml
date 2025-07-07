@@ -38,21 +38,31 @@ tasks:
         # Download and install based on OS
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
-          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
             | grep "browser_download_url.*linux_${ARCH}.tar.gz" \
-            | cut -d '"' -f 4 \
-            | xargs curl -L -o replicated.tar.gz
+            | cut -d '"' -f 4)
           
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for linux_${ARCH}.tar.gz"
+            exit 1
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
           tar xzf replicated.tar.gz
           sudo mv replicated /usr/local/bin/replicated
           
         elif [ "$OS" = "darwin" ]; then
           echo "Downloading Replicated CLI for macOS..."
-          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
             | grep "browser_download_url.*darwin_${ARCH}.tar.gz" \
-            | cut -d '"' -f 4 \
-            | xargs curl -L -o replicated.tar.gz
+            | cut -d '"' -f 4)
           
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for darwin_${ARCH}.tar.gz"
+            exit 1
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
           tar xzf replicated.tar.gz
           sudo mv replicated /usr/local/bin/replicated
           
