@@ -283,10 +283,23 @@ tasks:
 
         # Deploy with helmfile
         echo "Using $ENV_VARS"
+        
+        # Debug: Show what variables are being used
+        echo "DEBUG: Task APP_SLUG variable = '{{.APP_SLUG}}'"
+        echo "DEBUG: REPLICATED_APP env var = '$REPLICATED_APP'"
+        echo "DEBUG: HELM_ENV = '{{.HELM_ENV}}'"
+        echo "DEBUG: CHANNEL = '{{.CHANNEL}}'"
+        
         if [ "{{.HELM_ENV}}" = "replicated" ]; then
-          eval "KUBECONFIG='{{.KUBECONFIG_FILE}}' HELMFILE_ENVIRONMENT='{{.HELM_ENV}}' APP_SLUG='{{.APP_SLUG}}' REPLICATED_LICENSE_ID='{{.REPLICATED_LICENSE_ID}}' CHANNEL='{{.CHANNEL}}' $ENV_VARS helmfile sync --wait"
+          echo "DEBUG: Setting APP_SLUG env var to '{{.APP_SLUG}}' for helmfile"
+          HELM_CMD="KUBECONFIG='{{.KUBECONFIG_FILE}}' HELMFILE_ENVIRONMENT='{{.HELM_ENV}}' APP_SLUG='{{.APP_SLUG}}' REPLICATED_LICENSE_ID='{{.REPLICATED_LICENSE_ID}}' CHANNEL='{{.CHANNEL}}' $ENV_VARS helmfile sync --wait"
+          echo "DEBUG: Executing command: $HELM_CMD"
+          eval "$HELM_CMD"
         else
-          eval "KUBECONFIG='{{.KUBECONFIG_FILE}}' HELMFILE_ENVIRONMENT='{{.HELM_ENV}}' APP_SLUG='{{.APP_SLUG}}' $ENV_VARS helmfile sync --wait"
+          echo "DEBUG: Setting APP_SLUG env var to '{{.APP_SLUG}}' for helmfile"
+          HELM_CMD="KUBECONFIG='{{.KUBECONFIG_FILE}}' HELMFILE_ENVIRONMENT='{{.HELM_ENV}}' APP_SLUG='{{.APP_SLUG}}' $ENV_VARS helmfile sync --wait"
+          echo "DEBUG: Executing command: $HELM_CMD"
+          eval "$HELM_CMD"
         fi
       - echo "All charts installed!"
     deps:
