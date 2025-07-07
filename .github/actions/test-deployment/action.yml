@@ -22,6 +22,9 @@ inputs:
   cleanup:
     description: 'Whether to cleanup resources after testing'
     default: 'false'
+  app-id:
+    description: 'Replicated app ID for testing'
+    required: true
 
 outputs:
   customer-license:
@@ -99,7 +102,7 @@ runs:
         task test-app-id-passing
         echo ""
         echo "🧪 Testing proposed method (direct parameter):"
-        task test-app-id-passing APP_SLUG="${{ env.REPLICATED_APP }}"
+        task test-app-id-passing APP_SLUG="${{ inputs.app-id }}"
 
     - name: Deploy application
       shell: bash
