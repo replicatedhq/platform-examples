@@ -267,7 +267,7 @@ tasks:
       # Normalize customer name by replacing common git branch delimiters with hyphens
       # This matches how customer slugs are represented in the Replicated Vendor Portal backend
       NORMALIZED_CUSTOMER_NAME:
-        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+        sh: task utils:normalize-name NAME="{{.CUSTOMER_NAME}}"
     cmds:
       - |
         if [ -z "{{.CUSTOMER_NAME}}" ]; then
@@ -404,3 +404,15 @@ tasks:
           echo "Embedded cluster setup initiated on VM {{.VM_NAME}}"
           echo "You can SSH into the VM with: gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}}"
         fi
+
+  normalize-name:
+    desc: Normalize a name by replacing git branch delimiters with hyphens
+    vars:
+      NAME: '{{.NAME}}'
+    cmds:
+      - |
+        if [ -z "{{.NAME}}" ]; then
+          echo "ERROR: NAME parameter is required"
+          exit 1
+        fi
+        echo "{{.NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
