@@ -462,7 +462,7 @@ tasks:
       - |
         # First check if customer already exists
         echo "Looking for existing customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
-        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CUSTOMER_NAME}}") | .id' | head -1)
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r 'if type == "array" then .[] | select(.name=="{{.NORMALIZED_CUSTOMER_NAME}}") | .id else empty end' 2>/dev/null | head -1)
 
         if [ -n "$EXISTING_CUSTOMER" ] && [ "$EXISTING_CUSTOMER" != "null" ]; then
           echo "Found existing customer {{.NORMALIZED_CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
@@ -606,7 +606,10 @@ tasks:
       - echo "Creating channel {{.NORMALIZED_RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
       - |
         # Check if channel already exists
-        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .id' | head -1)
+        echo "Debug: Checking existing channels for app {{.APP_SLUG}}..."
+        CHANNEL_LIST_RESPONSE=$(replicated channel ls --app {{.APP_SLUG}} --output json)
+        echo "Debug: Channel list response: $CHANNEL_LIST_RESPONSE"
+        EXISTING_CHANNEL_ID=$(echo "$CHANNEL_LIST_RESPONSE" | jq -r 'if type == "array" then .[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .id else empty end' 2>/dev/null | head -1)
 
         if [ -n "$EXISTING_CHANNEL_ID" ] && [ "$EXISTING_CHANNEL_ID" != "null" ]; then
           echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}} with ID: $EXISTING_CHANNEL_ID"
@@ -631,7 +634,7 @@ tasks:
       - echo "Archiving channel ID {{.RELEASE_CHANNEL_ID}} for app {{.APP_SLUG}}..."
       - |
         # Get channel name for logging
-        CHANNEL_NAME=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.RELEASE_CHANNEL_ID}}") | .name' | head -1)
+        CHANNEL_NAME=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r 'if type == "array" then .[] | select(.id=="{{.RELEASE_CHANNEL_ID}}") | .name else empty end' 2>/dev/null | head -1)
 
         if [ -z "$CHANNEL_NAME" ] || [ "$CHANNEL_NAME" = "null" ]; then
           echo "Error: Channel ID {{.RELEASE_CHANNEL_ID}} not found for app {{.APP_SLUG}}"
@@ -796,7 +799,7 @@ tasks:
         task cluster-delete CLUSTER_NAME="{{.NORMALIZED_BRANCH_NAME}}" || echo "Cluster deletion failed or cluster not found"
       - echo "Archiving customer..."
       - |
-        CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_BRANCH_NAME}}") | .id' 2>/dev/null | head -1)
+        CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r 'if type == "array" then .[] | select(.name=="{{.NORMALIZED_BRANCH_NAME}}") | .id else empty end' 2>/dev/null | head -1)
         if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
           task customer-delete CUSTOMER_ID="$CUSTOMER_ID" || echo "Customer deletion failed"
         else
@@ -805,7 +808,7 @@ tasks:
       - echo "Archiving channel..."
       - |
         # Get channel ID and delete it
-        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CHANNEL_NAME}}") | .id' 2>/dev/null | head -1)
+        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r 'if type == "array" then .[] | select(.name=="{{.NORMALIZED_CHANNEL_NAME}}") | .id else empty end' 2>/dev/null | head -1)
         if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
           task channel-delete RELEASE_CHANNEL_ID="$CHANNEL_ID" || echo "Channel deletion failed"
         else
