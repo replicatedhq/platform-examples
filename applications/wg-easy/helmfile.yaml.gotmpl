@@ -19,16 +19,16 @@ environments:
           enableReplicatedSDK: false
   replicated:
     values:
-      - app: '{{ env "REPLICATED_APP" | default "wg-easy" }}'
+      - app: '{{ env "APP_SLUG" | default "wg-easy" }}'
       - channel: '{{ env "CHANNEL" | default "unstable" }}'
       - username: "test@example.com"
       - password: '{{env "REPLICATED_LICENSE_ID"}}'
       - chartSources:
-          certManager: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'
-          certManagerIssuers: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
-          traefik: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
-          wgEasy: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
-          replicatedSDK: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
+          certManager: 'oci://registry.replicated.com/{{ env "APP_SLUG" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'
+          certManagerIssuers: 'oci://registry.replicated.com/{{ env "APP_SLUG" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
+          traefik: 'oci://registry.replicated.com/{{ env "APP_SLUG" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
+          wgEasy: 'oci://registry.replicated.com/{{ env "APP_SLUG" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
+          replicatedSDK: 'oci://registry.replicated.com/{{ env "APP_SLUG" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
       - extras:
           enableReplicatedSDK: true
       # Replicated Registry Proxy configurations for container images
