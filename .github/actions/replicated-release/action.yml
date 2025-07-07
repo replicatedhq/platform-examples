@@ -42,6 +42,7 @@ runs:
       working-directory: ${{ inputs.app-dir }}
       run: |
         task release-create \
+          RELEASE_CHANNEL_ID="${{ steps.channel.outputs.channel-id }}" \
           RELEASE_CHANNEL="${{ inputs.channel-name }}" \
           RELEASE_VERSION="${{ inputs.release-version }}" \
           RELEASE_NOTES="${{ inputs.release-notes }}"

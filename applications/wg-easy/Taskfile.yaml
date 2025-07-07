@@ -412,21 +412,33 @@ tasks:
       - dependencies-update
 
   release-create:
-    desc: Create and promote a release using the Replicated CLI
+    desc: Create and promote a release using the Replicated CLI (supports both channel names and IDs)
     run: once
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
+      RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
       RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
+      # Use channel ID if provided, otherwise fall back to channel name
+      CHANNEL_TARGET: '{{if .RELEASE_CHANNEL_ID}}{{.RELEASE_CHANNEL_ID}}{{else}}{{.RELEASE_CHANNEL}}{{end}}'
     requires:
-      vars: [APP_SLUG, RELEASE_CHANNEL, RELEASE_VERSION]
+      vars: [APP_SLUG, RELEASE_VERSION]
     cmds:
-      - echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.RELEASE_CHANNEL}}..."
+      - |
+        if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
+          echo "Creating and promoting release for {{.APP_SLUG}} to channel ID {{.RELEASE_CHANNEL_ID}}..."
+        else
+          echo "Creating and promoting release for {{.APP_SLUG}} to channel {{.RELEASE_CHANNEL}}..."
+        fi
       - |
         # Create and promote the release in one step
         echo "Creating release from files in ./release directory..."
-        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.RELEASE_CHANNEL}} --version {{.RELEASE_VERSION}}
-        echo "Release version {{.RELEASE_VERSION}} created and promoted to channel {{.RELEASE_CHANNEL}}"
+        replicated release create --app {{.APP_SLUG}} --yaml-dir ./release --release-notes "{{.RELEASE_NOTES}}" --promote {{.CHANNEL_TARGET}} --version {{.RELEASE_VERSION}}
+        if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
+          echo "Release version {{.RELEASE_VERSION}} created and promoted to channel ID {{.RELEASE_CHANNEL_ID}}"
+        else
+          echo "Release version {{.RELEASE_VERSION}} created and promoted to channel {{.RELEASE_CHANNEL}}"
+        fi
     deps:
       - release-prepare
 
