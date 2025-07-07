@@ -248,10 +248,13 @@ tasks:
     silent: false
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
-      # Normalize customer name by replacing common git branch delimiters with hyphens
-      # This matches how customer slugs are represented in the Replicated Vendor Portal backend
+      # Use the normalize-name util for consistent normalization
+      # Use the normalize-name util for consistent normalization
       NORMALIZED_CUSTOMER_NAME:
-        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+        sh: |
+          if [ -n "{{.CUSTOMER_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}"
+          fi
     cmds:
       - |
         if [ -z "{{.CUSTOMER_NAME}}" ]; then
@@ -274,6 +277,152 @@ tasks:
         
         echo "Customer '{{.NORMALIZED_CUSTOMER_NAME}}' license ID: $LICENSE_ID"
         echo "$LICENSE_ID"
+
+  normalize-name:
+    desc: Normalize git branch names by replacing delimiters with hyphens
+    silent: true
+    vars:
+      INPUT_NAME: '{{.INPUT_NAME | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.INPUT_NAME}}" ]; then
+          echo "ERROR: INPUT_NAME is required"
+          exit 1
+        fi
+        
+        # Normalize by replacing common git branch delimiters with hyphens
+        # This matches how slugs are represented in the Replicated Vendor Portal backend
+        echo "{{.INPUT_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+
+  get-customer-info:
+    desc: Get customer information by name or ID (supports bidirectional conversion)
+    silent: false
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+      CUSTOMER_ID: '{{.CUSTOMER_ID | default ""}}'
+      OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "id"}}'
+      # Use the normalize-name util for consistent normalization
+      # Use the normalize-name util for consistent normalization
+      NORMALIZED_CUSTOMER_NAME:
+        sh: |
+          if [ -n "{{.CUSTOMER_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}"
+          fi
+    cmds:
+      - |
+        # Validate input parameters
+        if [ -z "{{.CUSTOMER_NAME}}" ] && [ -z "{{.CUSTOMER_ID}}" ]; then
+          echo "ERROR: Either CUSTOMER_NAME or CUSTOMER_ID is required"
+          echo "Usage: task utils:get-customer-info CUSTOMER_NAME=name [OUTPUT_FORMAT=id|name|json]"
+          echo "   or: task utils:get-customer-info CUSTOMER_ID=id [OUTPUT_FORMAT=id|name|json]"
+          exit 1
+        fi
+        
+        if [ -n "{{.CUSTOMER_NAME}}" ] && [ -n "{{.CUSTOMER_ID}}" ]; then
+          echo "ERROR: Specify either CUSTOMER_NAME or CUSTOMER_ID, not both"
+          exit 1
+        fi
+        
+        # Get all customers as JSON
+        CUSTOMERS_JSON=$(replicated customer ls --output json)
+        
+        if [ -n "{{.CUSTOMER_NAME}}" ]; then
+          # Find customer by name
+          echo "Looking up customer by name: {{.NORMALIZED_CUSTOMER_NAME}}"
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}")')
+          
+          if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
+            echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
+            echo "Available customers:"
+            echo "$CUSTOMERS_JSON" | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+            exit 1
+          fi
+          
+        elif [ -n "{{.CUSTOMER_ID}}" ]; then
+          # Find customer by ID
+          echo "Looking up customer by ID: {{.CUSTOMER_ID}}"
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.id == "{{.CUSTOMER_ID}}")')
+          
+          if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
+            echo "ERROR: Could not find customer with ID '{{.CUSTOMER_ID}}'"
+            echo "Available customers:"
+            echo "$CUSTOMERS_JSON" | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+            exit 1
+          fi
+        fi
+        
+        # Output based on requested format
+        case "{{.OUTPUT_FORMAT}}" in
+          "id")
+            echo "$CUSTOMER_INFO" | jq -r '.id'
+            ;;
+          "name")
+            echo "$CUSTOMER_INFO" | jq -r '.name'
+            ;;
+          "json")
+            echo "$CUSTOMER_INFO" | jq '.'
+            ;;
+          *)
+            echo "ERROR: Invalid OUTPUT_FORMAT '{{.OUTPUT_FORMAT}}'. Valid options: id, name, json"
+            exit 1
+            ;;
+        esac
+
+  get-channel-slug:
+    desc: Get channel slug (name) from channel ID
+    silent: true
+    vars:
+      CHANNEL_ID: '{{.CHANNEL_ID | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.CHANNEL_ID}}" ]; then
+          echo "ERROR: CHANNEL_ID is required"
+          echo "Usage: task utils:get-channel-slug CHANNEL_ID=your-channel-id"
+          exit 1
+        fi
+        
+        # Get channel slug using Replicated CLI
+        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .name')
+        
+        if [ -z "$CHANNEL_SLUG" ] || [ "$CHANNEL_SLUG" = "null" ]; then
+          echo "ERROR: Could not find channel with ID '{{.CHANNEL_ID}}'"
+          echo "Available channels:"
+          replicated channel ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "$CHANNEL_SLUG"
+
+  get-channel-id:
+    desc: Get channel ID from channel slug (name)
+    silent: true
+    vars:
+      CHANNEL_NAME: '{{.CHANNEL_NAME | default ""}}'
+      # Use the normalize-name util for consistent normalization
+      NORMALIZED_CHANNEL_NAME:
+        sh: |
+          if [ -n "{{.CHANNEL_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CHANNEL_NAME}}"
+          fi
+    cmds:
+      - |
+        if [ -z "{{.CHANNEL_NAME}}" ]; then
+          echo "ERROR: CHANNEL_NAME is required"
+          echo "Usage: task utils:get-channel-id CHANNEL_NAME=your-channel-name"
+          exit 1
+        fi
+        
+        # Get channel ID using Replicated CLI
+        CHANNEL_ID=$(replicated channel ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CHANNEL_NAME}}") | .id')
+        
+        if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
+          echo "ERROR: Could not find channel with name '{{.NORMALIZED_CHANNEL_NAME}}'"
+          echo "Available channels:"
+          replicated channel ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "$CHANNEL_ID"
 
   gcp-operations:
     desc: GCP VM operations

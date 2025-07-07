@@ -70,47 +70,45 @@ tasks:
       EMBEDDED: '{{.EMBEDDED | default "false"}}'
       TIMEOUT: '{{if eq .EMBEDDED "true"}}420{{else}}300{{end}}'
       TTL: '{{.TTL | default "4h"}}'
-      # Normalize cluster name by replacing common git branch delimiters with hyphens
-      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CLUSTER_NAME:
-        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
     status:
       - |
         # Check if cluster exists and output info if it does
-        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}")')
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'")')
         if [ -n "$CLUSTER_INFO" ]; then
-          echo "Found existing cluster {{.NORMALIZED_CLUSTER_NAME}}:"
+          echo "Found existing cluster $NORMALIZED_NAME:"
           echo "$CLUSTER_INFO" | jq -r '"  ID: " + .id + "\n  Status: " + .status + "\n  Distribution: " + .distribution + "\n  Created: " + .created_at + "\n  Expires: " + .expires_at'
           exit 0
         fi
         exit 1
     cmds:
       - |
-        echo "Creating new cluster {{.NORMALIZED_CLUSTER_NAME}}..."
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        echo "Creating new cluster $NORMALIZED_NAME..."
         if [ "{{.EMBEDDED}}" = "true" ]; then
-          echo "Creating embedded cluster {{.NORMALIZED_CLUSTER_NAME}} with license ID {{.REPLICATED_LICENSE_ID}}..."
-          replicated cluster create --distribution embedded-cluster --name {{.NORMALIZED_CLUSTER_NAME}} --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
+          echo "Creating embedded cluster $NORMALIZED_NAME with license ID {{.REPLICATED_LICENSE_ID}}..."
+          replicated cluster create --distribution embedded-cluster --name $NORMALIZED_NAME --license-id {{.REPLICATED_LICENSE_ID}} --ttl {{.TTL}}
         else
-          echo "Creating cluster {{.NORMALIZED_CLUSTER_NAME}} with distribution {{.DISTRIBUTION}}..."
-          replicated cluster create --name {{.NORMALIZED_CLUSTER_NAME}} --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
+          echo "Creating cluster $NORMALIZED_NAME with distribution {{.DISTRIBUTION}}..."
+          replicated cluster create --name $NORMALIZED_NAME --distribution {{.DISTRIBUTION}} --version {{.K8S_VERSION}} --disk {{.DISK_SIZE}} --instance-type {{.INSTANCE_TYPE}} --ttl {{.TTL}}
         fi
       - task: utils:wait-for-cluster
         vars:
           TIMEOUT: "{{.TIMEOUT}}"
-          CLUSTER_NAME: "{{.NORMALIZED_CLUSTER_NAME}}"
+          CLUSTER_NAME:
+            sh: task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}"
 
   cluster-list:
     desc: List the cluster
     vars:
-      # Normalize cluster name by replacing common git branch delimiters with hyphens
-      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CLUSTER_NAME:
-        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
     cmds:
       - |
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}") | .id')
-        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CLUSTER_NAME}}") | .expires_at')
-        echo "{{.NORMALIZED_CLUSTER_NAME}} Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'") | .id')
+        EXPIRES=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'") | .expires_at')
+        echo "$NORMALIZED_NAME Cluster ID: ($CLUSTER_ID) Expires: ($EXPIRES)"
 
   test:
     desc: Run a basic test suite
@@ -321,17 +319,16 @@ tasks:
     desc: Delete all test clusters with matching name and clean up kubeconfig
     silent: false
     vars:
-      # Normalize cluster name by replacing common git branch delimiters with hyphens
-      # This matches how cluster slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CLUSTER_NAME:
-        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
     cmds:
-      - echo "Deleting clusters named {{.NORMALIZED_CLUSTER_NAME}}..."
       - |
-        CLUSTER_IDS=$(replicated cluster ls | grep "{{.NORMALIZED_CLUSTER_NAME}}" | awk '{print $1}')
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        KUBECONFIG_FILE="${KUBECONFIG_FILE:-$NORMALIZED_NAME.kubeconfig}"
+        echo "Deleting clusters named $NORMALIZED_NAME..."
+        
+        CLUSTER_IDS=$(replicated cluster ls | grep "$NORMALIZED_NAME" | awk '{print $1}')
         if [ -z "$CLUSTER_IDS" ]; then
-          echo "No clusters found with name {{.NORMALIZED_CLUSTER_NAME}}"
+          echo "No clusters found with name $NORMALIZED_NAME"
           exit 0
         fi
 
@@ -339,13 +336,14 @@ tasks:
           echo "Deleting cluster ID: $id"
           replicated cluster rm "$id"
         done
-      - |
+        
         # Clean up kubeconfig file
-        if [ -f "{{.KUBECONFIG_FILE}}" ]; then
-          echo "Removing kubeconfig file {{.KUBECONFIG_FILE}}"
-          rm "{{.KUBECONFIG_FILE}}"
+        if [ -f "$KUBECONFIG_FILE" ]; then
+          echo "Removing kubeconfig file $KUBECONFIG_FILE"
+          rm -f "$KUBECONFIG_FILE"
         fi
-      - echo "All matching clusters deleted and kubeconfig cleaned up!"
+        
+        echo "All matching clusters deleted and kubeconfig cleaned up!"
 
   release-prepare:
     desc: Prepare release files by copying replicated YAML files and packaging Helm charts
@@ -452,26 +450,24 @@ tasks:
       RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
       LICENSE_TYPE: '{{.LICENSE_TYPE | default "dev"}}'
       EXPIRES_IN: '{{.EXPIRES_IN | default ""}}'
-      # Normalize customer name by replacing common git branch delimiters with hyphens
-      # This matches how customer slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CUSTOMER_NAME:
-        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [APP_SLUG]
     cmds:
       - |
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
+        
         # First check if customer already exists
-        echo "Looking for existing customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
-        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CUSTOMER_NAME}}") | .id' | head -1)
+        echo "Looking for existing customer $NORMALIZED_NAME for app {{.APP_SLUG}}..."
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
 
         if [ -n "$EXISTING_CUSTOMER" ] && [ "$EXISTING_CUSTOMER" != "null" ]; then
-          echo "Found existing customer {{.NORMALIZED_CUSTOMER_NAME}} with ID: $EXISTING_CUSTOMER"
+          echo "Found existing customer $NORMALIZED_NAME with ID: $EXISTING_CUSTOMER"
           echo "$EXISTING_CUSTOMER"
           exit 0
         fi
 
         # No existing customer found, create a new one
-        echo "Creating new customer {{.NORMALIZED_CUSTOMER_NAME}} for app {{.APP_SLUG}}..."
+        echo "Creating new customer $NORMALIZED_NAME for app {{.APP_SLUG}}..."
 
         # Determine which channel parameter to use (--channel accepts both names and IDs)
         if [ -n "{{.RELEASE_CHANNEL_ID}}" ]; then
@@ -485,7 +481,7 @@ tasks:
         # Build the command with optional expiration
         CMD="replicated customer create \
           --app {{.APP_SLUG}} \
-          --name {{.NORMALIZED_CUSTOMER_NAME}} \
+          --name $NORMALIZED_NAME \
           --email {{.CUSTOMER_EMAIL}} \
           $CHANNEL_PARAM \
           --type {{.LICENSE_TYPE}} \
@@ -596,28 +592,26 @@ tasks:
     silent: false
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
-      # Normalize channel name by replacing common git branch delimiters with hyphens
-      # This matches how channel slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_RELEASE_CHANNEL:
-        sh: echo "{{.RELEASE_CHANNEL}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [APP_SLUG, RELEASE_CHANNEL]
     cmds:
-      - echo "Creating channel {{.NORMALIZED_RELEASE_CHANNEL}} for app {{.APP_SLUG}}..."
       - |
+        NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.RELEASE_CHANNEL}}")
+        echo "Creating channel $NORMALIZED_NAME for app {{.APP_SLUG}}..."
+        
         # Check if channel already exists
-        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_RELEASE_CHANNEL}}") | .id' | head -1)
+        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
 
         if [ -n "$EXISTING_CHANNEL_ID" ] && [ "$EXISTING_CHANNEL_ID" != "null" ]; then
-          echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} already exists for app {{.APP_SLUG}} with ID: $EXISTING_CHANNEL_ID"
+          echo "Channel $NORMALIZED_NAME already exists for app {{.APP_SLUG}} with ID: $EXISTING_CHANNEL_ID"
           echo "$EXISTING_CHANNEL_ID"
           exit 0
         fi
 
         # Create the channel and capture its ID
-        CHANNEL_OUTPUT=$(replicated channel create --app {{.APP_SLUG}} --name {{.NORMALIZED_RELEASE_CHANNEL}} --output json)
+        CHANNEL_OUTPUT=$(replicated channel create --app {{.APP_SLUG}} --name $NORMALIZED_NAME --output json)
         CHANNEL_ID=$(echo "$CHANNEL_OUTPUT" | jq -r '.id')
-        echo "Channel {{.NORMALIZED_RELEASE_CHANNEL}} created successfully with ID: $CHANNEL_ID"
+        echo "Channel $NORMALIZED_NAME created successfully with ID: $CHANNEL_ID"
         echo "$CHANNEL_ID"
 
   channel-delete:
@@ -734,45 +728,41 @@ tasks:
     vars:
       BRANCH_NAME: '{{.BRANCH_NAME | default "pr-test"}}'
       CHANNEL_NAME: '{{.CHANNEL_NAME | default .BRANCH_NAME}}'
-      # Normalize names by replacing common git branch delimiters with hyphens
-      # This matches how slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_BRANCH_NAME:
-        sh: echo "{{.BRANCH_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      NORMALIZED_CHANNEL_NAME:
-        sh: echo "{{.CHANNEL_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
       CHANNEL_ID:
-        sh: task channel-create RELEASE_CHANNEL={{.NORMALIZED_CHANNEL_NAME}}
+        sh: |
+          NORMALIZED_CHANNEL=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_NAME}}")
+          task channel-create RELEASE_CHANNEL="$NORMALIZED_CHANNEL"
     requires:
       vars: [BRANCH_NAME]
     cmds:
-      - echo "Starting PR validation cycle for branch {{.NORMALIZED_BRANCH_NAME}}"
+      - echo "Starting PR validation cycle for branch {{.BRANCH_NAME}}"
       - echo "Step 1 - Validating charts..."
       - task: chart-validate
       - echo "Step 2 - Building and creating release..."
       - task: release-create
         vars:
-          RELEASE_CHANNEL: "{{.NORMALIZED_CHANNEL_NAME}}"
+          RELEASE_CHANNEL: "{{.CHANNEL_NAME}}"
       - echo "Step 3 - Testing deployment..."
       - task: customer-create
         vars:
-          CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CUSTOMER_NAME: "{{.BRANCH_NAME}}"
           RELEASE_CHANNEL_ID: "{{.CHANNEL_ID}}"
       - task: cluster-create
         vars:
-          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CLUSTER_NAME: "{{.BRANCH_NAME}}"
       - task: setup-kubeconfig
         vars:
-          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CLUSTER_NAME: "{{.BRANCH_NAME}}"
       - task: cluster-ports-expose
         vars:
-          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CLUSTER_NAME: "{{.BRANCH_NAME}}"
       - task: customer-helm-install
         vars:
-          CUSTOMER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
-          CLUSTER_NAME: "{{.NORMALIZED_BRANCH_NAME}}"
+          CUSTOMER_NAME: "{{.BRANCH_NAME}}"
+          CLUSTER_NAME: "{{.BRANCH_NAME}}"
           CHANNEL_ID: "{{.CHANNEL_ID}}"
           REPLICATED_LICENSE_ID:
-            sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_BRANCH_NAME}}
+            sh: task utils:get-customer-license CUSTOMER_NAME="{{.BRANCH_NAME}}"
       - task: test
       - echo "PR validation cycle completed successfully!"
 
@@ -781,38 +771,33 @@ tasks:
     vars:
       BRANCH_NAME: '{{.BRANCH_NAME | default "pr-test"}}'
       CHANNEL_NAME: '{{.CHANNEL_NAME | default .BRANCH_NAME}}'
-      # Normalize names by replacing common git branch delimiters with hyphens
-      # This matches how slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_BRANCH_NAME:
-        sh: echo "{{.BRANCH_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      NORMALIZED_CHANNEL_NAME:
-        sh: echo "{{.CHANNEL_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [BRANCH_NAME]
     cmds:
-      - echo "Cleaning up PR resources for branch {{.NORMALIZED_BRANCH_NAME}}"
-      - echo "Deleting cluster..."
       - |
-        task cluster-delete CLUSTER_NAME="{{.NORMALIZED_BRANCH_NAME}}" || echo "Cluster deletion failed or cluster not found"
-      - echo "Archiving customer..."
-      - |
-        CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_BRANCH_NAME}}") | .id' 2>/dev/null | head -1)
+        echo "Cleaning up PR resources for branch {{.BRANCH_NAME}}"
+        echo "Deleting cluster..."
+        task cluster-delete CLUSTER_NAME="{{.BRANCH_NAME}}" || echo "Cluster deletion failed or cluster not found"
+        
+        echo "Archiving customer..."
+        NORMALIZED_BRANCH=$(task utils:normalize-name INPUT_NAME="{{.BRANCH_NAME}}")
+        CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_BRANCH'") | .id' 2>/dev/null | head -1)
         if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
           task customer-delete CUSTOMER_ID="$CUSTOMER_ID" || echo "Customer deletion failed"
         else
-          echo "No customer found with name {{.NORMALIZED_BRANCH_NAME}}"
+          echo "No customer found with name $NORMALIZED_BRANCH"
         fi
-      - echo "Archiving channel..."
-      - |
-        # Get channel ID and delete it
-        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="{{.NORMALIZED_CHANNEL_NAME}}") | .id' 2>/dev/null | head -1)
+        
+        echo "Archiving channel..."
+        NORMALIZED_CHANNEL=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_NAME}}")
+        CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_CHANNEL'") | .id' 2>/dev/null | head -1)
         if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
           task channel-delete RELEASE_CHANNEL_ID="$CHANNEL_ID" || echo "Channel deletion failed"
         else
-          echo "No channel found with name {{.NORMALIZED_CHANNEL_NAME}}"
+          echo "No channel found with name $NORMALIZED_CHANNEL"
         fi
 
-      - echo "PR resource cleanup completed!"
+        echo "PR resource cleanup completed!"
 
   full-test-cycle:
     desc: Create cluster, get kubeconfig, expose ports, update dependencies, deploy charts, test, and delete, and clean up build artifacts
@@ -834,102 +819,115 @@ tasks:
       REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
       CHANNEL_SLUG: '{{.CHANNEL_SLUG}}'
       CHANNEL_ID: '{{.CHANNEL_ID}}'
-      # Normalize names by replacing common git branch delimiters with hyphens
-      # This matches how slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CUSTOMER_NAME:
-        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      NORMALIZED_CLUSTER_NAME:
-        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      NORMALIZED_CHANNEL_SLUG:
-        sh: echo "{{.CHANNEL_SLUG}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .NORMALIZED_CLUSTER_NAME)}}'
+      KUBECONFIG_FILE:
+        sh: |
+          if [ -n "{{.KUBECONFIG_FILE}}" ]; then
+            echo "{{.KUBECONFIG_FILE}}"
+          elif [ -n "{{.CLUSTER_NAME}}" ]; then
+            NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+            echo "./$NORMALIZED_CLUSTER.kubeconfig"
+          else
+            echo "./default.kubeconfig"
+          fi
     requires:
       vars: [CUSTOMER_NAME, CLUSTER_NAME, REPLICATED_LICENSE_ID]
     cmds:
-      - echo "Deploying charts for customer {{.NORMALIZED_CUSTOMER_NAME}} using replicated environment..."
-      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
       - |
+        NORMALIZED_CUSTOMER=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
+        NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        echo "Deploying charts for customer $NORMALIZED_CUSTOMER using replicated environment..."
+        echo "Cluster:$NORMALIZED_CLUSTER"
+        
         # Determine channel identifier to use and log it
         if [ -n "{{.CHANNEL_ID}}" ]; then
           echo "Channel ID:{{.CHANNEL_ID}}"
           CHANNEL_PARAM="{{.CHANNEL_ID}}"
+        elif [ -n "{{.CHANNEL_SLUG}}" ]; then
+          NORMALIZED_CHANNEL_SLUG=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_SLUG}}")
+          echo "Channel Slug:$NORMALIZED_CHANNEL_SLUG"
+          CHANNEL_PARAM="$NORMALIZED_CHANNEL_SLUG"
         else
-          echo "Channel Slug:{{.NORMALIZED_CHANNEL_SLUG}}"
-          CHANNEL_PARAM="{{.NORMALIZED_CHANNEL_SLUG}}"
+          echo "No channel specified, using default"
+          CHANNEL_PARAM=""
         fi
         echo "License ID:{{.REPLICATED_LICENSE_ID}}"
-      - |
+        
         # Get customer email for registry authentication
         echo "Getting customer email for registry authentication..."
-        CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
+        CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "'$NORMALIZED_CUSTOMER'") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
         echo "Customer email: $CUSTOMER_EMAIL"
 
         # Authenticate with Replicated registry using customer email and license ID
         echo "Authenticating with Replicated registry..."
         echo "{{.REPLICATED_LICENSE_ID}}" | helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password-stdin
       - |
-        # Determine which channel parameter to use for helm install
+        NORMALIZED_CUSTOMER=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
+        NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        
+        # Determine which channel parameter to use for helm install - helm-install needs channel slug, not ID
         if [ -n "{{.CHANNEL_ID}}" ]; then
-          CHANNEL_PARAM="{{.CHANNEL_ID}}"
+          # Convert channel ID to channel slug for helmfile
+          echo "Converting channel ID {{.CHANNEL_ID}} to channel slug for helmfile..."
+          CHANNEL_SLUG=$(task utils:get-channel-slug CHANNEL_ID="{{.CHANNEL_ID}}")
+          CHANNEL_PARAM="$CHANNEL_SLUG"
+        elif [ -n "{{.CHANNEL_SLUG}}" ]; then
+          NORMALIZED_CHANNEL_SLUG=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_SLUG}}")
+          CHANNEL_PARAM="$NORMALIZED_CHANNEL_SLUG"
         else
-          CHANNEL_PARAM="{{.NORMALIZED_CHANNEL_SLUG}}"
+          CHANNEL_PARAM=""
         fi
         
         # Deploy using replicated environment with customer-specific settings
-        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="{{.NORMALIZED_CLUSTER_NAME}}"
-      - echo "Customer helm install complete for {{.NORMALIZED_CUSTOMER_NAME}}"
+        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="$NORMALIZED_CLUSTER"
+        echo "Customer helm install complete for $NORMALIZED_CUSTOMER"
 
   customer-full-test-cycle:
     desc: Complete customer workflow - create cluster, find customer, deploy using existing releases, test (no cleanup for CD)
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
-      # Normalize names by replacing common git branch delimiters with hyphens
-      # This matches how slugs are represented in the Replicated Vendor Portal backend
-      NORMALIZED_CUSTOMER_NAME:
-        sh: echo "{{.CUSTOMER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
-      NORMALIZED_CLUSTER_NAME:
-        sh: echo "{{.CLUSTER_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
     requires:
       vars: [CUSTOMER_NAME, CLUSTER_NAME]
     cmds:
       - echo "Starting customer full test cycle..."
-      - echo "Customer:{{.NORMALIZED_CUSTOMER_NAME}}"
-      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
+      - echo "Customer:{{.CUSTOMER_NAME}}"
+      - echo "Cluster:{{.CLUSTER_NAME}}"
 
       # Setup cluster infrastructure
       - task: cluster-create
         vars:
-          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       - task: setup-kubeconfig
         vars:
-          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       - task: cluster-ports-expose
         vars:
-          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
       # - task: dependencies-update
 
       # Setup customer and get license (use existing releases)
-      - echo "Creating/finding customer {{.NORMALIZED_CUSTOMER_NAME}}..."
+      - echo "Creating/finding customer {{.CUSTOMER_NAME}}..."
       - task: customer-create
         vars:
-          CUSTOMER_NAME: '{{.NORMALIZED_CUSTOMER_NAME}}'
-      - echo "Getting license ID and channel for customer {{.NORMALIZED_CUSTOMER_NAME}}..."
+          CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
+      - echo "Getting license ID and channel for customer {{.CUSTOMER_NAME}}..."
       - task: customer-helm-install
         vars:
-          CUSTOMER_NAME: '{{.NORMALIZED_CUSTOMER_NAME}}'
-          CLUSTER_NAME: '{{.NORMALIZED_CLUSTER_NAME}}'
+          CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
+          CLUSTER_NAME: '{{.CLUSTER_NAME}}'
           REPLICATED_LICENSE_ID:
-            sh: task utils:get-customer-license CUSTOMER_NAME={{.NORMALIZED_CUSTOMER_NAME}}
+            sh: task utils:get-customer-license CUSTOMER_NAME="{{.CUSTOMER_NAME}}"
           CHANNEL_ID:
-            sh: replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .channels[0].channelId'
+            sh: |
+              NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
+              replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'") | .channels[0].id'
 
       # Run tests
       - task: test
 
       - echo "Customer full test cycle complete! Environment left running for continuous deployment."
-      - echo "Cluster:{{.NORMALIZED_CLUSTER_NAME}}"
-      - echo "Customer:{{.NORMALIZED_CUSTOMER_NAME}}"
+      - echo "Cluster:{{.CLUSTER_NAME}}"
+      - echo "Customer:{{.CUSTOMER_NAME}}"
 
   cmx-vm-create:
     desc: Create a CMX VM instance using Replicated CLI
