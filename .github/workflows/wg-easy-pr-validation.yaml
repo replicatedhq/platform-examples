@@ -122,7 +122,6 @@ jobs:
           channel-id: ${{ needs.create-release.outputs.channel-id }}
           helm-version: ${{ env.HELM_VERSION }}
           cleanup: 'false'
-          app-id: ${{ secrets.WG_EASY_REPLICATED_APP }}
 
       - name: Upload debug logs
         if: failure()
