@@ -99,7 +99,7 @@ runs:
         task test-app-id-passing
         echo ""
         echo "🧪 Testing proposed method (direct parameter):"
-        task test-app-id-passing APP_SLUG="${{ secrets.WG_EASY_REPLICATED_APP }}"
+        task test-app-id-passing APP_SLUG="${{ env.REPLICATED_APP }}"
 
     - name: Deploy application
       shell: bash
