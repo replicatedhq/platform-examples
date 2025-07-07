@@ -88,6 +88,19 @@ runs:
         task setup-kubeconfig CLUSTER_NAME="${{ inputs.cluster-name }}"
         task cluster-ports-expose CLUSTER_NAME="${{ inputs.cluster-name }}"
 
+    - name: Test App ID Passing Methods
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      env:
+        REPLICATED_APP: ${{ env.REPLICATED_APP }}
+        REPLICATED_API_TOKEN: ${{ env.REPLICATED_API_TOKEN }}
+      run: |
+        echo "🧪 Testing current method (environment variable):"
+        task test-app-id-passing
+        echo ""
+        echo "🧪 Testing proposed method (direct parameter):"
+        task test-app-id-passing APP_SLUG="${{ secrets.WG_EASY_REPLICATED_APP }}"
+
     - name: Deploy application
       shell: bash
       working-directory: ${{ inputs.app-dir }}
