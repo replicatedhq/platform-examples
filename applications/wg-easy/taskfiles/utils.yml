@@ -412,7 +412,7 @@ tasks:
     cmds:
       - |
         if [ -z "{{.NAME}}" ]; then
-          echo "ERROR: NAME parameter is required"
-          exit 1
+          echo ""
+          exit 0
         fi
         echo "{{.NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
