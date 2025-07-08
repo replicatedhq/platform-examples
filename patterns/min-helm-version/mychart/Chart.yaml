@@ -1,0 +1,5 @@
+apiVersion: v2
+name: mychart
+version: 0.1.0
+annotations:
+  minimumHelmVersion: 3.18.2
