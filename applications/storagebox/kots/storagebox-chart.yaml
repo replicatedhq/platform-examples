@@ -5,22 +5,45 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.16.0
+    chartVersion: 0.20.0
   values:
     replicated:
       enabled: true
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
+      defaultPodOptions:
+        imagePullSecrets:
+          - name: repl{{ ImagePullSecretName }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "obeone" }}/nfs-server
+        pullPolicy: IfNotPresent
+      global:
+        fullnameOverride: nfs-server
+      controller:
+        annotations:
+          backup.velero.io/backup-volumes: storagebox-nfs-server-shared
       persistence:
         shared:
           enabled: true
-          type: emptyDir
+          type: pvc
+          readOnly: false
+          accessMode: ReadWriteOnce
+          storageClass: ""
+          size: repl{{ ConfigOption "nfs_storage_size" | default "10Gi" }}
+          retain: true
           mountPath: repl{{ ConfigOption "nfs_share" }}
       env:
         NFS_EXPORT_0: repl{{ ConfigOption "nfs_share" }} repl{{ ConfigOption "nfs_share_options" }}
         NFS_LOG_LEVEL: debug
     cassandra:
       enabled: repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}
+      image:
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/docker.io" }}
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/cassandra
+        pullSecrets:
+          - name: repl{{ ImagePullSecretName }}
       truststore_password : repl{{ ConfigOption "cassandra_truststore_password" }}
       keystore_password : repl{{ ConfigOption "cassandra_keystore_password" }}
       dbUser:
@@ -53,13 +76,11 @@ spec:
       tenant:
         name: repl{{ ConfigOption "minio_tenant_name" }}
         image:
-          repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}/minio/minio
-          tag: RELEASE.2024-08-17T01-24-54Z
+          repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "proxy.xyyzx.net/storagebox/quay.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "minio" }}/minio
           pullPolicy: IfNotPresent
-        imagePullSecret: { }
+        imagePullSecret:
+          - name: repl{{ ImagePullSecretName }}
         scheduler: { }
-        # configuration:
-        #   name: repl{{ ConfigOption "minio_tenant_configuration_name" }}
         certificate:
           requestAutoCert: true
         configSecret:
@@ -97,7 +118,13 @@ spec:
             tolerations: [ ]
             nodeSelector: { }
             affinity: { }
-            resources: { }
+            resources:
+              limits:
+                cpu: "2000m"
+                memory: "4Gi"
+              requests:
+                cpu: "1000m"
+                memory: "2Gi"
             securityContext:
               runAsUser: 1000
               runAsGroup: 1000
@@ -118,28 +145,13 @@ spec:
           enabled: repl{{ ConfigOptionEquals "minio_tenant_metrics_enabled" "1" }}
           port: repl{{ ConfigOption "minio_tenant_metrics_port" }}
           protocol: repl{{ ConfigOption "minio_tenant_metrics_protocol" }}
-        ###
-        # Array of objects describing one or more buckets to create during tenant provisioning.
-        # Example:
-        #
-        # .. code-block:: yaml
-        #
-        #    - name: my-minio-bucket
-        #         objectLock: false        # optional
-        #         region: us-east-1        # optional
         buckets:
           - name: repl{{ ConfigOption "minio_tenant_bucket_name" }}
             objectLock: repl{{ ConfigOptionEquals "minio_tenant_bucket_object_lock" "1" }}
             region: repl{{ ConfigOption "minio_tenant_bucket_region" }}
-        # Array of Kubernetes secrets from which the Operator generates MinIO users during tenant provisioning.
-        #
-        # Each secret should specify the ``CONSOLE_ACCESS_KEY`` and ``CONSOLE_SECRET_KEY`` as the access key and secret key for that user.
-        # users:
-        #   - '{{repl ConfigOption "minio_tenant_user_name"}}'
-        # secrets:
-        #   name: repl{{ ConfigOption "minio_tenant_user_name" }}
-        #   accessKey: repl{{ ConfigOption "minio_tenant_user_access_key" }}
-        #   secretKey: repl{{ ConfigOption "minio_tenant_user_secret_key" }}
+        users:
+          - name: repl{{ ConfigOption "minio_tenant_user_name" | default "minio-user" }}
+            secretName: repl{{ ConfigOption "minio_tenant_user_secret" | default "minio-user-secret" }}
 
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_no_ssl" }}'
