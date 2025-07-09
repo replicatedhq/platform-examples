@@ -47,6 +47,7 @@ runs:
           /usr/local/bin/yq
           /usr/local/bin/preflight
           /usr/local/bin/helmfile
+          /usr/local/bin/replicated
           ~/.replicated
         key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-replicated-${{ hashFiles('**/taskfiles/utils.yml') }}
         restore-keys: |
@@ -91,4 +92,6 @@ runs:
     - name: Install Replicated CLI
       shell: bash
       working-directory: ${{ inputs.app-dir }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: task utils:install-replicated-cli

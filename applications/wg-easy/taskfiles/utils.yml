@@ -38,10 +38,19 @@ tasks:
         # Download and install based on OS
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
-            | head -1 \
-            | cut -d '"' -f 4)
+          # Use authenticated API call if GITHUB_TOKEN is available
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          else
+            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          fi
           
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Error: Could not find download URL for *_linux_${ARCH}.tar.gz"
@@ -54,10 +63,19 @@ tasks:
           
         elif [ "$OS" = "darwin" ]; then
           echo "Downloading Replicated CLI for macOS..."
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*_darwin_all.tar.gz" \
-            | head -1 \
-            | cut -d '"' -f 4)
+          # Use authenticated API call if GITHUB_TOKEN is available
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_darwin_all.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          else
+            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_darwin_all.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          fi
           
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Error: Could not find download URL for *_darwin_all.tar.gz"
