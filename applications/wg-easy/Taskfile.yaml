@@ -634,7 +634,7 @@ tasks:
         fi
 
         # Archive the channel
-        replicated channel archive --app {{.APP_SLUG}} {{.RELEASE_CHANNEL_ID}}
+        replicated channel rm --app {{.APP_SLUG}} {{.RELEASE_CHANNEL_ID}}
         echo "Channel $CHANNEL_NAME (ID: {{.RELEASE_CHANNEL_ID}}) archived successfully"
 
   chart-lint-all:
