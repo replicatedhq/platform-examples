@@ -21,7 +21,7 @@ environments:
     values:
       - app: '{{ env "REPLICATED_APP" | default "wg-easy-cre" }}'
       - channel: '{{ env "CHANNEL" | default "unstable" }}'
-      - username: '{{ env "CUSTOMER_EMAIL" | default "test@example.com" }}'
+      - username: '{{env "REPLICATED_LICENSE_ID"}}'
       - password: '{{env "REPLICATED_LICENSE_ID"}}'
       - chartSources:
           certManager: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'

@@ -262,10 +262,10 @@ tasks:
     desc: Install all charts using helmfile
     vars:
       HELM_ENV: '{{.HELM_ENV | default "default"}}'
-      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      CLUSTER_NAME: '{{.CLUSTER_NAME | default "test-cluster"}}'
       KUBECONFIG_FILE: '{{.KUBECONFIG_FILE | default (printf "./%s.kubeconfig" .CLUSTER_NAME)}}'
       REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
-      CHANNEL: '{{.CHANNEL}}'
+      CHANNEL: '{{.CHANNEL | default "unstable"}}'
     cmds:
       - echo "Installing all charts via helmfile"
       - |
@@ -817,7 +817,6 @@ tasks:
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME}}'
       CLUSTER_NAME: '{{.CLUSTER_NAME}}'
-      REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
       CHANNEL_SLUG: '{{.CHANNEL_SLUG}}'
       CHANNEL_ID: '{{.CHANNEL_ID}}'
       KUBECONFIG_FILE:
@@ -831,39 +830,18 @@ tasks:
             echo "./default.kubeconfig"
           fi
     requires:
-      vars: [CUSTOMER_NAME, CLUSTER_NAME, REPLICATED_LICENSE_ID]
+      vars: [CUSTOMER_NAME, CLUSTER_NAME]
     cmds:
       - |
         NORMALIZED_CUSTOMER=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
         NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
         echo "Deploying charts for customer $NORMALIZED_CUSTOMER using replicated environment..."
-        echo "Cluster:$NORMALIZED_CLUSTER"
+        echo "Cluster: $NORMALIZED_CLUSTER"
 
-        # Determine channel identifier to use and log it
-        if [ -n "{{.CHANNEL_ID}}" ]; then
-          echo "Channel ID:{{.CHANNEL_ID}}"
-          CHANNEL_PARAM="{{.CHANNEL_ID}}"
-        elif [ -n "{{.CHANNEL_SLUG}}" ]; then
-          NORMALIZED_CHANNEL_SLUG=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_SLUG}}")
-          echo "Channel Slug:$NORMALIZED_CHANNEL_SLUG"
-          CHANNEL_PARAM="$NORMALIZED_CHANNEL_SLUG"
-        else
-          echo "No channel specified, using default"
-          CHANNEL_PARAM=""
-        fi
-        echo "License ID:{{.REPLICATED_LICENSE_ID}}"
-
-        # Get customer email for registry authentication
-        echo "Getting customer email for registry authentication..."
-        CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "'$NORMALIZED_CUSTOMER'") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
-        echo "Customer email: $CUSTOMER_EMAIL"
-
-        # Authenticate with Replicated registry using customer email and license ID
-        echo "Authenticating with Replicated registry..."
-        echo "{{.REPLICATED_LICENSE_ID}}" | helm registry login registry.replicated.com --username "$CUSTOMER_EMAIL" --password-stdin
-      - |
-        NORMALIZED_CUSTOMER=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
-        NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
+        # Get customer license ID
+        echo "Looking up license ID for customer $NORMALIZED_CUSTOMER..."
+        REPLICATED_LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="$NORMALIZED_CUSTOMER")
+        echo "License ID: $REPLICATED_LICENSE_ID"
 
         # Determine which channel parameter to use for helm install - helm-install needs channel slug, not ID
         if [ -n "{{.CHANNEL_ID}}" ]; then
@@ -871,15 +849,18 @@ tasks:
           echo "Converting channel ID {{.CHANNEL_ID}} to channel slug for helmfile..."
           CHANNEL_SLUG=$(task utils:get-channel-slug CHANNEL_ID="{{.CHANNEL_ID}}")
           CHANNEL_PARAM="$CHANNEL_SLUG"
+          echo "Channel Slug: $CHANNEL_PARAM"
         elif [ -n "{{.CHANNEL_SLUG}}" ]; then
           NORMALIZED_CHANNEL_SLUG=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_SLUG}}")
           CHANNEL_PARAM="$NORMALIZED_CHANNEL_SLUG"
+          echo "Channel Slug: $CHANNEL_PARAM"
         else
+          echo "No channel specified, using default"
           CHANNEL_PARAM=""
         fi
 
         # Deploy using replicated environment with customer-specific settings
-        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="$NORMALIZED_CLUSTER"
+        task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="$REPLICATED_LICENSE_ID" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="$NORMALIZED_CLUSTER"
         echo "Customer helm install complete for $NORMALIZED_CUSTOMER"
 
   customer-full-test-cycle:
