@@ -475,6 +475,22 @@ PR validation runs automatically on pull requests affecting `applications/wg-eas
 
 ## Future Considerations
 
+### Critical Issue: Replicated CLI Installation Failure
+
+**Current Problem**: The GitHub Actions workflow is failing due to Replicated CLI installation issues in the `utils:install-replicated-cli` task. The task makes unauthenticated GitHub API calls to download the CLI, which are getting rate-limited in CI environments.
+
+**Root Cause**:
+
+- The CLI installation is not properly cached (only `~/.replicated` config is cached, not `/usr/local/bin/replicated`)
+- Unauthenticated GitHub API calls hit rate limits
+- Each CI run downloads the CLI again instead of using cached version
+
+**Immediate Fix Options**:
+
+1. **Add `/usr/local/bin/replicated` to cache path** in `.github/actions/setup-tools/action.yml`
+2. **Add GitHub token authentication** to API calls in `taskfiles/utils.yml`
+3. **Install CLI directly** in the GitHub Action instead of using Task
+
 ### Refactoring PR Validation Workflow Using Replicated Actions
 
 The current GitHub Actions workflow uses custom composite actions that wrap Task-based operations. The [replicated-actions](https://github.com/replicatedhq/replicated-actions) repository provides official actions that could replace several of these custom implementations for improved reliability and reduced maintenance burden.
@@ -482,98 +498,157 @@ The current GitHub Actions workflow uses custom composite actions that wrap Task
 #### Current State Analysis
 
 The current workflow uses custom composite actions:
-- `./.github/actions/replicated-release` (uses Task + Replicated CLI)
-- `./.github/actions/test-deployment` (complex composite with multiple Task calls)
+
+- `./.github/actions/replicated-release` (uses Task + Replicated CLI) - **FAILING DUE TO CLI INSTALL**
+- `./.github/actions/test-deployment` (complex composite with multiple Task calls) - **FAILING DUE TO CLI INSTALL**
 - Custom cluster and customer management via Task wrappers
 
-#### Proposed Refactoring Opportunities
+**Key Discovery**: The `replicated-actions` use the `replicated-lib` NPM package (v0.0.1-beta.21) instead of the CLI binary, which eliminates the need for CLI installation entirely.
 
-##### 1. Replace Custom Release Creation
-**Current**: `./.github/actions/replicated-release` (uses Task + Replicated CLI)  
-**Replace with**: `replicatedhq/replicated-actions/create-release@v1`
+#### Comprehensive Refactoring Plan
+
+##### Phase 1: Immediate CLI Installation Fix
+
+**Task 1.1: Fix CLI Caching**
+
+- [ ] Update `.github/actions/setup-tools/action.yml` cache path to include `/usr/local/bin/replicated`
+- [ ] Add GitHub token authentication to `taskfiles/utils.yml` CLI download
+- [ ] Test CI pipeline with improved caching
+
+**Task 1.2: Alternative - Direct CLI Installation**
+
+- [ ] Install Replicated CLI directly in setup-tools action (similar to yq, helmfile)
+- [ ] Remove dependency on `task utils:install-replicated-cli`
+- [ ] Use fixed version URL instead of GitHub API lookup
+
+##### Phase 2: Replace Custom Release Creation
+
+**Task 2.1: Action Replacement**
+
+- [ ] Replace `.github/actions/replicated-release` with `replicatedhq/replicated-actions/create-release@v1`
+- [ ] Update workflow to pass chart directory and release parameters directly
+- [ ] Remove `task channel-create` and `task release-create` dependencies
+
+**Task 2.2: Workflow Integration**
+
+- [ ] Modify `create-release` job in workflow to use official action
+- [ ] Update job outputs to match official action format
+- [ ] Test release creation functionality
 
 **Benefits:**
+
 - Official Replicated action with better error handling
-- Direct API integration (no Task wrapper needed)
+- Direct API integration using JavaScript library (no CLI needed)
 - Built-in airgap build support with configurable timeout
 - Outputs channel-slug and release-sequence for downstream jobs
 
-##### 2. Replace Custom Customer Creation
-**Current**: `task customer-create` within test-deployment action  
-**Replace with**: `replicatedhq/replicated-actions/create-customer@v1`
+##### Phase 3: Replace Custom Customer and Cluster Management
+
+**Task 3.1: Customer Management**
+
+- [ ] Replace `task customer-create` with `replicatedhq/replicated-actions/create-customer@v1`
+- [ ] Replace `task utils:get-customer-license` with customer action outputs
+- [ ] Update workflow to capture customer-id and license-id outputs
+
+**Task 3.2: Cluster Management**
+
+- [ ] Replace `task cluster-create` with `replicatedhq/replicated-actions/create-cluster@v1`
+- [ ] Replace `task cluster-delete` with `replicatedhq/replicated-actions/remove-cluster@v1`
+- [ ] Update workflow to capture cluster-id and kubeconfig outputs
+- [ ] Remove `task setup-kubeconfig` dependency
 
 **Benefits:**
-- Direct customer creation without Task wrapper
-- Returns customer-id and license-id as outputs
-- Configurable license parameters (expiration, entitlements)
+
+- Direct resource provisioning without Task wrapper
+- Returns structured outputs (customer-id, license-id, cluster-id, kubeconfig)
+- More granular configuration options
+- Automatic kubeconfig export
 - Better error handling and validation
 
-##### 3. Replace Custom Cluster Management
-**Current**: `task cluster-create` and `task cluster-delete`  
-**Replace with**: 
-- `replicatedhq/replicated-actions/create-cluster@v1`
-- `replicatedhq/replicated-actions/remove-cluster@v1`
+##### Phase 4: Replace Test Deployment Action
+
+**Task 4.1: Decompose Custom Action**
+
+- [ ] Break down `.github/actions/test-deployment` into individual workflow steps
+- [ ] Use replicated-actions directly in workflow jobs
+- [ ] Maintain existing retry logic for cluster creation
+- [ ] Remove complex composite action
+
+**Task 4.2: Helm Installation Integration**
+
+- [ ] Replace `task customer-helm-install` with `replicatedhq/replicated-actions/helm-install@v1`
+- [ ] Update workflow to pass license and cluster information directly
+- [ ] Remove helmfile dependency for simple chart installations
 
 **Benefits:**
-- Direct cluster provisioning without Task wrapper
-- Returns cluster-id and kubeconfig as outputs
-- More granular configuration options (node groups, instance types)
-- Automatic kubeconfig export
 
-##### 4. Enhance Cleanup Process
-**Current**: `task cleanup-pr-resources`  
-**Replace with**: Individual replicated-actions for cleanup:
-- `replicatedhq/replicated-actions/archive-customer@v1`
-- `replicatedhq/replicated-actions/remove-cluster@v1`
-
-**Benefits:**
-- More reliable cleanup using official actions
-- Better resource tracking via action outputs
-- Parallel cleanup operations possible
-
-##### 5. Simplify Test Deployment Action
-**Current**: Large composite action with multiple Task calls  
-**Refactor to**: Use replicated-actions directly in workflow
-
-**Benefits:**
 - Reduced complexity and maintenance burden
 - Better visibility in GitHub Actions UI
 - Easier debugging and monitoring
 - Consistent error handling across all operations
 
-#### Implementation Phases
+##### Phase 5: Enhanced Cleanup Process
 
-**Phase 1: Release Creation Refactoring**
-- Replace `.github/actions/replicated-release` with direct use of `replicatedhq/replicated-actions/create-release@v1`
-- Update workflow to pass chart directory and release parameters directly
-- Test release creation functionality
+**Task 5.1: Cleanup Refactoring**
 
-**Phase 2: Customer and Cluster Management**
-- Replace customer creation in test-deployment with `create-customer@v1`
-- Replace cluster operations with `create-cluster@v1`
-- Update workflow to capture and pass IDs between jobs
-- Test customer and cluster provisioning
+- [ ] Replace `task cleanup-pr-resources` with individual replicated-actions
+- [ ] Use `replicatedhq/replicated-actions/archive-customer@v1`
+- [ ] Use `replicatedhq/replicated-actions/remove-cluster@v1`
+- [ ] Implement parallel cleanup using job matrices
 
-**Phase 3: Deployment Testing Simplification**
-- Break down test-deployment composite action into individual workflow steps
-- Use replicated-actions directly in workflow jobs
-- Maintain existing retry logic for cluster creation
-- Test end-to-end deployment flow
+**Task 5.2: Error Handling**
 
-**Phase 4: Enhanced Cleanup**
-- Replace cleanup task with individual replicated-actions
-- Implement parallel cleanup using job matrices
-- Add proper error handling for cleanup failures
-- Test resource cleanup functionality
+- [ ] Add proper error handling for cleanup failures
+- [ ] Test resource cleanup functionality
+- [ ] Add resource tracking via action outputs
+
+**Benefits:**
+
+- More reliable cleanup using official actions
+- Better resource tracking via action outputs
+- Parallel cleanup operations possible
+
+#### Implementation Strategy
+
+**Milestone 1: Critical Fix**
+
+- Fix CLI installation to restore CI functionality
+- Test and validate current workflow works properly
+
+**Milestone 2: Core Refactoring**
+
+- Replace release creation and customer/cluster management
+- Migrate to official actions for core operations
+- Reduce dependency on custom Task-based actions
+
+**Milestone 3: Full Migration**
+
+- Complete test deployment refactoring
+- Implement enhanced cleanup process
+- Remove remaining custom composite actions
+
+**Milestone 4: Validation**
+
+- End-to-end testing of refactored workflow
+- Performance comparison with original implementation
+- Documentation updates
 
 #### Expected Outcomes
-- **Reduced Maintenance**: Fewer custom actions to maintain
-- **Better Reliability**: Official actions with better error handling
-- **Improved Visibility**: Direct action usage in workflow logs
-- **Enhanced Features**: Access to advanced features like airgap builds
-- **Consistent API Usage**: All operations use official Replicated actions
 
-This refactoring would maintain the current Task-based local development workflow while leveraging official actions for CI/CD operations, providing the best of both worlds.
+- **Immediate**: Restored CI functionality with proper CLI caching
+- **Short-term**: Reduced maintenance burden with official actions
+- **Long-term**: Better reliability, improved visibility, and enhanced features
+- **Eliminated**: CLI installation issues by using JavaScript library approach
+- **Improved**: Consistent error handling across all operations
+
+#### Maintained Functionality
+
+- **Task-based local development**: All existing Task commands remain functional
+- **Backward compatibility**: Existing workflows continue to work during transition
+- **Enhanced CI/CD**: Official actions provide better reliability and features
+- **Hybrid approach**: Best of both worlds - Tasks for local dev, actions for CI
+
+This refactoring addresses the immediate CLI installation failure while providing a long-term solution that leverages official Replicated actions for improved reliability and reduced maintenance burden.
 
 ## Additional Resources
 
