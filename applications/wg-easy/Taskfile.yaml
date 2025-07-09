@@ -325,7 +325,7 @@ tasks:
         NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
         KUBECONFIG_FILE="${KUBECONFIG_FILE:-$NORMALIZED_NAME.kubeconfig}"
         echo "Deleting clusters named $NORMALIZED_NAME..."
-        
+
         CLUSTER_IDS=$(replicated cluster ls | grep "$NORMALIZED_NAME" | awk '{print $1}')
         if [ -z "$CLUSTER_IDS" ]; then
           echo "No clusters found with name $NORMALIZED_NAME"
@@ -336,13 +336,13 @@ tasks:
           echo "Deleting cluster ID: $id"
           replicated cluster rm "$id"
         done
-        
+
         # Clean up kubeconfig file
         if [ -f "$KUBECONFIG_FILE" ]; then
           echo "Removing kubeconfig file $KUBECONFIG_FILE"
           rm -f "$KUBECONFIG_FILE"
         fi
-        
+
         echo "All matching clusters deleted and kubeconfig cleaned up!"
 
   release-prepare:
@@ -455,7 +455,7 @@ tasks:
     cmds:
       - |
         NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
-        
+
         # First check if customer already exists
         echo "Looking for existing customer $NORMALIZED_NAME for app {{.APP_SLUG}}..."
         EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
@@ -591,14 +591,15 @@ tasks:
     desc: Create a Replicated release channel and return its ID
     silent: false
     vars:
-      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL}}'
+      APP_SLUG: '{{.APP_SLUG | default "wg-easy-cre"}}'
+      RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
     requires:
       vars: [APP_SLUG, RELEASE_CHANNEL]
     cmds:
       - |
         NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.RELEASE_CHANNEL}}")
         echo "Creating channel $NORMALIZED_NAME for app {{.APP_SLUG}}..."
-        
+
         # Check if channel already exists
         EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
 
@@ -778,7 +779,7 @@ tasks:
         echo "Cleaning up PR resources for branch {{.BRANCH_NAME}}"
         echo "Deleting cluster..."
         task cluster-delete CLUSTER_NAME="{{.BRANCH_NAME}}" || echo "Cluster deletion failed or cluster not found"
-        
+
         echo "Archiving customer..."
         NORMALIZED_BRANCH=$(task utils:normalize-name INPUT_NAME="{{.BRANCH_NAME}}")
         CUSTOMER_ID=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_BRANCH'") | .id' 2>/dev/null | head -1)
@@ -787,7 +788,7 @@ tasks:
         else
           echo "No customer found with name $NORMALIZED_BRANCH"
         fi
-        
+
         echo "Archiving channel..."
         NORMALIZED_CHANNEL=$(task utils:normalize-name INPUT_NAME="{{.CHANNEL_NAME}}")
         CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_CHANNEL'") | .id' 2>/dev/null | head -1)
@@ -837,7 +838,7 @@ tasks:
         NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
         echo "Deploying charts for customer $NORMALIZED_CUSTOMER using replicated environment..."
         echo "Cluster:$NORMALIZED_CLUSTER"
-        
+
         # Determine channel identifier to use and log it
         if [ -n "{{.CHANNEL_ID}}" ]; then
           echo "Channel ID:{{.CHANNEL_ID}}"
@@ -851,7 +852,7 @@ tasks:
           CHANNEL_PARAM=""
         fi
         echo "License ID:{{.REPLICATED_LICENSE_ID}}"
-        
+
         # Get customer email for registry authentication
         echo "Getting customer email for registry authentication..."
         CUSTOMER_EMAIL=$(replicated customer inspect --customer $(replicated customer ls --app "{{.APP_SLUG}}" --output json | jq -r '.[] | select(.name == "'$NORMALIZED_CUSTOMER'") | .id') --app "{{.APP_SLUG}}" | grep "EMAIL:" | awk '{print $2}')
@@ -863,7 +864,7 @@ tasks:
       - |
         NORMALIZED_CUSTOMER=$(task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}")
         NORMALIZED_CLUSTER=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
-        
+
         # Determine which channel parameter to use for helm install - helm-install needs channel slug, not ID
         if [ -n "{{.CHANNEL_ID}}" ]; then
           # Convert channel ID to channel slug for helmfile
@@ -876,7 +877,7 @@ tasks:
         else
           CHANNEL_PARAM=""
         fi
-        
+
         # Deploy using replicated environment with customer-specific settings
         task helm-install HELM_ENV=replicated REPLICATED_LICENSE_ID="{{.REPLICATED_LICENSE_ID}}" CHANNEL="$CHANNEL_PARAM" KUBECONFIG_FILE="{{.KUBECONFIG_FILE}}" CLUSTER_NAME="$NORMALIZED_CLUSTER"
         echo "Customer helm install complete for $NORMALIZED_CUSTOMER"
