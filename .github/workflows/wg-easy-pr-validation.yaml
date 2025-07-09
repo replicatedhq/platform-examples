@@ -87,7 +87,8 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [setup, build-and-package]
     outputs:
-      channel-id: ${{ steps.release.outputs.channel-id }}
+      channel-slug: ${{ steps.release.outputs.channel-slug }}
+      release-sequence: ${{ steps.release.outputs.release-sequence }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -100,10 +101,12 @@ jobs:
 
       - name: Create Replicated release
         id: release
-        uses: ./.github/actions/replicated-release
+        uses: replicatedhq/replicated-actions/create-release@v1.19.0
         with:
-          app-dir: ${{ env.APP_DIR }}
-          channel-name: ${{ needs.setup.outputs.channel-name }}
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          chart: ${{ env.APP_DIR }}/release
+          promote-channel: ${{ needs.setup.outputs.channel-name }}
           release-notes: "PR validation release for ${{ needs.setup.outputs.branch-name }}"
 
   test-deployment:
@@ -119,7 +122,7 @@ jobs:
           app-dir: ${{ env.APP_DIR }}
           customer-name: ${{ needs.setup.outputs.channel-name }}
           cluster-name: ${{ needs.setup.outputs.channel-name }}
-          channel-id: ${{ needs.create-release.outputs.channel-id }}
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
           helm-version: ${{ env.HELM_VERSION }}
           cleanup: 'false'
 

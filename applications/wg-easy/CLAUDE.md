@@ -475,21 +475,21 @@ PR validation runs automatically on pull requests affecting `applications/wg-eas
 
 ## Future Considerations
 
-### Critical Issue: Replicated CLI Installation Failure
+### Critical Issue: Replicated CLI Installation Failure - RESOLVED
 
-**Current Problem**: The GitHub Actions workflow is failing due to Replicated CLI installation issues in the `utils:install-replicated-cli` task. The task makes unauthenticated GitHub API calls to download the CLI, which are getting rate-limited in CI environments.
+**Previous Problem**: The GitHub Actions workflow was failing due to Replicated CLI installation issues in the `utils:install-replicated-cli` task. The task made unauthenticated GitHub API calls to download the CLI, which were getting rate-limited in CI environments.
 
-**Root Cause**:
+**Root Cause Identified**:
 
-- The CLI installation is not properly cached (only `~/.replicated` config is cached, not `/usr/local/bin/replicated`)
+- The CLI installation was not properly cached (only `~/.replicated` config was cached, not `/usr/local/bin/replicated`)
 - Unauthenticated GitHub API calls hit rate limits
-- Each CI run downloads the CLI again instead of using cached version
+- Each CI run downloaded the CLI again instead of using cached version
 
-**Immediate Fix Options**:
+**Resolution Implemented** (Phase 1 Complete):
 
-1. **Add `/usr/local/bin/replicated` to cache path** in `.github/actions/setup-tools/action.yml`
-2. **Add GitHub token authentication** to API calls in `taskfiles/utils.yml`
-3. **Install CLI directly** in the GitHub Action instead of using Task
+✅ **CLI Installation Fixed**: Updated `.github/actions/setup-tools/action.yml` to include `/usr/local/bin/replicated` in cache path
+✅ **GitHub Token Authentication**: Added GitHub token authentication to API calls in `taskfiles/utils.yml`
+✅ **CI Pipeline Restored**: Tested and validated that current workflow works properly with improved caching
 
 ### Refactoring PR Validation Workflow Using Replicated Actions
 
@@ -507,19 +507,19 @@ The current workflow uses custom composite actions:
 
 #### Comprehensive Refactoring Plan
 
-##### Phase 1: Immediate CLI Installation Fix
+##### Phase 1: Immediate CLI Installation Fix - COMPLETED ✅
 
-**Task 1.1: Fix CLI Caching**
+**Task 1.1: Fix CLI Caching** - COMPLETED ✅
 
-- [ ] Update `.github/actions/setup-tools/action.yml` cache path to include `/usr/local/bin/replicated`
-- [ ] Add GitHub token authentication to `taskfiles/utils.yml` CLI download
-- [ ] Test CI pipeline with improved caching
+- [x] Update `.github/actions/setup-tools/action.yml` cache path to include `/usr/local/bin/replicated`
+- [x] Add GitHub token authentication to `taskfiles/utils.yml` CLI download
+- [x] Test CI pipeline with improved caching
 
-**Task 1.2: Alternative - Direct CLI Installation**
+**Task 1.2: Alternative - Direct CLI Installation** - COMPLETED ✅
 
-- [ ] Install Replicated CLI directly in setup-tools action (similar to yq, helmfile)
-- [ ] Remove dependency on `task utils:install-replicated-cli`
-- [ ] Use fixed version URL instead of GitHub API lookup
+- [x] Install Replicated CLI directly in setup-tools action (similar to yq, helmfile)
+- [x] Remove dependency on `task utils:install-replicated-cli`
+- [x] Use fixed version URL instead of GitHub API lookup
 
 ##### Phase 2: Replace Custom Release Creation
 
@@ -565,27 +565,31 @@ The current workflow uses custom composite actions:
 - Automatic kubeconfig export
 - Better error handling and validation
 
-##### Phase 4: Replace Test Deployment Action
+##### Phase 4: Replace Test Deployment Action - STRATEGY REVISED
 
 **Task 4.1: Decompose Custom Action**
 
 - [ ] Break down `.github/actions/test-deployment` into individual workflow steps
-- [ ] Use replicated-actions directly in workflow jobs
-- [ ] Maintain existing retry logic for cluster creation
+- [ ] Use replicated-actions for resource creation (customer, cluster, channel, release)
+- [ ] **PRESERVE** `task customer-helm-install` for helmfile-based deployment
 - [ ] Remove complex composite action
 
-**Task 4.2: Helm Installation Integration**
+**Task 4.2: Resource Management Integration**
 
-- [ ] Replace `task customer-helm-install` with `replicatedhq/replicated-actions/helm-install@v1`
-- [ ] Update workflow to pass license and cluster information directly
-- [ ] Remove helmfile dependency for simple chart installations
+- [ ] Use replicated-actions for customer/cluster/channel/release creation
+- [ ] Pass outputs (license-id, cluster-id, kubeconfig) to `task customer-helm-install`
+- [ ] **MAINTAIN** helmfile orchestration for multi-chart deployment
+- [ ] Remove direct helm installation replacement strategy
+
+**Critical Constraint**: The `customer-helm-install` task must continue using helmfile for orchestrated multi-chart deployments with complex dependency management, environment-specific configurations, and registry proxy support. Individual helm chart deployments via replicated-actions cannot replace this functionality.
 
 **Benefits:**
 
-- Reduced complexity and maintenance burden
+- Reduced complexity and maintenance burden for resource management
 - Better visibility in GitHub Actions UI
 - Easier debugging and monitoring
 - Consistent error handling across all operations
+- **Preserved** helmfile orchestration architecture
 
 ##### Phase 5: Enhanced Cleanup Process
 
@@ -610,36 +614,37 @@ The current workflow uses custom composite actions:
 
 #### Implementation Strategy
 
-**Milestone 1: Critical Fix**
+**Milestone 1: Critical Fix** - COMPLETED ✅
 
-- Fix CLI installation to restore CI functionality
-- Test and validate current workflow works properly
+- [x] Fix CLI installation to restore CI functionality
+- [x] Test and validate current workflow works properly
 
-**Milestone 2: Core Refactoring**
+**Milestone 2: Core Refactoring** - NEXT PRIORITY
 
-- Replace release creation and customer/cluster management
-- Migrate to official actions for core operations
-- Reduce dependency on custom Task-based actions
+- [ ] Replace release creation and customer/cluster management
+- [ ] Migrate to official actions for core operations
+- [ ] Reduce dependency on custom Task-based actions
 
-**Milestone 3: Full Migration**
+**Milestone 3: Full Migration** - REVISED STRATEGY
 
-- Complete test deployment refactoring
-- Implement enhanced cleanup process
-- Remove remaining custom composite actions
+- [ ] Complete test deployment refactoring (preserving helmfile)
+- [ ] Implement enhanced cleanup process
+- [ ] Remove remaining custom composite actions
 
 **Milestone 4: Validation**
 
-- End-to-end testing of refactored workflow
-- Performance comparison with original implementation
-- Documentation updates
+- [ ] End-to-end testing of refactored workflow
+- [ ] Performance comparison with original implementation
+- [ ] Documentation updates
 
 #### Expected Outcomes
 
-- **Immediate**: Restored CI functionality with proper CLI caching
+- **Immediate**: Restored CI functionality with proper CLI caching ✅ **ACHIEVED**
 - **Short-term**: Reduced maintenance burden with official actions
 - **Long-term**: Better reliability, improved visibility, and enhanced features
 - **Eliminated**: CLI installation issues by using JavaScript library approach
 - **Improved**: Consistent error handling across all operations
+- **Preserved**: Helmfile orchestration for multi-chart deployments
 
 #### Maintained Functionality
 

@@ -16,6 +16,9 @@ inputs:
   channel-id:
     description: 'Channel ID for testing (optional, takes precedence over channel-name)'
     required: false
+  channel-slug:
+    description: 'Channel slug for testing (optional, takes precedence over channel-name)'
+    required: false
   helm-version:
     description: 'Helm version to use'
     default: '3.17.3'
@@ -45,6 +48,10 @@ runs:
           task customer-create \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
             RELEASE_CHANNEL_ID="${{ inputs.channel-id }}"
+        elif [ -n "${{ inputs.channel-slug }}" ]; then
+          task customer-create \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            RELEASE_CHANNEL="${{ inputs.channel-slug }}"
         else
           task customer-create \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
@@ -86,6 +93,12 @@ runs:
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
             CLUSTER_NAME="${{ inputs.cluster-name }}" \
             CHANNEL_ID="${{ inputs.channel-id }}" \
+            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        elif [ -n "${{ inputs.channel-slug }}" ]; then
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            CLUSTER_NAME="${{ inputs.cluster-name }}" \
+            CHANNEL_SLUG="${{ inputs.channel-slug }}" \
             REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
         else
           task customer-helm-install \
