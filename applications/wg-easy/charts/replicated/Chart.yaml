@@ -1,5 +1,5 @@
 name: replicated
-version: 1.0.0
+version: 1.7.0
 apiVersion: v2
 dependencies:
   - name: templates
@@ -7,4 +7,4 @@ dependencies:
     repository: file://../templates
   - name: replicated
     repository: oci://registry.replicated.com/library
-    version: 1.5.3
+    version: 1.7.0

@@ -43,8 +43,6 @@ __pycache__/
 # Cursor
 .cursor/
 
-# Claude
-.claude/
 
 # Mlflow specific
 applications/mlflow/tests/.venv/

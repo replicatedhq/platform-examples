@@ -2,6 +2,36 @@
 
 This file contains common commands and workflows for working with the WG-Easy Helm chart project.
 
+## Current Project Status
+
+**Branch:** `adamancini/gh-actions`  
+**Last Updated:** December 27, 2024
+
+### Recent Changes
+- Enhanced customer workflow with full test cycle and improved task documentation
+- Updated Helm chart dependencies and fixed imagePullSecret template
+- Added customer-helm-install task for deployment using replicated environment
+- Implemented automatic name normalization for git branch names in cluster, customer, and channel creation
+- Added comprehensive timeout and monitoring guidance for Helm operations
+- Enhanced background monitoring capabilities for detecting early deployment failures
+
+### Key Features
+- **Automatic Name Normalization**: Git branch names are automatically normalized (replacing `/`, `_`, `.` with `-`) to match Replicated Vendor Portal backend slug format
+- **Enhanced Customer Workflow**: Complete customer lifecycle management from creation to deployment
+- **Improved Error Detection**: Background monitoring and early timeout detection for ImagePullBackOff scenarios
+- **Multi-Registry Support**: Container images published to GHCR, Google Artifact Registry, and Replicated Registry
+- **Comprehensive Testing**: Full test cycles with cluster creation, deployment, and cleanup automation
+
+### Recent Improvements
+- Enhanced Taskfile.yaml with automatic name normalization for cluster, customer, and channel operations
+- Improved utils.yml with normalized customer name handling in license retrieval
+- Updated documentation with comprehensive guidance for background monitoring and timeout detection
+- Streamlined customer workflow commands to use git branch names directly
+- **Optimized GitHub Actions workflows** with Task-based operations and reusable actions
+- **Added chart validation tasks** for consistent linting and templating across environments
+- **Implemented PR validation cycle** with automated cleanup and better error handling
+- **Enhanced channel management** with unique channel ID support to avoid ambiguous channel names
+
 ## Core Principles
 
 The WG-Easy Helm Chart pattern is built on five fundamental principles:
@@ -68,11 +98,18 @@ Use tools to automate repetitive tasks, reducing human error and increasing deve
 ## Architecture Overview
 
 Key components:
+
 - **Taskfile**: Orchestrates the workflow with automated tasks
 - **Helmfile**: Manages chart dependencies and installation order
 - **Wrapped Charts**: Encapsulate upstream charts for consistency
 - **Shared Templates**: Provide reusable components across charts
 - **Replicated Integration**: Enables enterprise distribution
+
+### Taskfile Development Guidelines
+
+When developing or modifying tasks in the Taskfile:
+
+⚠️ **Important**: Always update the [task dependency graph](task-dependency-graph.md) when adding, removing, or changing task dependencies. The graph provides critical visibility into task relationships and workflow dependencies for both development and CI/CD operations.
 
 ## `wg-easy` Chart
 
@@ -125,14 +162,35 @@ task cluster-delete
 # Update Helm dependencies for all charts
 task dependencies-update
 
+# Chart validation and linting
+task chart-lint-all        # Lint all charts
+task chart-template-all    # Template all charts for syntax validation
+task chart-validate        # Complete validation (lint + template + helmfile)
+task chart-package-all     # Package all charts for distribution
+
 # Install all charts using Helmfile
 task helm-install
+
+# Install charts for a specific customer (requires pre-setup)
+# By default, use current git branch name for customer, cluster, and channel names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+# Use CHANNEL_ID for precise channel targeting or CHANNEL_SLUG for channel name
+task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_ID=your-channel-id
 
 # Run tests
 task test
 
 # Full test cycle (create cluster, deploy, test, delete)
 task full-test-cycle
+
+# Complete customer workflow (create cluster, customer, deploy, test, no cleanup)
+# By default, use current git branch name for customer and cluster names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current)
+
+# PR validation and cleanup
+task pr-validation-cycle BRANCH_NAME=$(git branch --show-current)  # Complete PR validation workflow
+task cleanup-pr-resources BRANCH_NAME=$(git branch --show-current) # Cleanup PR-related resources
 ```
 
 ## Release Management
@@ -144,10 +202,41 @@ task release-prepare
 # Create and promote a release
 task release-create RELEASE_VERSION=x.y.z RELEASE_CHANNEL=Unstable
 
+# Channel management (returns channel ID for unique identification)
+task channel-create RELEASE_CHANNEL=channel-name
+task channel-delete RELEASE_CHANNEL_ID=channel-id
+
 # Customer management
-task customer-create CUSTOMER_NAME=example
+# By default, use current git branch name for customer name
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+# Use RELEASE_CHANNEL_ID for precise channel targeting or RELEASE_CHANNEL for channel name
+task customer-create CUSTOMER_NAME=$(git branch --show-current) RELEASE_CHANNEL_ID=your-channel-id
 task customer-ls
 task customer-delete CUSTOMER_ID=your-customer-id
+```
+
+## Name Normalization
+
+The WG-Easy workflow automatically normalizes customer, cluster, and channel names by replacing common git branch delimiters (`/`, `_`, `.`) with hyphens (`-`). This normalization serves two important purposes:
+
+1. **Vendor Portal Backend Compatibility**: Cluster and channel slugs in the Replicated Vendor Portal backend use hyphenated naming conventions
+2. **Kubernetes Naming Requirements**: Kubernetes resources require names that conform to DNS-1123 label standards
+
+### Examples
+
+| Git Branch Name | Normalized Name |
+|----------------|----------------|
+| `feature/new-ui` | `feature-new-ui` |
+| `user_story_123` | `user-story-123` |
+| `v1.2.3` | `v1-2-3` |
+| `adamancini/gh-actions` | `adamancini-gh-actions` |
+
+This means you can use git branch names directly in task commands without manual transformation:
+
+```bash
+# Works with any git branch name
+task customer-create CUSTOMER_NAME=$(git branch --show-current)
+task cluster-create CLUSTER_NAME=$(git branch --show-current)
 ```
 
 ## Customization Options
@@ -169,6 +258,12 @@ RELEASE_NOTES="Release notes"
 
 # Application configuration
 APP_SLUG=wg-easy-cre
+
+# Container registry options
+DEV_CONTAINER_REGISTRY=ghcr.io  # Default: GitHub Container Registry
+# For Google Artifact Registry:
+# DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+# DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
 ```
 
 ## Claude Code Configuration
@@ -180,6 +275,40 @@ When using Claude Code with this repository, use these timeout settings for long
 - `task cluster-create`: Use 600000ms (10 minutes) timeout - double typical cluster creation time
 
 Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` parameter.
+
+### Early Timeout Detection
+
+During `helm install` or `helm-install` operations, you can skip waiting for the full timeout if pods end up in the `ImagePullBackOff` state. This indicates image pull failures that won't resolve by waiting longer. Use `kubectl get pods` to check pod status and terminate early if multiple pods show `ImagePullBackOff` or `ErrImagePull` states.
+
+### Background Monitoring for Helm Operations
+
+When running any task that calls `helm-install` (including `task helm-install`, `task customer-helm-install`, `task full-test-cycle`, and `task customer-full-test-cycle`), you can monitor the deployment in the background to detect early failures:
+
+```bash
+# In a separate terminal or background process, monitor pod status
+watch kubectl get pods --all-namespaces
+
+# Or check for specific error states
+kubectl get pods --all-namespaces --field-selector=status.phase=Failed
+kubectl get pods --all-namespaces | grep -E "(ImagePullBackOff|ErrImagePull|CrashLoopBackOff)"
+```
+
+Common failure patterns that indicate early termination should be considered:
+- Multiple pods in `ImagePullBackOff` or `ErrImagePull` states
+- Persistent `CrashLoopBackOff` across multiple restarts
+- Resource quota exceeded errors
+- Persistent volume claim binding failures
+
+When these conditions are detected, the helm operation can be terminated early rather than waiting for the full timeout period.
+
+### Local Testing Configuration
+
+When testing Helm installations locally (including with helmfile), avoid using the `--atomic` flag so that failed resources remain in the cluster for debugging:
+
+- Remove `atomic: true` from helmfile.yaml.gotmpl during debugging sessions
+- Use `helm install` without `--atomic` for manual testing
+- Failed pods and resources will persist, allowing inspection with `kubectl describe` and `kubectl logs`
+- Clean up manually with `helm uninstall` after debugging is complete
 
 ## Common Workflows
 
@@ -202,13 +331,249 @@ Example: When running `task helm-install` via Bash tool, use `timeout: 1200000` 
 
 ### Testing a Release
 
-1. Create a customer if needed: `task customer-create CUSTOMER_NAME=test-customer`
+#### Option 1: Complete Customer Workflow
+
+```bash
+# Use current git branch name as default for customer and cluster names
+# Note: names are automatically normalized (/, _, . replaced with -) by the tasks
+task customer-full-test-cycle CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current)
+```
+
+#### Option 2: Manual Step-by-Step
+
+1. Create a customer if needed: `task customer-create CUSTOMER_NAME=$(git branch --show-current)`
 2. Create a test cluster: `task cluster-create`
 3. Set up kubeconfig: `task setup-kubeconfig`
 4. Expose ports: `task cluster-ports-expose`
-5. Deploy application: `task helm-install`
+5. Deploy application: `task customer-helm-install CUSTOMER_NAME=$(git branch --show-current) CLUSTER_NAME=$(git branch --show-current) REPLICATED_LICENSE_ID=xxx CHANNEL_SLUG=$(git branch --show-current)`
 6. Run tests: `task test`
 7. Clean up: `task cluster-delete`
+
+**Note:** All customer, cluster, and channel names are automatically normalized by replacing `/`, `_`, and `.` characters with `-` to match how slugs are represented in the Replicated Vendor Portal backend and ensure compatibility with Kubernetes naming requirements.
+
+## Container Registry Setup
+
+The WG-Easy Image CI workflow publishes container images to three registries for maximum availability:
+- **GitHub Container Registry (GHCR)**: `ghcr.io/replicatedhq/platform-examples/wg-easy-tools`
+- **Google Artifact Registry (GAR)**: `us-central1-docker.pkg.dev/replicated-qa/wg-easy/wg-easy-tools`
+- **Replicated Registry**: `registry.replicated.com/wg-easy-cre/image`
+
+### Required Secrets
+
+To enable multi-registry publishing, add these GitHub repository secrets:
+
+- `GCP_SA_KEY`: Service account JSON key with Artifact Registry Writer permissions
+- `WG_EASY_REPLICATED_API_TOKEN`: Replicated vendor portal API token
+
+### Google Cloud Setup
+
+1. Create Artifact Registry repository:
+
+```bash
+gcloud artifacts repositories create wg-easy \
+  --repository-format=docker \
+  --location=us-central1 \
+  --project=replicated-qa
+```
+
+2. Create service account with permissions:
+
+```bash
+gcloud iam service-accounts create github-actions-wg-easy \
+  --project=replicated-qa
+
+gcloud projects add-iam-policy-binding replicated-qa \
+  --member="serviceAccount:github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com" \
+  --role="roles/artifactregistry.writer"
+
+gcloud iam service-accounts keys create sa-key.json \
+  --iam-account=github-actions-wg-easy@replicated-qa.iam.gserviceaccount.com
+```
+
+3. Add the `sa-key.json` content as `GCP_SA_KEY` secret in GitHub repository settings.
+
+### Replicated Registry Setup
+
+1. Get your Replicated API Token from the vendor portal
+2. Add `WG_EASY_REPLICATED_API_TOKEN` as a GitHub repository secret
+3. The workflow automatically uses the `replicated` CLI to authenticate with `registry.replicated.com`
+
+### Using Google Artifact Registry Images
+
+To use GAR images instead of GHCR:
+
+```bash
+# Set registry to GAR
+DEV_CONTAINER_REGISTRY=us-central1-docker.pkg.dev
+DEV_CONTAINER_IMAGE=replicated-qa/wg-easy/wg-easy-tools
+
+# Use GAR image
+task dev:start
+```
+
+## Replicated Registry Proxy
+
+When deploying in the `replicated` environment, the helmfile automatically configures all container images to use the Replicated Registry proxy for improved performance and reliability.
+
+### Proxy Configuration
+
+The proxy automatically rewrites image URLs following this pattern:
+
+- **Original**: `ghcr.io/wg-easy/wg-easy:14.0`
+- **Proxy**: `proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy:14.0`
+
+### Supported Images
+
+The following images are automatically proxied in the `replicated` environment:
+
+- **WG-Easy**: `ghcr.io/wg-easy/wg-easy` → `proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy`
+- **Traefik**: `docker.io/traefik/traefik` → `proxy.replicated.com/proxy/wg-easy-cre/docker.io/traefik/traefik`
+- **Cert-Manager**: `quay.io/jetstack/cert-manager-*` → `proxy.replicated.com/proxy/wg-easy-cre/quay.io/jetstack/cert-manager-*`
+
+### Usage
+
+The proxy configuration is automatically applied when using the `replicated` environment:
+
+```bash
+# Deploy with proxy (replicated environment)
+helmfile -e replicated apply
+
+# Deploy without proxy (default environment)
+helmfile apply
+```
+
+## GitHub Actions Integration
+
+The project includes optimized GitHub Actions workflows that leverage the Task-based architecture:
+
+### PR Validation Workflow
+The `wg-easy-pr-validation.yaml` workflow is structured for maximum efficiency:
+
+1. **Chart Validation** - Uses `task chart-validate` via reusable action
+2. **Chart Packaging** - Builds once, shares artifacts between jobs  
+3. **Release Creation** - Creates Replicated channel and release
+4. **Deployment Testing** - Tests full customer workflow
+5. **Automatic Cleanup** - Cleans up PR resources
+
+### Reusable Actions
+Located in `.github/actions/` for consistent tool setup and operations:
+
+- **setup-tools** - Enhanced with improved caching for tools and dependencies
+- **chart-validate** - Validates charts using `task chart-validate`
+- **chart-package** - Packages charts using `task chart-package-all`
+- **replicated-release** - Creates channels and releases using tasks
+- **test-deployment** - Complete deployment testing workflow
+
+### Benefits of Task Integration
+- **Consistency** - Same operations work locally and in CI
+- **Reduced Duplication** - Charts built once, shared via artifacts
+- **Better Caching** - Helm dependencies and tools cached effectively
+- **Maintainability** - Logic centralized in Taskfile, not scattered in YAML
+
+### Usage
+PR validation runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
+
+## Future Considerations
+
+### Refactoring PR Validation Workflow Using Replicated Actions
+
+The current GitHub Actions workflow uses custom composite actions that wrap Task-based operations. The [replicated-actions](https://github.com/replicatedhq/replicated-actions) repository provides official actions that could replace several of these custom implementations for improved reliability and reduced maintenance burden.
+
+#### Current State Analysis
+
+The current workflow uses custom composite actions:
+- `./.github/actions/replicated-release` (uses Task + Replicated CLI)
+- `./.github/actions/test-deployment` (complex composite with multiple Task calls)
+- Custom cluster and customer management via Task wrappers
+
+#### Proposed Refactoring Opportunities
+
+##### 1. Replace Custom Release Creation
+**Current**: `./.github/actions/replicated-release` (uses Task + Replicated CLI)  
+**Replace with**: `replicatedhq/replicated-actions/create-release@v1`
+
+**Benefits:**
+- Official Replicated action with better error handling
+- Direct API integration (no Task wrapper needed)
+- Built-in airgap build support with configurable timeout
+- Outputs channel-slug and release-sequence for downstream jobs
+
+##### 2. Replace Custom Customer Creation
+**Current**: `task customer-create` within test-deployment action  
+**Replace with**: `replicatedhq/replicated-actions/create-customer@v1`
+
+**Benefits:**
+- Direct customer creation without Task wrapper
+- Returns customer-id and license-id as outputs
+- Configurable license parameters (expiration, entitlements)
+- Better error handling and validation
+
+##### 3. Replace Custom Cluster Management
+**Current**: `task cluster-create` and `task cluster-delete`  
+**Replace with**: 
+- `replicatedhq/replicated-actions/create-cluster@v1`
+- `replicatedhq/replicated-actions/remove-cluster@v1`
+
+**Benefits:**
+- Direct cluster provisioning without Task wrapper
+- Returns cluster-id and kubeconfig as outputs
+- More granular configuration options (node groups, instance types)
+- Automatic kubeconfig export
+
+##### 4. Enhance Cleanup Process
+**Current**: `task cleanup-pr-resources`  
+**Replace with**: Individual replicated-actions for cleanup:
+- `replicatedhq/replicated-actions/archive-customer@v1`
+- `replicatedhq/replicated-actions/remove-cluster@v1`
+
+**Benefits:**
+- More reliable cleanup using official actions
+- Better resource tracking via action outputs
+- Parallel cleanup operations possible
+
+##### 5. Simplify Test Deployment Action
+**Current**: Large composite action with multiple Task calls  
+**Refactor to**: Use replicated-actions directly in workflow
+
+**Benefits:**
+- Reduced complexity and maintenance burden
+- Better visibility in GitHub Actions UI
+- Easier debugging and monitoring
+- Consistent error handling across all operations
+
+#### Implementation Phases
+
+**Phase 1: Release Creation Refactoring**
+- Replace `.github/actions/replicated-release` with direct use of `replicatedhq/replicated-actions/create-release@v1`
+- Update workflow to pass chart directory and release parameters directly
+- Test release creation functionality
+
+**Phase 2: Customer and Cluster Management**
+- Replace customer creation in test-deployment with `create-customer@v1`
+- Replace cluster operations with `create-cluster@v1`
+- Update workflow to capture and pass IDs between jobs
+- Test customer and cluster provisioning
+
+**Phase 3: Deployment Testing Simplification**
+- Break down test-deployment composite action into individual workflow steps
+- Use replicated-actions directly in workflow jobs
+- Maintain existing retry logic for cluster creation
+- Test end-to-end deployment flow
+
+**Phase 4: Enhanced Cleanup**
+- Replace cleanup task with individual replicated-actions
+- Implement parallel cleanup using job matrices
+- Add proper error handling for cleanup failures
+- Test resource cleanup functionality
+
+#### Expected Outcomes
+- **Reduced Maintenance**: Fewer custom actions to maintain
+- **Better Reliability**: Official actions with better error handling
+- **Improved Visibility**: Direct action usage in workflow logs
+- **Enhanced Features**: Access to advanced features like airgap builds
+- **Consistent API Usage**: All operations use official Replicated actions
+
+This refactoring would maintain the current Task-based local development workflow while leveraging official actions for CI/CD operations, providing the best of both worlds.
 
 ## Additional Resources
 

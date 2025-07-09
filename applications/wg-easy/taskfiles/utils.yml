@@ -1,10 +1,114 @@
 version: "3"
 
 tasks:
+  install-replicated-cli:
+    desc: Install the latest Replicated CLI binary
+    silent: false
+    run: once
+    status:
+      - command -v replicated >/dev/null 2>&1
+    cmds:
+      - |
+        echo "Installing Replicated CLI..."
+        
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        
+        # Map architecture names
+        case $ARCH in
+          x86_64)
+            ARCH="amd64"
+            ;;
+          aarch64|arm64)
+            ARCH="arm64"
+            ;;
+          *)
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+        esac
+        
+        echo "Detected OS: $OS, Architecture: $ARCH"
+        
+        # Create a temporary directory for extraction
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        
+        # Download and install based on OS
+        if [ "$OS" = "linux" ]; then
+          echo "Downloading Replicated CLI for Linux..."
+          echo "DEBUG: Looking for pattern: _linux_${ARCH}.tar.gz"
+          
+          # Try API call with error handling
+          API_RESPONSE=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest 2>/dev/null || echo "null")
+          
+          if [ "$API_RESPONSE" = "null" ] || [ -z "$API_RESPONSE" ]; then
+            echo "GitHub API unavailable, using direct download URL..."
+            DOWNLOAD_URL="https://github.com/replicatedhq/replicated/releases/latest/download/replicated_linux_${ARCH}.tar.gz"
+          else
+            DOWNLOAD_URL=$(echo "$API_RESPONSE" | grep "browser_download_url.*_linux_${ARCH}.tar.gz" | cut -d '"' -f 4)
+          fi
+          
+          echo "DEBUG: Found download URL: $DOWNLOAD_URL"
+          
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for linux_${ARCH}.tar.gz"
+            echo "DEBUG: Trying fallback URL pattern..."
+            DOWNLOAD_URL="https://github.com/replicatedhq/replicated/releases/latest/download/replicated_linux_${ARCH}.tar.gz"
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          
+        elif [ "$OS" = "darwin" ]; then
+          echo "Downloading Replicated CLI for macOS..."
+          echo "DEBUG: Looking for pattern: _darwin_${ARCH}.tar.gz"
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*_darwin_${ARCH}.tar.gz" \
+            | cut -d '"' -f 4)
+          
+          echo "DEBUG: Found download URL: $DOWNLOAD_URL"
+          
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for darwin_${ARCH}.tar.gz"
+            echo "DEBUG: Available assets:"
+            curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest | jq -r '.assets[].name'
+            exit 1
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          
+        else
+          echo "Unsupported operating system: $OS"
+          echo "Please install manually from: https://docs.replicated.com/reference/replicated-cli-installing"
+          cd - >/dev/null
+          rm -rf "$TEMP_DIR"
+          exit 1
+        fi
+        
+        # Clean up temporary directory
+        cd - >/dev/null
+        rm -rf "$TEMP_DIR"
+        
+        # Verify installation
+        if command -v replicated >/dev/null 2>&1; then
+          echo "Replicated CLI installed successfully!"
+          replicated version
+        else
+          echo "Failed to install Replicated CLI"
+          exit 1
+        fi
   get-kubeconfig:
     desc: Get kubeconfig for the test cluster (internal)
     internal: true
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     cmds:
       - |
         echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
@@ -16,6 +120,9 @@ tasks:
     desc: Remove pre-installed Traefik from k3s clusters (internal)
     internal: true
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     status:
       - |
         # Only check if we need to run this for k3s distributions
@@ -152,6 +259,38 @@ tasks:
           exit 1
         fi
 
+  get-customer-license:
+    desc: Retrieve a customer's license ID by name
+    silent: false
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+      # Normalize customer name by replacing common git branch delimiters with hyphens
+      # This matches how customer slugs are represented in the Replicated Vendor Portal backend
+      NORMALIZED_CUSTOMER_NAME:
+        sh: task utils:normalize-name NAME="{{.CUSTOMER_NAME}}"
+    cmds:
+      - |
+        if [ -z "{{.CUSTOMER_NAME}}" ]; then
+          echo "ERROR: CUSTOMER_NAME is required"
+          echo "Usage: task utils:get-customer-license CUSTOMER_NAME=your-customer-name"
+          exit 1
+        fi
+        
+        echo "Looking up license ID for customer: {{.NORMALIZED_CUSTOMER_NAME}}"
+        
+        # Get customer license ID using Replicated CLI
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId')
+        
+        if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
+          echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
+          echo "Available customers:"
+          replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "Customer '{{.NORMALIZED_CUSTOMER_NAME}}' license ID: $LICENSE_ID"
+        echo "$LICENSE_ID"
+
   gcp-operations:
     desc: GCP VM operations
     internal: true
@@ -265,3 +404,15 @@ tasks:
           echo "Embedded cluster setup initiated on VM {{.VM_NAME}}"
           echo "You can SSH into the VM with: gcloud compute ssh {{.VM_NAME}} --project={{.GCP_PROJECT}} --zone={{.GCP_ZONE}}"
         fi
+
+  normalize-name:
+    desc: Normalize a name by replacing git branch delimiters with hyphens
+    vars:
+      NAME: '{{.NAME}}'
+    cmds:
+      - |
+        if [ -z "{{.NAME}}" ]; then
+          echo ""
+          exit 0
+        fi
+        echo "{{.NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
