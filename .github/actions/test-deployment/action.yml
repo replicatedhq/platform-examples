@@ -27,9 +27,15 @@ inputs:
     default: 'false'
 
 outputs:
-  customer-license:
-    description: 'Customer license ID used for testing'
-    value: ${{ steps.license.outputs.license-id }}
+  customer-id:
+    description: 'Customer ID used for testing'
+    value: ${{ steps.customer.outputs.customer-id }}
+  license-id:
+    description: 'License ID used for testing'
+    value: ${{ steps.customer.outputs.license-id }}
+  cluster-id:
+    description: 'Cluster ID used for testing'
+    value: ${{ steps.cluster.outputs.cluster-id }}
 
 runs:
   using: 'composite'
@@ -40,48 +46,47 @@ runs:
         helm-version: ${{ inputs.helm-version }}
         install-helmfile: 'true'
 
-    - name: Create customer
+    - name: Get channel slug
+      id: channel-slug
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: |
         if [ -n "${{ inputs.channel-id }}" ]; then
-          task customer-create \
-            CUSTOMER_NAME="${{ inputs.customer-name }}" \
-            RELEASE_CHANNEL_ID="${{ inputs.channel-id }}"
+          CHANNEL_SLUG=$(task utils:get-channel-slug CHANNEL_ID="${{ inputs.channel-id }}" --silent | tail -1)
+          echo "channel-slug=$CHANNEL_SLUG" >> $GITHUB_OUTPUT
         elif [ -n "${{ inputs.channel-slug }}" ]; then
-          task customer-create \
-            CUSTOMER_NAME="${{ inputs.customer-name }}" \
-            RELEASE_CHANNEL="${{ inputs.channel-slug }}"
+          echo "channel-slug=${{ inputs.channel-slug }}" >> $GITHUB_OUTPUT
         else
-          task customer-create \
-            CUSTOMER_NAME="${{ inputs.customer-name }}" \
-            RELEASE_CHANNEL="${{ inputs.channel-name }}"
+          echo "channel-slug=${{ inputs.channel-name }}" >> $GITHUB_OUTPUT
         fi
 
-    - name: Get customer license
-      id: license
-      shell: bash
-      working-directory: ${{ inputs.app-dir }}
-      run: |
-        LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ inputs.customer-name }}" --silent | tail -1)
-        echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
-        echo "::add-mask::$LICENSE_ID"
-
-    - name: Create cluster with retry
-      uses: nick-fields/retry@v3.0.2
+    - name: Create customer
+      id: customer
+      uses: replicatedhq/replicated-actions/create-customer@v1.19.0
       with:
-        timeout_minutes: 20
-        retry_wait_seconds: 30
-        max_attempts: 3
-        command: |
-          cd ${{ inputs.app-dir }}
-          task cluster-create CLUSTER_NAME="${{ inputs.cluster-name }}"
+        app-slug: ${{ env.REPLICATED_APP }}
+        api-token: ${{ env.REPLICATED_API_TOKEN }}
+        customer-name: ${{ inputs.customer-name }}
+        channel-slug: ${{ steps.channel-slug.outputs.channel-slug }}
+        license-type: dev
 
-    - name: Setup cluster
+    - name: Create cluster
+      id: cluster
+      uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
+      with:
+        api-token: ${{ env.REPLICATED_API_TOKEN }}
+        kubernetes-distribution: k3s
+        kubernetes-version: v1.32.2
+        cluster-name: ${{ inputs.cluster-name }}
+        ttl: 4h
+        nodes: 1
+        instance-type: r1.small
+        export-kubeconfig: 'true'
+
+    - name: Setup cluster ports
       shell: bash
       working-directory: ${{ inputs.app-dir }}
       run: |
-        task setup-kubeconfig CLUSTER_NAME="${{ inputs.cluster-name }}"
         task cluster-ports-expose CLUSTER_NAME="${{ inputs.cluster-name }}"
 
     - name: Deploy application
@@ -93,19 +98,19 @@ runs:
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
             CLUSTER_NAME="${{ inputs.cluster-name }}" \
             CHANNEL_ID="${{ inputs.channel-id }}" \
-            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+            REPLICATED_LICENSE_ID="${{ steps.customer.outputs.license-id }}"
         elif [ -n "${{ inputs.channel-slug }}" ]; then
           task customer-helm-install \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
             CLUSTER_NAME="${{ inputs.cluster-name }}" \
             CHANNEL_SLUG="${{ inputs.channel-slug }}" \
-            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+            REPLICATED_LICENSE_ID="${{ steps.customer.outputs.license-id }}"
         else
           task customer-helm-install \
             CUSTOMER_NAME="${{ inputs.customer-name }}" \
             CLUSTER_NAME="${{ inputs.cluster-name }}" \
             CHANNEL_SLUG="${{ inputs.channel-name }}" \
-            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+            REPLICATED_LICENSE_ID="${{ steps.customer.outputs.license-id }}"
         fi
 
     - name: Run tests
