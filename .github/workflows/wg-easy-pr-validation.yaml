@@ -105,7 +105,7 @@ jobs:
         with:
           app-slug: ${{ env.REPLICATED_APP }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
-          chart: ${{ env.APP_DIR }}/release
+          yaml-dir: ${{ env.APP_DIR }}/release
           promote-channel: ${{ needs.setup.outputs.channel-name }}
           release-notes: "PR validation release for ${{ needs.setup.outputs.branch-name }}"
 
