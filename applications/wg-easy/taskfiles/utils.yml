@@ -247,7 +247,7 @@ tasks:
 
   get-customer-license:
     desc: Retrieve a customer's license ID by name
-    silent: false
+    silent: true
     vars:
       CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
       # Use the normalize-name util for consistent normalization
@@ -265,19 +265,16 @@ tasks:
           exit 1
         fi
         
-        echo "Looking up license ID for customer: {{.NORMALIZED_CUSTOMER_NAME}}"
-        
         # Get customer license ID using Replicated CLI
         LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId')
         
         if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
-          echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
-          echo "Available customers:"
-          replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'" >&2
+          echo "Available customers:" >&2
+          replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"' >&2
           exit 1
         fi
         
-        echo "Customer '{{.NORMALIZED_CUSTOMER_NAME}}' license ID: $LICENSE_ID"
         echo "$LICENSE_ID"
 
   normalize-name:
@@ -384,7 +381,7 @@ tasks:
         fi
         
         # Get channel slug using Replicated CLI
-        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .name')
+        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .channelSlug')
         
         if [ -z "$CHANNEL_SLUG" ] || [ "$CHANNEL_SLUG" = "null" ]; then
           echo "ERROR: Could not find channel with ID '{{.CHANNEL_ID}}'"
