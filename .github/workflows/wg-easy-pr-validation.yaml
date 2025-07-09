@@ -21,7 +21,7 @@ concurrency:
 env:
   APP_DIR: applications/wg-easy
   REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
-  REPLICATED_APP: ${{ secrets.WG_EASY_REPLICATED_APP }}
+  REPLICATED_APP: ${{ vars.WG_EASY_REPLICATED_APP }}
   HELM_VERSION: "3.17.3"
   KUBECTL_VERSION: "v1.30.0"
 
