@@ -15,6 +15,8 @@ environments:
           traefik: ./charts/traefik
           wgEasy: ./charts/wg-easy
           replicatedSDK: ./charts/replicated
+      - extras:
+          enableReplicatedSDK: false
       # Dynamic chart versions read from Chart.yaml files
       - chartVersions:
           certManager: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
@@ -22,8 +24,6 @@ environments:
           traefik: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
           wgEasy: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
           replicatedSDK: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
-      - extras:
-          enableReplicatedSDK: false
   replicated:
     values:
       - app: '{{ env "REPLICATED_APP" | default "wg-easy-cre" }}'
