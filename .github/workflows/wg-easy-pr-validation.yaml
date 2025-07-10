@@ -107,24 +107,66 @@ jobs:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           yaml-dir: ${{ env.APP_DIR }}/release
           promote-channel: ${{ needs.setup.outputs.channel-name }}
-          release-notes: "PR validation release for ${{ needs.setup.outputs.branch-name }}"
 
   test-deployment:
     runs-on: ubuntu-22.04
     needs: [setup, create-release]
+    outputs:
+      customer-id: ${{ steps.create-customer.outputs.customer-id }}
+      license-id: ${{ steps.create-customer.outputs.license-id }}
+      cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test deployment
-        uses: ./.github/actions/test-deployment
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
         with:
-          app-dir: ${{ env.APP_DIR }}
-          customer-name: ${{ needs.setup.outputs.channel-name }}
-          cluster-name: ${{ needs.setup.outputs.channel-name }}
-          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
           helm-version: ${{ env.HELM_VERSION }}
-          cleanup: 'false'
+          install-helmfile: 'true'
+
+      - name: Create customer
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-name: ${{ needs.setup.outputs.channel-name }}
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
+          license-type: dev
+
+      - name: Create cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          kubernetes-distribution: k3s
+          kubernetes-version: v1.32.2
+          cluster-name: ${{ needs.setup.outputs.channel-name }}
+          ttl: 4h
+          nodes: 1
+          instance-type: r1.small
+          export-kubeconfig: 'true'
+
+      - name: Setup cluster ports
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
+
+      - name: Deploy application
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
+            REPLICATED_LICENSE_ID="${{ steps.create-customer.outputs.license-id }}"
+        timeout-minutes: 20
+
+      - name: Run tests
+        working-directory: ${{ env.APP_DIR }}
+        run: task test
+        timeout-minutes: 10
 
       - name: Upload debug logs
         if: failure()
@@ -134,4 +176,3 @@ jobs:
           path: |
             /tmp/*.log
             ~/.replicated/
-
