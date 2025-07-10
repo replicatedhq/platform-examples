@@ -1,10 +1,100 @@
 version: "3"
 
 tasks:
+  install-replicated-cli:
+    desc: Install the latest Replicated CLI binary
+    silent: false
+    run: once
+    status:
+      - command -v replicated >/dev/null 2>&1
+    cmds:
+      - |
+        echo "Installing Replicated CLI..."
+        
+        # Detect OS and architecture
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+        
+        # Map architecture names
+        case $ARCH in
+          x86_64)
+            ARCH="amd64"
+            ;;
+          aarch64|arm64)
+            ARCH="arm64"
+            ;;
+          *)
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+            ;;
+        esac
+        
+        echo "Detected OS: $OS, Architecture: $ARCH"
+        
+        # Create a temporary directory for extraction
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        
+        # Download and install based on OS
+        if [ "$OS" = "linux" ]; then
+          echo "Downloading Replicated CLI for Linux..."
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+            | head -1 \
+            | cut -d '"' -f 4)
+          
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for *_linux_${ARCH}.tar.gz"
+            exit 1
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          
+        elif [ "$OS" = "darwin" ]; then
+          echo "Downloading Replicated CLI for macOS..."
+          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*_darwin_all.tar.gz" \
+            | head -1 \
+            | cut -d '"' -f 4)
+          
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for *_darwin_all.tar.gz"
+            exit 1
+          fi
+          
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          
+        else
+          echo "Unsupported operating system: $OS"
+          echo "Please install manually from: https://docs.replicated.com/reference/replicated-cli-installing"
+          cd - >/dev/null
+          rm -rf "$TEMP_DIR"
+          exit 1
+        fi
+        
+        # Clean up temporary directory
+        cd - >/dev/null
+        rm -rf "$TEMP_DIR"
+        
+        # Verify installation
+        if command -v replicated >/dev/null 2>&1; then
+          echo "Replicated CLI installed successfully!"
+          replicated version
+        else
+          echo "Failed to install Replicated CLI"
+          exit 1
+        fi
   get-kubeconfig:
     desc: Get kubeconfig for the test cluster (internal)
     internal: true
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     cmds:
       - |
         echo "Getting kubeconfig for cluster {{.CLUSTER_NAME}}..."
@@ -16,6 +106,9 @@ tasks:
     desc: Remove pre-installed Traefik from k3s clusters (internal)
     internal: true
     run: once
+    vars:
+      CLUSTER_NAME: '{{.CLUSTER_NAME}}'
+      KUBECONFIG_FILE: '{{.KUBECONFIG_FILE}}'
     status:
       - |
         # Only check if we need to run this for k3s distributions
@@ -151,6 +244,184 @@ tasks:
           echo "Please check your API token and try again."
           exit 1
         fi
+
+  get-customer-license:
+    desc: Retrieve a customer's license ID by name
+    silent: true
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+      # Use the normalize-name util for consistent normalization
+      # Use the normalize-name util for consistent normalization
+      NORMALIZED_CUSTOMER_NAME:
+        sh: |
+          if [ -n "{{.CUSTOMER_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}"
+          fi
+    cmds:
+      - |
+        if [ -z "{{.CUSTOMER_NAME}}" ]; then
+          echo "ERROR: CUSTOMER_NAME is required"
+          echo "Usage: task utils:get-customer-license CUSTOMER_NAME=your-customer-name"
+          exit 1
+        fi
+        
+        # Get customer license ID using Replicated CLI
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId')
+        
+        if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
+          echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'" >&2
+          echo "Available customers:" >&2
+          replicated customer ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"' >&2
+          exit 1
+        fi
+        
+        echo "$LICENSE_ID"
+
+  normalize-name:
+    desc: Normalize git branch names by replacing delimiters with hyphens
+    silent: true
+    vars:
+      INPUT_NAME: '{{.INPUT_NAME | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.INPUT_NAME}}" ]; then
+          echo "ERROR: INPUT_NAME is required"
+          exit 1
+        fi
+        
+        # Normalize by replacing common git branch delimiters with hyphens
+        # This matches how slugs are represented in the Replicated Vendor Portal backend
+        echo "{{.INPUT_NAME}}" | tr '/_.' '-'
+
+  get-customer-info:
+    desc: Get customer information by name or ID (supports bidirectional conversion)
+    silent: false
+    vars:
+      CUSTOMER_NAME: '{{.CUSTOMER_NAME | default ""}}'
+      CUSTOMER_ID: '{{.CUSTOMER_ID | default ""}}'
+      OUTPUT_FORMAT: '{{.OUTPUT_FORMAT | default "id"}}'
+      # Use the normalize-name util for consistent normalization
+      # Use the normalize-name util for consistent normalization
+      NORMALIZED_CUSTOMER_NAME:
+        sh: |
+          if [ -n "{{.CUSTOMER_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CUSTOMER_NAME}}"
+          fi
+    cmds:
+      - |
+        # Validate input parameters
+        if [ -z "{{.CUSTOMER_NAME}}" ] && [ -z "{{.CUSTOMER_ID}}" ]; then
+          echo "ERROR: Either CUSTOMER_NAME or CUSTOMER_ID is required"
+          echo "Usage: task utils:get-customer-info CUSTOMER_NAME=name [OUTPUT_FORMAT=id|name|json]"
+          echo "   or: task utils:get-customer-info CUSTOMER_ID=id [OUTPUT_FORMAT=id|name|json]"
+          exit 1
+        fi
+        
+        if [ -n "{{.CUSTOMER_NAME}}" ] && [ -n "{{.CUSTOMER_ID}}" ]; then
+          echo "ERROR: Specify either CUSTOMER_NAME or CUSTOMER_ID, not both"
+          exit 1
+        fi
+        
+        # Get all customers as JSON
+        CUSTOMERS_JSON=$(replicated customer ls --output json)
+        
+        if [ -n "{{.CUSTOMER_NAME}}" ]; then
+          # Find customer by name
+          echo "Looking up customer by name: {{.NORMALIZED_CUSTOMER_NAME}}"
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}")')
+          
+          if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
+            echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
+            echo "Available customers:"
+            echo "$CUSTOMERS_JSON" | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+            exit 1
+          fi
+          
+        elif [ -n "{{.CUSTOMER_ID}}" ]; then
+          # Find customer by ID
+          echo "Looking up customer by ID: {{.CUSTOMER_ID}}"
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.id == "{{.CUSTOMER_ID}}")')
+          
+          if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
+            echo "ERROR: Could not find customer with ID '{{.CUSTOMER_ID}}'"
+            echo "Available customers:"
+            echo "$CUSTOMERS_JSON" | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+            exit 1
+          fi
+        fi
+        
+        # Output based on requested format
+        case "{{.OUTPUT_FORMAT}}" in
+          "id")
+            echo "$CUSTOMER_INFO" | jq -r '.id'
+            ;;
+          "name")
+            echo "$CUSTOMER_INFO" | jq -r '.name'
+            ;;
+          "json")
+            echo "$CUSTOMER_INFO" | jq '.'
+            ;;
+          *)
+            echo "ERROR: Invalid OUTPUT_FORMAT '{{.OUTPUT_FORMAT}}'. Valid options: id, name, json"
+            exit 1
+            ;;
+        esac
+
+  get-channel-slug:
+    desc: Get channel slug (name) from channel ID
+    silent: true
+    vars:
+      CHANNEL_ID: '{{.CHANNEL_ID | default ""}}'
+    cmds:
+      - |
+        if [ -z "{{.CHANNEL_ID}}" ]; then
+          echo "ERROR: CHANNEL_ID is required"
+          echo "Usage: task utils:get-channel-slug CHANNEL_ID=your-channel-id"
+          exit 1
+        fi
+        
+        # Get channel slug using Replicated CLI
+        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .channelSlug')
+        
+        if [ -z "$CHANNEL_SLUG" ] || [ "$CHANNEL_SLUG" = "null" ]; then
+          echo "ERROR: Could not find channel with ID '{{.CHANNEL_ID}}'"
+          echo "Available channels:"
+          replicated channel ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "$CHANNEL_SLUG"
+
+  get-channel-id:
+    desc: Get channel ID from channel slug (name)
+    silent: true
+    vars:
+      CHANNEL_NAME: '{{.CHANNEL_NAME | default ""}}'
+      # Use the normalize-name util for consistent normalization
+      NORMALIZED_CHANNEL_NAME:
+        sh: |
+          if [ -n "{{.CHANNEL_NAME}}" ]; then
+            task utils:normalize-name INPUT_NAME="{{.CHANNEL_NAME}}"
+          fi
+    cmds:
+      - |
+        if [ -z "{{.CHANNEL_NAME}}" ]; then
+          echo "ERROR: CHANNEL_NAME is required"
+          echo "Usage: task utils:get-channel-id CHANNEL_NAME=your-channel-name"
+          exit 1
+        fi
+        
+        # Get channel ID using Replicated CLI
+        CHANNEL_ID=$(replicated channel ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CHANNEL_NAME}}") | .id')
+        
+        if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
+          echo "ERROR: Could not find channel with name '{{.NORMALIZED_CHANNEL_NAME}}'"
+          echo "Available channels:"
+          replicated channel ls --output json | jq -r '.[] | "  - \(.name) (ID: \(.id))"'
+          exit 1
+        fi
+        
+        echo "$CHANNEL_ID"
 
   gcp-operations:
     desc: GCP VM operations

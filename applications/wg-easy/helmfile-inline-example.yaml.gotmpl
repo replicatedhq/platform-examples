@@ -1,0 +1,57 @@
+releases:
+  # Install cert-manager with CRDs but without issuers
+  - name: cert-manager
+    namespace: cert-manager
+    chart: {{ .Values.chartSources.certManager }}
+    version: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+
+  # Install issuers separately after cert-manager is ready
+  - name: cert-manager-issuers
+    namespace: cert-manager
+    chart: {{ .Values.chartSources.certManagerIssuers }}
+    version: '{{ exec "yq" (list ".version" "./charts/cert-manager-issuers/Chart.yaml") }}'
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager
+
+  - name: traefik
+    namespace: traefik
+    chart: {{ .Values.chartSources.traefik }}
+    version: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - cert-manager/cert-manager-issuers
+
+  # Install replicated-sdk (only in replicated environment)
+  - name: replicated
+    namespace: replicated
+    chart: {{ .Values.chartSources.replicatedSDK }}
+    version: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
+    createNamespace: true
+    wait: true
+    installed: {{ .Values.extras.enableReplicatedSDK }}
+    skipDeps: true
+    needs:
+      - traefik/traefik
+
+  # Install wg-easy
+  - name: wg-easy
+    namespace: wg-easy
+    chart: {{ .Values.chartSources.wgEasy }}
+    version: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
+    createNamespace: true
+    wait: true
+    installed: true
+    skipDeps: true
+    needs:
+      - traefik/traefik

@@ -1,9 +1,9 @@
 dependencies:
 - name: templates
   repository: file://../templates
-  version: 1.0.0
+  version: 1.1.0
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.5.3
-digest: sha256:35588c7f070f319202e6194bd952aa4f4195336e6880855076860acfd7fd1736
-generated: "2025-05-15T13:31:37.79846+01:00"
+  version: 1.7.0
+digest: sha256:846ea61ba3696e1ba9b6283a30b39754558750c1ff9c779981595cd592259501
+generated: "2025-06-25T10:58:27.696287-04:00"

@@ -4,6 +4,6 @@ dependencies:
   version: v1.14.5
 - name: templates
   repository: file://../templates
-  version: 1.0.0
-digest: sha256:ab86a335f7f473446968c607ed7920bf4ce29f625e5ff6175be17bb2e1101a32
-generated: "2025-05-06T15:35:47.871225-04:00"
+  version: 1.1.0
+digest: sha256:e86e690bcaff2f6d914e0ec7c23f9eafbbb9b2a92324d882e164597345a5ae16
+generated: "2025-06-25T10:58:31.760745-04:00"
