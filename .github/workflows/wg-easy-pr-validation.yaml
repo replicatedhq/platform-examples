@@ -102,10 +102,26 @@ jobs:
       - name: Check if channel exists
         id: check-channel
         run: |
-          CHANNEL_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-            "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels" \
-            | jq -r '.channels[] | select(.name == "${{ needs.setup.outputs.channel-name }}") | .id' \
-            | head -1)
+          set -e
+          echo "Checking for existing channel: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get channels with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CHANNEL_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .channels then .channels[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
           
           if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
             echo "Found existing channel: $CHANNEL_ID"
@@ -157,21 +173,46 @@ jobs:
       - name: Check if customer exists
         id: check-customer
         run: |
-          CUSTOMER_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-            "https://api.replicated.com/vendor/v3/customers" \
-            | jq -r '.customers[] | select(.name == "${{ needs.setup.outputs.channel-name }}") | .id' \
-            | head -1)
+          set -e
+          echo "Checking for existing customer: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get customers with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/customers")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CUSTOMER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .customers then .customers[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
           
           if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
             echo "Found existing customer: $CUSTOMER_ID"
             echo "customer-exists=true" >> $GITHUB_OUTPUT
             echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
             
-            # Get license ID for existing customer
-            LICENSE_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID" \
-              | jq -r '.customer.installationId')
-            echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+            # Get license ID for existing customer with error handling
+            LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
+            
+            LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
+            LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
+            
+            if [ "$LICENSE_HTTP_CODE" = "200" ]; then
+              LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
+              echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+            else
+              echo "Failed to get license ID for customer $CUSTOMER_ID"
+              echo "customer-exists=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "Customer does not exist"
             echo "customer-exists=false" >> $GITHUB_OUTPUT
@@ -202,21 +243,49 @@ jobs:
       - name: Check if cluster exists
         id: check-cluster
         run: |
-          CLUSTER_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-            "https://api.replicated.com/vendor/v3/clusters" \
-            | jq -r '.clusters[] | select(.name == "${{ needs.setup.outputs.channel-name }}" and .status != "terminated") | .id' \
-            | head -1)
+          set -e
+          echo "Checking for existing cluster: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get clusters with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/clusters")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CLUSTER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | .id else empty end' 2>/dev/null | head -1)
           
           if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
             echo "Found existing cluster: $CLUSTER_ID"
             echo "cluster-exists=true" >> $GITHUB_OUTPUT
             echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
             
-            # Export kubeconfig for existing cluster
-            curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-              "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig" \
-              | jq -r '.kubeconfig' > /tmp/kubeconfig
-            echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+            # Export kubeconfig for existing cluster with error handling
+            KUBECONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig")
+            
+            KUBECONFIG_HTTP_CODE=$(echo "$KUBECONFIG_RESPONSE" | tail -n1)
+            KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
+            
+            if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
+              echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null > /tmp/kubeconfig
+              if [ -s /tmp/kubeconfig ]; then
+                echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+              else
+                echo "Failed to extract kubeconfig from response"
+              fi
+            else
+              echo "Failed to get kubeconfig for cluster $CLUSTER_ID"
+            fi
           else
             echo "Cluster does not exist"
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
