@@ -87,8 +87,8 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [setup, build-and-package]
     outputs:
-      channel-slug: ${{ steps.release.outputs.channel-slug }}
-      release-sequence: ${{ steps.release.outputs.release-sequence }}
+      channel-slug: ${{ steps.set-release-outputs.outputs.channel-slug }}
+      release-sequence: ${{ steps.set-release-outputs.outputs.release-sequence }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -99,6 +99,24 @@ jobs:
           name: wg-easy-release-${{ github.run_number }}
           path: ${{ env.APP_DIR }}/release
 
+      - name: Check if channel exists
+        id: check-channel
+        run: |
+          CHANNEL_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels" \
+            | jq -r '.channels[] | select(.name == "${{ needs.setup.outputs.channel-name }}") | .id' \
+            | head -1)
+          
+          if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
+            echo "Found existing channel: $CHANNEL_ID"
+            echo "channel-exists=true" >> $GITHUB_OUTPUT
+            echo "channel-id=$CHANNEL_ID" >> $GITHUB_OUTPUT
+            echo "channel-slug=${{ needs.setup.outputs.channel-name }}" >> $GITHUB_OUTPUT
+          else
+            echo "Channel does not exist"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Replicated release
         id: release
         uses: replicatedhq/replicated-actions/create-release@v1.19.0
@@ -108,13 +126,24 @@ jobs:
           yaml-dir: ${{ env.APP_DIR }}/release
           promote-channel: ${{ needs.setup.outputs.channel-name }}
 
+      - name: Set release outputs
+        id: set-release-outputs
+        run: |
+          if [ "${{ steps.check-channel.outputs.channel-exists }}" == "true" ]; then
+            echo "channel-slug=${{ steps.check-channel.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          else
+            echo "channel-slug=${{ steps.release.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          fi
+
   test-deployment:
     runs-on: ubuntu-22.04
     needs: [setup, create-release]
     outputs:
-      customer-id: ${{ steps.create-customer.outputs.customer-id }}
-      license-id: ${{ steps.create-customer.outputs.license-id }}
-      cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+      customer-id: ${{ steps.set-customer-outputs.outputs.customer-id }}
+      license-id: ${{ steps.set-customer-outputs.outputs.license-id }}
+      cluster-id: ${{ steps.set-cluster-outputs.outputs.cluster-id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -125,8 +154,32 @@ jobs:
           helm-version: ${{ env.HELM_VERSION }}
           install-helmfile: 'true'
 
+      - name: Check if customer exists
+        id: check-customer
+        run: |
+          CUSTOMER_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/customers" \
+            | jq -r '.customers[] | select(.name == "${{ needs.setup.outputs.channel-name }}") | .id' \
+            | head -1)
+          
+          if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
+            echo "Found existing customer: $CUSTOMER_ID"
+            echo "customer-exists=true" >> $GITHUB_OUTPUT
+            echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
+            
+            # Get license ID for existing customer
+            LICENSE_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID" \
+              | jq -r '.customer.installationId')
+            echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+          else
+            echo "Customer does not exist"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create customer
         id: create-customer
+        if: steps.check-customer.outputs.customer-exists == 'false'
         uses: replicatedhq/replicated-actions/create-customer@v1.19.0
         with:
           app-slug: ${{ env.REPLICATED_APP }}
@@ -135,8 +188,43 @@ jobs:
           channel-slug: ${{ needs.create-release.outputs.channel-slug }}
           license-type: dev
 
+      - name: Set customer outputs
+        id: set-customer-outputs
+        run: |
+          if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
+            echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.check-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "customer-id=${{ steps.create-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if cluster exists
+        id: check-cluster
+        run: |
+          CLUSTER_ID=$(curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/clusters" \
+            | jq -r '.clusters[] | select(.name == "${{ needs.setup.outputs.channel-name }}" and .status != "terminated") | .id' \
+            | head -1)
+          
+          if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
+            echo "Found existing cluster: $CLUSTER_ID"
+            echo "cluster-exists=true" >> $GITHUB_OUTPUT
+            echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+            
+            # Export kubeconfig for existing cluster
+            curl -s -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig" \
+              | jq -r '.kubeconfig' > /tmp/kubeconfig
+            echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+          else
+            echo "Cluster does not exist"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create cluster
         id: create-cluster
+        if: steps.check-cluster.outputs.cluster-exists == 'false'
         uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -147,6 +235,15 @@ jobs:
           nodes: 1
           instance-type: r1.small
           export-kubeconfig: 'true'
+
+      - name: Set cluster outputs
+        id: set-cluster-outputs
+        run: |
+          if [ "${{ steps.check-cluster.outputs.cluster-exists }}" == "true" ]; then
+            echo "cluster-id=${{ steps.check-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "cluster-id=${{ steps.create-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup cluster ports
         working-directory: ${{ env.APP_DIR }}
@@ -160,7 +257,7 @@ jobs:
             CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" \
             CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}" \
             CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
-            REPLICATED_LICENSE_ID="${{ steps.create-customer.outputs.license-id }}"
+            REPLICATED_LICENSE_ID="${{ steps.set-customer-outputs.outputs.license-id }}"
         timeout-minutes: 20
 
       - name: Run tests

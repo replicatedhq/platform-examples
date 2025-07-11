@@ -470,6 +470,31 @@ Located in `.github/actions/` for consistent tool setup and operations:
 - **Better Caching** - Helm dependencies and tools cached effectively
 - **Maintainability** - Logic centralized in Taskfile, not scattered in YAML
 
+### Idempotent Resource Management
+
+The PR validation workflow now includes idempotent resource creation that checks for existing resources before creating new ones:
+
+#### Channel Creation
+- Checks if channel exists using Replicated API before creating
+- Reuses existing channel if found, ensuring consistent channel-slug outputs
+- Handles both new and existing channels transparently
+
+#### Customer Creation  
+- Queries existing customers by name before creating new ones
+- Retrieves license ID from existing customer if found
+- Creates new customer only when no matching customer exists
+
+#### Cluster Creation
+- Checks for existing clusters by name and excludes terminated clusters
+- Exports kubeconfig for existing clusters automatically
+- Creates new cluster only when no active cluster exists
+
+#### Benefits
+- **Workflow Reliability**: Multiple runs of the same PR don't fail due to resource conflicts
+- **Cost Efficiency**: Reuses existing cluster resources instead of creating duplicates
+- **Consistent Outputs**: All resource IDs and configurations remain consistent across runs
+- **Reduced API Calls**: Minimizes unnecessary resource creation API calls
+
 ### Usage
 PR validation runs automatically on pull requests affecting `applications/wg-easy/`. Manual trigger available via `workflow_dispatch`.
 
