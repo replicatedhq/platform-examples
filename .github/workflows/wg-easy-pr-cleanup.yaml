@@ -1,0 +1,57 @@
+---
+name: WG-Easy PR Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-pr-validation.yaml'
+      - '.github/workflows/wg-easy-pr-cleanup.yaml'
+
+env:
+  APP_DIR: applications/wg-easy
+  REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ vars.WG_EASY_REPLICATED_APP }}
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set branch and channel variables
+        id: vars
+        run: |
+          # Branch name preserves original case for resource naming (clusters, customers)
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Channel name is normalized to lowercase with hyphens for Replicated channels
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          app-dir: ${{ env.APP_DIR }}
+
+      - name: Cleanup PR resources
+        run: |
+          echo "Cleaning up resources for PR: ${{ github.event.pull_request.number }}"
+          echo "Branch: ${{ steps.vars.outputs.branch-name }}"
+          echo "Channel: ${{ steps.vars.outputs.channel-name }}"
+          task cleanup-pr-resources BRANCH_NAME="${{ steps.vars.outputs.channel-name }}" || echo "Cleanup completed with some warnings"
+        working-directory: ${{ env.APP_DIR }}
+
+      - name: Upload cleanup logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-logs-pr-${{ github.event.pull_request.number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
+          retention-days: 3

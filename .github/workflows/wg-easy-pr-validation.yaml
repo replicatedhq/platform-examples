@@ -1,0 +1,344 @@
+---
+name: WG-Easy PR Validation - build, release, install
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-pr-validation.yaml'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: applications/wg-easy
+  REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ vars.WG_EASY_REPLICATED_APP }}
+  HELM_VERSION: "3.17.3"
+  KUBECTL_VERSION: "v1.30.0"
+
+jobs:
+  setup:
+    runs-on: ubuntu-22.04
+    outputs:
+      branch-name: ${{ steps.vars.outputs.branch-name }}
+      channel-name: ${{ steps.vars.outputs.channel-name }}
+    steps:
+      - name: Set branch and channel variables
+        id: vars
+        run: |
+          # Branch name preserves original case for resource naming (clusters, customers)
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Channel name is normalized to lowercase with hyphens for Replicated channels
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
+
+  validate-charts:
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate charts
+        uses: ./.github/actions/chart-validate
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Validate Taskfile syntax
+        run: task --list-all
+        working-directory: ${{ env.APP_DIR }}
+
+  build-and-package:
+    runs-on: ubuntu-22.04
+    needs: [setup, validate-charts]
+    outputs:
+      release-path: ${{ steps.package.outputs.release-path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package charts
+        id: package
+        uses: ./.github/actions/chart-package
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ steps.package.outputs.release-path }}
+          retention-days: 7
+
+  create-release:
+    runs-on: ubuntu-22.04
+    needs: [setup, build-and-package]
+    outputs:
+      channel-slug: ${{ steps.set-release-outputs.outputs.channel-slug }}
+      release-sequence: ${{ steps.set-release-outputs.outputs.release-sequence }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release
+
+      - name: Check if channel exists
+        id: check-channel
+        run: |
+          set -e
+          echo "Checking for existing channel: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get channels with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CHANNEL_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .channels then .channels[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
+          
+          if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
+            echo "Found existing channel: $CHANNEL_ID"
+            echo "channel-exists=true" >> $GITHUB_OUTPUT
+            echo "channel-id=$CHANNEL_ID" >> $GITHUB_OUTPUT
+            echo "channel-slug=${{ needs.setup.outputs.channel-name }}" >> $GITHUB_OUTPUT
+          else
+            echo "Channel does not exist"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Replicated release
+        id: release
+        uses: replicatedhq/replicated-actions/create-release@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          yaml-dir: ${{ env.APP_DIR }}/release
+          promote-channel: ${{ needs.setup.outputs.channel-name }}
+
+      - name: Set release outputs
+        id: set-release-outputs
+        run: |
+          if [ "${{ steps.check-channel.outputs.channel-exists }}" == "true" ]; then
+            echo "channel-slug=${{ steps.check-channel.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          else
+            echo "channel-slug=${{ steps.release.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          fi
+
+  test-deployment:
+    runs-on: ubuntu-22.04
+    needs: [setup, create-release]
+    outputs:
+      customer-id: ${{ steps.set-customer-outputs.outputs.customer-id }}
+      license-id: ${{ steps.set-customer-outputs.outputs.license-id }}
+      cluster-id: ${{ steps.set-cluster-outputs.outputs.cluster-id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          helm-version: ${{ env.HELM_VERSION }}
+          install-helmfile: 'true'
+
+      - name: Check if customer exists
+        id: check-customer
+        run: |
+          set -e
+          echo "Checking for existing customer: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get customers with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/customers")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CUSTOMER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .customers then .customers[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
+          
+          if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
+            echo "Found existing customer: $CUSTOMER_ID"
+            echo "customer-exists=true" >> $GITHUB_OUTPUT
+            echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
+            
+            # Get license ID for existing customer with error handling
+            LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
+            
+            LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
+            LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
+            
+            if [ "$LICENSE_HTTP_CODE" = "200" ]; then
+              LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
+              echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+            else
+              echo "Failed to get license ID for customer $CUSTOMER_ID"
+              echo "customer-exists=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Customer does not exist"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create customer
+        id: create-customer
+        if: steps.check-customer.outputs.customer-exists == 'false'
+        uses: replicatedhq/replicated-actions/create-customer@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-name: ${{ needs.setup.outputs.channel-name }}
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
+          license-type: dev
+
+      - name: Set customer outputs
+        id: set-customer-outputs
+        run: |
+          if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
+            echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.check-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "customer-id=${{ steps.create-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if cluster exists
+        id: check-cluster
+        run: |
+          set -e
+          echo "Checking for existing cluster: ${{ needs.setup.outputs.channel-name }}"
+          
+          # Get clusters with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/clusters")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely
+          CLUSTER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+            'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | .id else empty end' 2>/dev/null | head -1)
+          
+          if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
+            echo "Found existing cluster: $CLUSTER_ID"
+            echo "cluster-exists=true" >> $GITHUB_OUTPUT
+            echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+            
+            # Export kubeconfig for existing cluster with error handling
+            KUBECONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig")
+            
+            KUBECONFIG_HTTP_CODE=$(echo "$KUBECONFIG_RESPONSE" | tail -n1)
+            KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
+            
+            if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
+              echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null > /tmp/kubeconfig
+              if [ -s /tmp/kubeconfig ]; then
+                echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+              else
+                echo "Failed to extract kubeconfig from response"
+              fi
+            else
+              echo "Failed to get kubeconfig for cluster $CLUSTER_ID"
+            fi
+          else
+            echo "Cluster does not exist"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create cluster
+        id: create-cluster
+        if: steps.check-cluster.outputs.cluster-exists == 'false'
+        uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          kubernetes-distribution: k3s
+          kubernetes-version: v1.32.2
+          cluster-name: ${{ needs.setup.outputs.channel-name }}
+          ttl: 4h
+          nodes: 1
+          instance-type: r1.small
+          export-kubeconfig: 'true'
+
+      - name: Set cluster outputs
+        id: set-cluster-outputs
+        run: |
+          if [ "${{ steps.check-cluster.outputs.cluster-exists }}" == "true" ]; then
+            echo "cluster-id=${{ steps.check-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "cluster-id=${{ steps.create-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup cluster ports
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
+
+      - name: Deploy application
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
+            REPLICATED_LICENSE_ID="${{ steps.set-customer-outputs.outputs.license-id }}"
+        timeout-minutes: 20
+
+      - name: Run tests
+        working-directory: ${{ env.APP_DIR }}
+        run: task test
+        timeout-minutes: 10
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
