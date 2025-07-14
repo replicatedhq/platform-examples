@@ -31,6 +31,7 @@ jobs:
     outputs:
       branch-name: ${{ steps.vars.outputs.branch-name }}
       channel-name: ${{ steps.vars.outputs.channel-name }}
+      customer-name: ${{ steps.vars.outputs.customer-name }}
     steps:
       - name: Set branch and channel variables
         id: vars
@@ -39,9 +40,12 @@ jobs:
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           # Channel name is normalized to lowercase with hyphens for Replicated channels
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          # Customer name includes run number to ensure uniqueness across workflow runs
+          CUSTOMER_NAME="${CHANNEL_NAME}-${{ github.run_number }}"
           echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
-          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
+          echo "customer-name=$CUSTOMER_NAME" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME, Customer: $CUSTOMER_NAME"
 
   validate-charts:
     runs-on: ubuntu-22.04
@@ -174,7 +178,7 @@ jobs:
         id: check-customer
         run: |
           set -e
-          echo "Checking for existing customer: ${{ needs.setup.outputs.channel-name }}"
+          echo "Checking for existing customer: ${{ needs.setup.outputs.customer-name }}"
           
           # Get customers with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
@@ -190,9 +194,18 @@ jobs:
             exit 0
           fi
           
-          # Parse JSON response safely
-          CUSTOMER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
-            'if .customers then .customers[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
+          # Parse JSON response safely - select most recent customer by creation date
+          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.customer-name }}" \
+            'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
+            | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
+          
+          CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
+          
+          if [ -n "$CUSTOMER_DATA" ] && [ "$CUSTOMER_DATA" != "null" ] && [ "$CUSTOMER_DATA" != "{}" ]; then
+            CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.customer-name }}" \
+              'if .customers then [.customers[] | select(.name == $name)] | length else 0 end' 2>/dev/null)
+            echo "Found $CUSTOMER_COUNT customer(s) with name '${{ needs.setup.outputs.customer-name }}', using most recent: $CUSTOMER_ID"
+          fi
           
           if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
             echo "Found existing customer: $CUSTOMER_ID"
@@ -225,7 +238,7 @@ jobs:
         with:
           app-slug: ${{ env.REPLICATED_APP }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
-          customer-name: ${{ needs.setup.outputs.channel-name }}
+          customer-name: ${{ needs.setup.outputs.customer-name }}
           channel-slug: ${{ needs.create-release.outputs.channel-slug }}
           license-type: dev
 
@@ -323,7 +336,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: |
           task customer-helm-install \
-            CUSTOMER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
             CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}" \
             CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
             REPLICATED_LICENSE_ID="${{ steps.set-customer-outputs.outputs.license-id }}"

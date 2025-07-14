@@ -480,7 +480,9 @@ The PR validation workflow now includes idempotent resource creation that checks
 - Handles both new and existing channels transparently
 
 #### Customer Creation  
+- Uses unique customer names with workflow run number to prevent duplicates
 - Queries existing customers by name before creating new ones
+- When multiple customers exist with same name, selects most recently created
 - Retrieves license ID from existing customer if found
 - Creates new customer only when no matching customer exists
 
@@ -519,6 +521,8 @@ PR validation runs automatically on pull requests affecting `applications/wg-eas
 ### Refactoring PR Validation Workflow Using Replicated Actions
 
 The current GitHub Actions workflow uses custom composite actions that wrap Task-based operations. The [replicated-actions](https://github.com/replicatedhq/replicated-actions) repository provides official actions that could replace several of these custom implementations for improved reliability and reduced maintenance burden.
+
+**Source Code Location**: The replicated-actions source code is located at https://github.com/replicatedhq/replicated-actions
 
 #### Current State Analysis
 
