@@ -143,17 +143,17 @@ strategy:
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 20
-      # EKS configurations
-      - k8s-version: "v1.32.2"
+      # EKS configurations (only v1.31.2 supported)
+      - k8s-version: "v1.31.2"
         distribution: "eks"
         nodes: 2
         instance-type: "r1.medium"
         timeout-minutes: 30
     exclude:
-      # Temporarily exclude combinations that may not be supported
-      - k8s-version: "v1.31.2"
+      # Exclude unsupported Kubernetes versions for specific distributions
+      # EKS does not support v1.32.2 yet
+      - k8s-version: "v1.32.2"
         distribution: "eks"
-        nodes: 2
   fail-fast: false
   max-parallel: 4
 ```
