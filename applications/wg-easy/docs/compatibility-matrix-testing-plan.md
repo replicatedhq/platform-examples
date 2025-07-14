@@ -132,7 +132,7 @@ strategy:
         nodes: 3
         instance-type: "r1.medium"
         timeout-minutes: 20
-      # kind configurations
+      # kind configurations (maximum 1 node supported)
       - k8s-version: "v1.31.2"
         distribution: "kind"
         nodes: 1
@@ -140,9 +140,9 @@ strategy:
         timeout-minutes: 20
       - k8s-version: "v1.32.2"
         distribution: "kind"
-        nodes: 3
-        instance-type: "r1.medium"
-        timeout-minutes: 25
+        nodes: 1
+        instance-type: "r1.small"
+        timeout-minutes: 20
       # EKS configurations
       - k8s-version: "v1.32.2"
         distribution: "eks"
