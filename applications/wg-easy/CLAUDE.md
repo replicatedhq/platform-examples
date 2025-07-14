@@ -781,7 +781,7 @@ Following a comprehensive analysis of the current PR validation workflow against
 - ✅ **7 Active Matrix Combinations** across 3 distributions and 2 K8s versions
 - ✅ **Multi-Distribution Testing** (k3s, kind, EKS) with distribution-specific constraints
 - ✅ **Node Configuration Matrix** (1-3 nodes) with distribution limits: k3s (1,3), kind (1 max), EKS (2)
-- ✅ **Latest Patch Versions** k3s (v1.31.10, v1.32.6), kind (v1.31.9, v1.32.5), EKS (v1.31, v1.32)
+- ✅ **Distribution-Specific Versions** k3s (v1.31.10, v1.32.6), kind (v1.31.9, v1.32.5), EKS (v1.31, v1.32)
 - ✅ **Distribution-Specific Validation** for networking and storage
 - ✅ **Parallel Execution Optimization** with resource-aware limits
 - ✅ **Performance Monitoring** and resource utilization tracking

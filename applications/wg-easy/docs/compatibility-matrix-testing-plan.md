@@ -114,8 +114,6 @@ Implement a job matrix that tests across:
 ```yaml
 strategy:
   matrix:
-    k8s-version: ["v1.31.10", "v1.32.6"]
-    distribution: ["k3s", "kind", "eks"]
     include:
       # k3s single-node configurations (latest patch versions)
       - k8s-version: "v1.31.10"
@@ -134,7 +132,7 @@ strategy:
         nodes: 3
         instance-type: "r1.medium"
         timeout-minutes: 20
-      # kind configurations (maximum 1 node supported, latest patch versions)
+      # kind configurations (maximum 1 node supported, distribution-specific patch versions)
       - k8s-version: "v1.31.9"
         distribution: "kind"
         nodes: 1
@@ -145,7 +143,7 @@ strategy:
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 20
-      # EKS configurations (both v1.31 and v1.32 supported)
+      # EKS configurations (major.minor versions only)
       - k8s-version: "v1.31"
         distribution: "eks"
         nodes: 2
