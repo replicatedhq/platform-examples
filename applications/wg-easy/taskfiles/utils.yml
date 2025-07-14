@@ -309,7 +309,7 @@ tasks:
         
         # Normalize by replacing common git branch delimiters with hyphens
         # This matches how slugs are represented in the Replicated Vendor Portal backend
-        echo "{{.INPUT_NAME}}" | tr '/' '-' | tr '_' '-' | tr '.' '-'
+        echo "{{.INPUT_NAME}}" | tr '/_.' '-'
 
   get-customer-info:
     desc: Get customer information by name or ID (supports bidirectional conversion)
