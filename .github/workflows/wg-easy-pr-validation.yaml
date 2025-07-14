@@ -307,12 +307,12 @@ jobs:
         run: |
           case "${{ matrix.distribution }}" in
             "k3s")
-              echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
+              echo "cluster-disk-size=50" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
               echo "resource-priority=high" >> $GITHUB_OUTPUT
               ;;
             "kind")
-              echo "cluster-disk-size=30" >> $GITHUB_OUTPUT
+              echo "cluster-disk-size=50" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
               echo "resource-priority=medium" >> $GITHUB_OUTPUT
               ;;
@@ -322,7 +322,7 @@ jobs:
               echo "resource-priority=low" >> $GITHUB_OUTPUT
               ;;
             *)
-              echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
+              echo "cluster-disk-size=50" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
               echo "resource-priority=medium" >> $GITHUB_OUTPUT
               ;;

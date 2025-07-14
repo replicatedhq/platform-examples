@@ -164,13 +164,13 @@ strategy:
 ```yaml
 case "${{ matrix.distribution }}" in
   "k3s")
-    cluster-disk-size: 20GB
+    cluster-disk-size: 50GB  # Updated to meet minimum requirement
     cluster-ttl: 4h
     networking-config: flannel
     resource-priority: high
     ;;
   "kind")
-    cluster-disk-size: 30GB
+    cluster-disk-size: 50GB  # Updated to meet minimum requirement
     cluster-ttl: 4h
     networking-config: kindnet
     resource-priority: medium
