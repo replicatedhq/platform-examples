@@ -162,6 +162,8 @@ jobs:
     needs: [setup, create-release]
     strategy:
       matrix:
+        k8s-version: ["v1.31.2", "v1.32.2"]
+        distribution: ["k3s", "kind", "eks"]
         include:
           # k3s single-node configurations
           - k8s-version: "v1.31.2"
@@ -207,9 +209,6 @@ jobs:
           # These can be re-enabled as distributions gain support
           - k8s-version: "v1.31.2"
             distribution: "eks"
-            nodes: 2
-            instance-type: "r1.medium"
-            timeout-minutes: 30
       fail-fast: false
       max-parallel: 4
     outputs:
