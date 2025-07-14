@@ -1,0 +1,134 @@
+---
+name: WG-Easy PR Validation - build, release, install
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-pr-validation.yaml'
+  workflow_dispatch:
+    inputs:
+      test_mode:
+        description: 'Run in test mode'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_DIR: applications/wg-easy
+  REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ vars.WG_EASY_REPLICATED_APP }}
+  HELM_VERSION: "3.17.3"
+  KUBECTL_VERSION: "v1.30.0"
+
+jobs:
+  setup:
+    runs-on: ubuntu-22.04
+    outputs:
+      branch-name: ${{ steps.vars.outputs.branch-name }}
+      channel-name: ${{ steps.vars.outputs.channel-name }}
+    steps:
+      - name: Set branch and channel variables
+        id: vars
+        run: |
+          # Branch name preserves original case for resource naming (clusters, customers)
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          # Channel name is normalized to lowercase with hyphens for Replicated channels
+          CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
+          echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME"
+
+  validate-charts:
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate charts
+        uses: ./.github/actions/chart-validate
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Validate Taskfile syntax
+        run: task --list-all
+        working-directory: ${{ env.APP_DIR }}
+
+  build-and-package:
+    runs-on: ubuntu-22.04
+    needs: [setup, validate-charts]
+    outputs:
+      release-path: ${{ steps.package.outputs.release-path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package charts
+        id: package
+        uses: ./.github/actions/chart-package
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ steps.package.outputs.release-path }}
+          retention-days: 7
+
+  create-release:
+    runs-on: ubuntu-22.04
+    needs: [setup, build-and-package]
+    outputs:
+      channel-id: ${{ steps.release.outputs.channel-id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wg-easy-release-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release
+
+      - name: Create Replicated release
+        id: release
+        uses: ./.github/actions/replicated-release
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          channel-name: ${{ needs.setup.outputs.channel-name }}
+          release-notes: "PR validation release for ${{ needs.setup.outputs.branch-name }}"
+
+  test-deployment:
+    runs-on: ubuntu-22.04
+    needs: [setup, create-release]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test deployment
+        uses: ./.github/actions/test-deployment
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          customer-name: ${{ needs.setup.outputs.channel-name }}
+          cluster-name: ${{ needs.setup.outputs.channel-name }}
+          channel-id: ${{ needs.create-release.outputs.channel-id }}
+          helm-version: ${{ env.HELM_VERSION }}
+          cleanup: 'false'
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
+

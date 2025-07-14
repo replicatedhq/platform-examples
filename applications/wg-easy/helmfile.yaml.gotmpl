@@ -15,22 +15,61 @@ environments:
           traefik: ./charts/traefik
           wgEasy: ./charts/wg-easy
           replicatedSDK: ./charts/replicated
+      # Dynamic chart versions read from Chart.yaml files
+      - chartVersions:
+          certManager: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
+          certManagerIssuers: '{{ exec "yq" (list ".version" "./charts/cert-manager-issuers/Chart.yaml") }}'
+          traefik: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
+          wgEasy: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
+          replicatedSDK: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
       - extras:
           enableReplicatedSDK: false
   replicated:
     values:
-      - app: '{{ env "REPLICATED_APP" | default "wg-easy" }}'
+      - app: '{{ env "REPLICATED_APP" | default "wg-easy-cre" }}'
       - channel: '{{ env "CHANNEL" | default "unstable" }}'
-      - username: "test@example.com"
+      - username: '{{env "REPLICATED_LICENSE_ID"}}'
       - password: '{{env "REPLICATED_LICENSE_ID"}}'
       - chartSources:
-          certManager: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'
-          certManagerIssuers: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
-          traefik: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
-          wgEasy: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
-          replicatedSDK: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
+          certManager: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager'
+          certManagerIssuers: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
+          traefik: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
+          wgEasy: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
+          replicatedSDK: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
+      # Dynamic chart versions read from Chart.yaml files
+      - chartVersions:
+          certManager: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
+          certManagerIssuers: '{{ exec "yq" (list ".version" "./charts/cert-manager-issuers/Chart.yaml") }}'
+          traefik: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
+          wgEasy: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
+          replicatedSDK: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
       - extras:
           enableReplicatedSDK: true
+      # Replicated Registry Proxy configurations for container images
+      - proxyImages:
+          wgEasy:
+            image:
+              repository: proxy.replicated.com/proxy/wg-easy-cre/ghcr.io/wg-easy/wg-easy
+          traefik:
+            image:
+              registry: proxy.replicated.com/proxy/wg-easy-cre/index.docker.io
+              repository: library/traefik
+          certManager:
+            image:
+              registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
+              repository: jetstack/cert-manager-controller
+            webhook:
+              image:
+                registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
+                repository: jetstack/cert-manager-webhook
+            cainjector:
+              image:
+                registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
+                repository: jetstack/cert-manager-cainjector
+            startupapicheck:
+              image:
+                registry: proxy.replicated.com/proxy/wg-easy-cre/quay.io
+                repository: jetstack/cert-manager-startupapicheck
 ---
 {{- if eq .Environment.Name "replicated" }}
 repositories:
@@ -46,28 +85,64 @@ releases:
   - name: cert-manager
     namespace: cert-manager
     chart: {{ .Values.chartSources.certManager }}
-    version: 1.0.0
+    version: {{ .Values.chartVersions.certManager }}
     createNamespace: true
     wait: true
     installed: true
     skipDeps: true
+{{- if eq .Environment.Name "replicated" }}
+    values:
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
+      - cert-manager:
+          image:
+            registry: {{ .Values.proxyImages.certManager.image.registry }}
+            repository: {{ .Values.proxyImages.certManager.image.repository }}
+          webhook:
+            image:
+              registry: {{ .Values.proxyImages.certManager.webhook.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.webhook.image.repository }}
+          cainjector:
+            image:
+              registry: {{ .Values.proxyImages.certManager.cainjector.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.cainjector.image.repository }}
+          startupapicheck:
+            image:
+              registry: {{ .Values.proxyImages.certManager.startupapicheck.image.registry }}
+              repository: {{ .Values.proxyImages.certManager.startupapicheck.image.repository }}
+          global:
+            imagePullSecrets:
+              - name: replicated-pull-secret
+{{- end }}
 
   # Install issuers separately after cert-manager is ready
   - name: cert-manager-issuers
     namespace: cert-manager
     chart: {{ .Values.chartSources.certManagerIssuers }}
-    version: 1.0.0
+    version: {{ .Values.chartVersions.certManagerIssuers }}
     createNamespace: true
     wait: true
     installed: true
     skipDeps: true
     needs:
       - cert-manager/cert-manager
+{{- if eq .Environment.Name "replicated" }}
+    values:
+      - cert-manager:
+          image:
+            registry: {{ .Values.proxyImages.certManager.image.registry }}
+            repository: {{ .Values.proxyImages.certManager.image.repository }}
+          global:
+            imagePullSecrets:
+              - name: replicated-pull-secret
+{{- end }}
 
   - name: traefik
     namespace: traefik
     chart: {{ .Values.chartSources.traefik }}
-    version: 1.0.0
+    version: {{ .Values.chartVersions.traefik }}
     createNamespace: true
     wait: true
     installed: true
@@ -81,23 +156,41 @@ releases:
               nodePort: 30080
             websecure:
               nodePort: 30443
+{{- if eq .Environment.Name "replicated" }}
+          image:
+            registry: {{ .Values.proxyImages.traefik.image.registry }}
+            repository: {{ .Values.proxyImages.traefik.image.repository }}
+          deployment:
+            imagePullSecrets:
+              - name: replicated-pull-secret
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
+{{- end }}
 
   # Install replicated-sdk (only in replicated environment)
   - name: replicated
     namespace: replicated
     chart: {{ .Values.chartSources.replicatedSDK }}
-    version: 1.0.0
+    version: {{ .Values.chartVersions.replicatedSDK }}
     createNamespace: true
     wait: true
     installed: {{ .Values.extras.enableReplicatedSDK }}
     skipDeps: true
     needs:
       - traefik/traefik
+    values:
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
 
+  # Install wg-easy
   - name: wg-easy
     namespace: wg-easy
     chart: {{ .Values.chartSources.wgEasy }}
-    version: 1.0.0
+    version: {{ .Values.chartVersions.wgEasy }}
     createNamespace: true
     wait: true
     installed: true
@@ -108,6 +201,21 @@ releases:
       - wg-easy:
           wireguard:
             host: '{{ env "TF_EXPOSED_URL" }}'
+{{- if eq .Environment.Name "replicated" }}
+          controllers:
+            wg-easy:
+              containers:
+                wg-container:
+                  image:
+                    repository: {{ .Values.proxyImages.wgEasy.image.repository }}
+              pod:
+                imagePullSecrets:
+                  - name: replicated-pull-secret
+      - templates:
+          replicated:
+            imagePullSecret:
+              enabled: true
+{{- end }}
       - templates:
           traefikRoutes:
             web-tls:

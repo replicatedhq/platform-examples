@@ -1,0 +1,51 @@
+name: 'Package Helm Charts'
+description: 'Package all Helm charts and prepare release artifacts'
+inputs:
+  app-dir:
+    description: 'Application directory containing charts'
+    default: 'applications/wg-easy'
+  helm-version:
+    description: 'Helm version to use'
+    default: '3.17.3'
+  use-cache:
+    description: 'Whether to use dependency cache'
+    default: 'true'
+outputs:
+  release-path:
+    description: 'Path to release artifacts'
+    value: ${{ inputs.app-dir }}/release
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        helm-version: ${{ inputs.helm-version }}
+    
+    - name: Cache Helm dependencies
+      if: inputs.use-cache == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.app-dir }}/charts/*/charts
+          ${{ inputs.app-dir }}/Chart.lock
+        key: helm-deps-${{ hashFiles(format('{0}/charts/*/Chart.yaml', inputs.app-dir)) }}
+    
+    - name: Package charts
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: task chart-package-all
+    
+    - name: Verify release contents
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        echo "Verifying release directory contents:"
+        ls -la release/
+        echo "Checking required files:"
+        test -f release/application.yaml
+        test -f release/config.yaml
+        test -f release/cluster.yaml
+        echo "Chart packages:"
+        find release/ -name "*.tgz" | wc -l | grep -v "^0$"

@@ -1,0 +1,108 @@
+name: 'Test Deployment'
+description: 'Test deployment using customer workflow'
+inputs:
+  app-dir:
+    description: 'Application directory containing charts'
+    default: 'applications/wg-easy'
+  customer-name:
+    description: 'Customer name for testing'
+    required: true
+  cluster-name:
+    description: 'Cluster name for testing'
+    required: true
+  channel-name:
+    description: 'Channel name for testing'
+    required: false
+  channel-id:
+    description: 'Channel ID for testing (optional, takes precedence over channel-name)'
+    required: false
+  helm-version:
+    description: 'Helm version to use'
+    default: '3.17.3'
+  cleanup:
+    description: 'Whether to cleanup resources after testing'
+    default: 'false'
+
+outputs:
+  customer-license:
+    description: 'Customer license ID used for testing'
+    value: ${{ steps.license.outputs.license-id }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup tools
+      uses: ./.github/actions/setup-tools
+      with:
+        helm-version: ${{ inputs.helm-version }}
+        install-helmfile: 'true'
+
+    - name: Create customer
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        if [ -n "${{ inputs.channel-id }}" ]; then
+          task customer-create \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            RELEASE_CHANNEL_ID="${{ inputs.channel-id }}"
+        else
+          task customer-create \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            RELEASE_CHANNEL="${{ inputs.channel-name }}"
+        fi
+
+    - name: Get customer license
+      id: license
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        LICENSE_ID=$(task utils:get-customer-license CUSTOMER_NAME="${{ inputs.customer-name }}" --silent | tail -1)
+        echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+        echo "::add-mask::$LICENSE_ID"
+
+    - name: Create cluster with retry
+      uses: nick-fields/retry@v3.0.2
+      with:
+        timeout_minutes: 20
+        retry_wait_seconds: 30
+        max_attempts: 3
+        command: |
+          cd ${{ inputs.app-dir }}
+          task cluster-create CLUSTER_NAME="${{ inputs.cluster-name }}"
+
+    - name: Setup cluster
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        task setup-kubeconfig CLUSTER_NAME="${{ inputs.cluster-name }}"
+        task cluster-ports-expose CLUSTER_NAME="${{ inputs.cluster-name }}"
+
+    - name: Deploy application
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: |
+        if [ -n "${{ inputs.channel-id }}" ]; then
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            CLUSTER_NAME="${{ inputs.cluster-name }}" \
+            CHANNEL_ID="${{ inputs.channel-id }}" \
+            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        else
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ inputs.customer-name }}" \
+            CLUSTER_NAME="${{ inputs.cluster-name }}" \
+            CHANNEL_SLUG="${{ inputs.channel-name }}" \
+            REPLICATED_LICENSE_ID="${{ steps.license.outputs.license-id }}"
+        fi
+
+    - name: Run tests
+      shell: bash
+      working-directory: ${{ inputs.app-dir }}
+      run: task test
+
+    # - name: Cleanup resources
+    #   if: inputs.cleanup == 'true'
+    #   shell: bash
+    #   working-directory: ${{ inputs.app-dir }}
+    #   run: |
+    #     task cleanup-pr-resources BRANCH_NAME="${{ inputs.customer-name }}"

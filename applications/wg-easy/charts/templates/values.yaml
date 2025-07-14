@@ -1,4 +1,4 @@
-#traefikRoutes:
+# traefikRoutes:
 #  host.example.com:
 #    serviceName: my-serviceName
 #    servicePort: my-servicePort
@@ -21,7 +21,10 @@
 #    - pathPrefix: /docs
 #      auth: true
 # traefikRouteTCP:
-#   - serviceName: 
-#     servicePort: 
+#   - serviceName:
+#     servicePort:
 #     entryPoints:
-#       - <from traefik config> 
+#       - <from traefik config>
+replicated:
+  imagePullSecret:
+    enabled: false
