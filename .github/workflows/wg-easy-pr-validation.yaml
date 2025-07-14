@@ -108,12 +108,17 @@ jobs:
       - name: Check if channel exists
         id: check-channel
         run: |
-          set -e
           echo "Checking for existing channel: ${{ needs.setup.outputs.channel-name }}"
           
           # Get channels with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels")
+          
+          if [ $? -ne 0 ]; then
+            echo "curl command failed"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
@@ -151,13 +156,18 @@ jobs:
       - name: Check if customer exists
         id: check-customer
         run: |
-          set -e
           CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}"
           echo "Checking for existing customer: $CUSTOMER_NAME"
           
           # Get customers with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/customers")
+          
+          if [ $? -ne 0 ]; then
+            echo "curl command failed"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
@@ -351,13 +361,18 @@ jobs:
       - name: Check if cluster exists
         id: check-cluster
         run: |
-          set -e
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
           echo "Checking for existing cluster: $CLUSTER_NAME"
           
           # Get clusters with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/clusters")
+          
+          if [ $? -ne 0 ]; then
+            echo "curl command failed"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
