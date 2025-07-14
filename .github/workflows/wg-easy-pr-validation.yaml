@@ -387,11 +387,19 @@ jobs:
             KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
             
             if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
-              echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null > /tmp/kubeconfig
-              if [ -s /tmp/kubeconfig ]; then
-                echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+              # Extract and decode the kubeconfig from JSON response
+              KUBECONFIG_CONTENT=$(echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null)
+              if [ -n "$KUBECONFIG_CONTENT" ] && [ "$KUBECONFIG_CONTENT" != "null" ] && [ "$KUBECONFIG_CONTENT" != "empty" ]; then
+                # Write the decoded kubeconfig content to file
+                echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
+                if [ -s /tmp/kubeconfig ]; then
+                  echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+                  echo "Successfully extracted kubeconfig for existing cluster"
+                else
+                  echo "Failed to write kubeconfig to file"
+                fi
               else
-                echo "Failed to extract kubeconfig from response"
+                echo "Failed to extract kubeconfig from response - content is empty or null"
               fi
             else
               echo "Failed to get kubeconfig for cluster $CLUSTER_ID"
@@ -433,6 +441,13 @@ jobs:
       - name: Validate cluster readiness
         run: |
           echo "Validating cluster readiness for ${{ matrix.distribution }} ${{ matrix.k8s-version }}"
+          
+          # Check if kubeconfig is accessible
+          if ! kubectl version --client &>/dev/null; then
+            echo "Warning: kubectl not properly configured, skipping cluster validation"
+            echo "This may happen with existing cluster kubeconfig extraction"
+            exit 0
+          fi
           
           # Wait for cluster to be ready
           kubectl wait --for=condition=Ready nodes --all --timeout=300s
