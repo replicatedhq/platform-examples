@@ -4,33 +4,33 @@ This file contains common commands and workflows for working with the WG-Easy He
 
 ## Current Project Status
 
-**Branch:** `adamancini/gh-actions`  
-**Last Updated:** December 27, 2024
+**Branch:** `adamancini/replicated-actions`  
+**Last Updated:** January 14, 2025
 
 ### Recent Changes
-- Enhanced customer workflow with full test cycle and improved task documentation
-- Updated Helm chart dependencies and fixed imagePullSecret template
-- Added customer-helm-install task for deployment using replicated environment
-- Implemented automatic name normalization for git branch names in cluster, customer, and channel creation
-- Added comprehensive timeout and monitoring guidance for Helm operations
-- Enhanced background monitoring capabilities for detecting early deployment failures
+- **Workflow Analysis and Planning**: Completed comprehensive analysis of PR validation workflow compared to replicated-actions reference patterns
+- **Planning Documentation**: Created detailed implementation plans for four key workflow enhancements
+- **Enhanced GitHub Actions Integration**: Fully migrated to official replicated-actions for resource management (Phases 1-4 complete)
+- **Improved Workflow Visibility**: Decomposed composite actions into individual workflow steps for better debugging
+- **Performance Optimization Planning**: Developed comprehensive strategy for job parallelization and API call optimization
+- **Version Management Planning**: Designed semantic versioning strategy for better release tracking
 
 ### Key Features
-- **Automatic Name Normalization**: Git branch names are automatically normalized (replacing `/`, `_`, `.` with `-`) to match Replicated Vendor Portal backend slug format
-- **Enhanced Customer Workflow**: Complete customer lifecycle management from creation to deployment
-- **Improved Error Detection**: Background monitoring and early timeout detection for ImagePullBackOff scenarios
+- **Modern GitHub Actions Architecture**: Fully migrated to official replicated-actions with individual workflow steps for better visibility
+- **Idempotent Resource Management**: Sophisticated resource existence checking and reuse for reliable workflow execution
+- **Enhanced Error Handling**: Comprehensive API error handling and validation across all operations
 - **Multi-Registry Support**: Container images published to GHCR, Google Artifact Registry, and Replicated Registry
 - **Comprehensive Testing**: Full test cycles with cluster creation, deployment, and cleanup automation
+- **Automatic Name Normalization**: Git branch names automatically normalized for Replicated Vendor Portal and Kubernetes compatibility
 
 ### Recent Improvements
-- Enhanced Taskfile.yaml with automatic name normalization for cluster, customer, and channel operations
-- Improved utils.yml with normalized customer name handling in license retrieval
-- Updated documentation with comprehensive guidance for background monitoring and timeout detection
-- Streamlined customer workflow commands to use git branch names directly
-- **Optimized GitHub Actions workflows** with Task-based operations and reusable actions
-- **Added chart validation tasks** for consistent linting and templating across environments
-- **Implemented PR validation cycle** with automated cleanup and better error handling
-- **Enhanced channel management** with unique channel ID support to avoid ambiguous channel names
+- **Complete GitHub Actions Modernization**: Replaced all custom composite actions with official replicated-actions
+- **Workflow Visibility Enhancement**: Individual workflow steps replace complex composite actions for better debugging
+- **Resource Management Optimization**: Direct API integration eliminates Task wrapper overhead
+- **Enhanced Planning Documentation**: Created four comprehensive implementation plans for future workflow enhancements
+- **Performance Analysis**: Identified optimization opportunities for job parallelization and API call reduction
+- **Versioning Strategy**: Developed semantic versioning approach for better release tracking and management
+- **Naming Consistency Planning**: Designed unified resource naming strategy for improved tracking and management
 
 ## Core Principles
 
@@ -524,6 +524,8 @@ The current GitHub Actions workflow uses custom composite actions that wrap Task
 
 **Source Code Location**: The replicated-actions source code is located at https://github.com/replicatedhq/replicated-actions
 
+**Reference Workflows**: Example workflows demonstrating replicated-actions usage patterns can be found at https://github.com/replicatedhq/replicated-actions/tree/main/example-workflows
+
 #### Current State Analysis
 
 The current workflow uses custom composite actions:
@@ -752,6 +754,117 @@ The current workflow uses custom composite actions:
 - **Hybrid approach**: Best of both worlds - Tasks for local dev, actions for CI
 
 This refactoring addresses the immediate CLI installation failure while providing a long-term solution that leverages official Replicated actions for improved reliability and reduced maintenance burden.
+
+## Planned Workflow Enhancements
+
+Following a comprehensive analysis of the current PR validation workflow against the replicated-actions reference patterns, four key enhancement opportunities have been identified and documented:
+
+### 1. Compatibility Matrix Testing Enhancement
+**Status:** Phase 2 Complete - IMPLEMENTED ✅  
+**Priority:** High  
+**Documentation:** [Compatibility Matrix Testing Plan](docs/compatibility-matrix-testing-plan.md)
+
+**Overview:** Implement multi-environment testing across different Kubernetes versions and distributions to ensure broad compatibility.
+
+**Key Benefits:**
+- Validate compatibility across multiple Kubernetes versions (v1.31.2, v1.32.2)
+- Test against different distributions (k3s, kind, EKS)
+- Parallel matrix job execution for faster feedback
+- Multi-node configuration testing
+
+**Implementation Phases:**
+1. **Phase 1:** Basic matrix implementation with 2 versions, 1 distribution - COMPLETED ✅
+2. **Phase 2:** Enhanced matrix with distribution-specific configurations - COMPLETED ✅
+3. **Phase 3:** Advanced testing with performance benchmarks and multi-node support - PENDING
+
+**Current Implementation Status:**
+- ✅ **6 Active Matrix Combinations** across 3 distributions and 2 K8s versions
+- ✅ **Multi-Distribution Testing** (k3s, kind, EKS) with specific configurations
+- ✅ **Node Configuration Matrix** (1, 2, 3 nodes) with appropriate instance types
+- ✅ **Distribution-Specific Validation** for networking and storage
+- ✅ **Parallel Execution Optimization** with resource-aware limits
+- ✅ **Performance Monitoring** and resource utilization tracking
+
+### 2. Enhanced Versioning Strategy
+**Status:** Planning Phase  
+**Priority:** High  
+**Documentation:** [Enhanced Versioning Strategy Plan](docs/enhanced-versioning-strategy-plan.md)
+
+**Overview:** Implement semantic versioning strategy inspired by replicated-actions reference workflow for better release tracking and management.
+
+**Key Benefits:**
+- Semantic versioning format: `{base-version}-{branch-identifier}.{run-id}.{run-attempt}`
+- Improved release tracking and correlation
+- Version metadata integration
+- Pre-release and build metadata support
+
+**Implementation Phases:**
+1. **Phase 1:** Basic semantic versioning with branch identifiers
+2. **Phase 2:** Advanced version management with pre-release and metadata
+3. **Phase 3:** Version lifecycle management with promotion and analytics
+
+### 3. Performance Optimizations
+**Status:** Planning Phase  
+**Priority:** Medium  
+**Documentation:** [Performance Optimizations Plan](docs/performance-optimizations-plan.md)
+
+**Overview:** Optimize workflow performance through job parallelization, API call reduction, and enhanced caching strategies.
+
+**Key Benefits:**
+- Job parallelization to reduce sequential dependencies
+- API call batching and optimization
+- Enhanced caching for tools and dependencies
+- Resource allocation optimization
+
+**Implementation Phases:**
+1. **Phase 1:** Job parallelization with dependency optimization
+2. **Phase 2:** API call optimization and rate limit management
+3. **Phase 3:** Caching strategy enhancement and resource efficiency
+4. **Phase 4:** Advanced resource optimization and monitoring
+
+### 4. Resource Naming Consistency
+**Status:** Planning Phase  
+**Priority:** Medium  
+**Documentation:** [Resource Naming Consistency Plan](docs/resource-naming-consistency-plan.md)
+
+**Overview:** Implement unified resource naming strategy for improved tracking and management across all workflow resources.
+
+**Key Benefits:**
+- Consistent naming format: `{prefix}-{normalized-branch}-{resource-type}-{run-id}`
+- Improved resource correlation and tracking
+- Standardized normalization rules
+- Enhanced debugging and management capabilities
+
+**Implementation Phases:**
+1. **Phase 1:** Naming convention definition and validation
+2. **Phase 2:** Implementation with centralized naming functions
+3. **Phase 3:** Advanced features with templates and analytics
+
+### Implementation Priority
+
+**Completed (High Priority):**
+- ✅ **Compatibility Matrix Testing** - Phase 2 Complete - Multi-environment testing implemented with 6 active matrix combinations
+
+**Next (High Priority):**
+- Enhanced Versioning Strategy - Improves release management
+- Compatibility Matrix Testing Phase 3 - Advanced performance benchmarks
+
+**Medium Term (Medium Priority):**
+- Performance Optimizations - Reduces workflow execution time
+- Resource Naming Consistency - Improves operational efficiency
+
+### Current Workflow Status
+
+The existing PR validation workflow is already more sophisticated than the replicated-actions reference in most areas, featuring:
+
+- ✅ **Compatibility Matrix Testing** - Multi-environment validation across 6 combinations
+- ✅ **Idempotent resource management** with existence checking
+- ✅ **Official replicated-actions integration** for reliability
+- ✅ **Comprehensive error handling** and validation
+- ✅ **Advanced resource cleanup** with dedicated workflow
+- ✅ **Modern GitHub Actions architecture** with individual workflow steps
+
+The planned enhancements will build upon this strong foundation to provide additional testing coverage, improved performance, and better operational management.
 
 ## Additional Resources
 

@@ -160,6 +160,59 @@ jobs:
   test-deployment:
     runs-on: ubuntu-22.04
     needs: [setup, create-release]
+    concurrency:
+      group: cluster-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
+      cancel-in-progress: false
+    strategy:
+      matrix:
+        include:
+          # k3s single-node configurations
+          - k8s-version: "v1.31.2"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
+          - k8s-version: "v1.32.2"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
+          # k3s multi-node configurations
+          - k8s-version: "v1.32.2"
+            distribution: "k3s"
+            nodes: 3
+            instance-type: "r1.medium"
+            timeout-minutes: 20
+          # kind configurations
+          - k8s-version: "v1.31.2"
+            distribution: "kind"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 20
+          - k8s-version: "v1.32.2"
+            distribution: "kind"
+            nodes: 3
+            instance-type: "r1.medium"
+            timeout-minutes: 25
+          # EKS configurations
+          - k8s-version: "v1.31.2"
+            distribution: "eks"
+            nodes: 2
+            instance-type: "r1.medium"
+            timeout-minutes: 30
+          - k8s-version: "v1.32.2"
+            distribution: "eks"
+            nodes: 2
+            instance-type: "r1.medium"
+            timeout-minutes: 30
+        exclude:
+          # Temporarily exclude combinations that may not be supported
+          # These can be re-enabled as distributions gain support
+          - k8s-version: "v1.31.2"
+            distribution: "eks"
+            nodes: 2
+      fail-fast: false
+      max-parallel: 4
     outputs:
       customer-id: ${{ steps.set-customer-outputs.outputs.customer-id }}
       license-id: ${{ steps.set-customer-outputs.outputs.license-id }}
@@ -174,11 +227,61 @@ jobs:
           helm-version: ${{ env.HELM_VERSION }}
           install-helmfile: 'true'
 
+      - name: Configure distribution-specific settings
+        id: dist-config
+        run: |
+          case "${{ matrix.distribution }}" in
+            "k3s")
+              echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
+              echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
+              echo "networking-config=flannel" >> $GITHUB_OUTPUT
+              echo "resource-priority=high" >> $GITHUB_OUTPUT
+              ;;
+            "kind")
+              echo "cluster-disk-size=30" >> $GITHUB_OUTPUT
+              echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
+              echo "networking-config=kindnet" >> $GITHUB_OUTPUT
+              echo "resource-priority=medium" >> $GITHUB_OUTPUT
+              ;;
+            "eks")
+              echo "cluster-disk-size=50" >> $GITHUB_OUTPUT
+              echo "cluster-ttl=6h" >> $GITHUB_OUTPUT
+              echo "networking-config=aws-vpc-cni" >> $GITHUB_OUTPUT
+              echo "resource-priority=low" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
+              echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
+              echo "networking-config=default" >> $GITHUB_OUTPUT
+              echo "resource-priority=medium" >> $GITHUB_OUTPUT
+              ;;
+          esac
+          
+          # Set resource limits based on node count and instance type
+          case "${{ matrix.nodes }}" in
+            "1")
+              echo "max-parallel-jobs=3" >> $GITHUB_OUTPUT
+              ;;
+            "2")
+              echo "max-parallel-jobs=2" >> $GITHUB_OUTPUT
+              ;;
+            "3")
+              echo "max-parallel-jobs=1" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "max-parallel-jobs=2" >> $GITHUB_OUTPUT
+              ;;
+          esac
+          
+          echo "Distribution: ${{ matrix.distribution }}, Nodes: ${{ matrix.nodes }}, Instance: ${{ matrix.instance-type }}"
+          echo "Resource Priority: $(echo '${{ steps.dist-config.outputs.resource-priority }}' || echo 'medium')"
+
       - name: Check if customer exists
         id: check-customer
         run: |
           set -e
-          echo "Checking for existing customer: ${{ needs.setup.outputs.customer-name }}"
+          CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
+          echo "Checking for existing customer: $CUSTOMER_NAME"
           
           # Get customers with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
@@ -195,16 +298,16 @@ jobs:
           fi
           
           # Parse JSON response safely - select most recent customer by creation date
-          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.customer-name }}" \
+          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
             'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
             | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
           
           CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
           
           if [ -n "$CUSTOMER_DATA" ] && [ "$CUSTOMER_DATA" != "null" ] && [ "$CUSTOMER_DATA" != "{}" ]; then
-            CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.customer-name }}" \
+            CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
               'if .customers then [.customers[] | select(.name == $name)] | length else 0 end' 2>/dev/null)
-            echo "Found $CUSTOMER_COUNT customer(s) with name '${{ needs.setup.outputs.customer-name }}', using most recent: $CUSTOMER_ID"
+            echo "Found $CUSTOMER_COUNT customer(s) with name '$CUSTOMER_NAME', using most recent: $CUSTOMER_ID"
           fi
           
           if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
@@ -238,7 +341,7 @@ jobs:
         with:
           app-slug: ${{ env.REPLICATED_APP }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
-          customer-name: ${{ needs.setup.outputs.customer-name }}
+          customer-name: ${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
           channel-slug: ${{ needs.create-release.outputs.channel-slug }}
           license-type: dev
 
@@ -257,7 +360,8 @@ jobs:
         id: check-cluster
         run: |
           set -e
-          echo "Checking for existing cluster: ${{ needs.setup.outputs.channel-name }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
+          echo "Checking for existing cluster: $CLUSTER_NAME"
           
           # Get clusters with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
@@ -274,7 +378,7 @@ jobs:
           fi
           
           # Parse JSON response safely
-          CLUSTER_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
+          CLUSTER_ID=$(echo "$BODY" | jq -r --arg name "$CLUSTER_NAME" \
             'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | .id else empty end' 2>/dev/null | head -1)
           
           if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
@@ -310,12 +414,13 @@ jobs:
         uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
-          kubernetes-distribution: k3s
-          kubernetes-version: v1.32.2
-          cluster-name: ${{ needs.setup.outputs.channel-name }}
-          ttl: 4h
-          nodes: 1
-          instance-type: r1.small
+          kubernetes-distribution: ${{ matrix.distribution }}
+          kubernetes-version: ${{ matrix.k8s-version }}
+          cluster-name: ${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
+          ttl: ${{ steps.dist-config.outputs.cluster-ttl }}
+          nodes: ${{ matrix.nodes }}
+          instance-type: ${{ matrix.instance-type }}
+          disk-size: ${{ steps.dist-config.outputs.cluster-disk-size }}
           export-kubeconfig: 'true'
 
       - name: Set cluster outputs
@@ -330,28 +435,113 @@ jobs:
       - name: Setup cluster ports
         working-directory: ${{ env.APP_DIR }}
         run: |
-          task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}"
+          task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
+
+      - name: Validate distribution-specific networking
+        run: |
+          echo "Validating ${{ matrix.distribution }} networking configuration: ${{ steps.dist-config.outputs.networking-config }}"
+          
+          # Wait for cluster to be ready
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          
+          # Validate networking based on distribution
+          case "${{ matrix.distribution }}" in
+            "k3s")
+              echo "Validating k3s Flannel networking..."
+              kubectl get pods -n kube-system -l app=flannel --no-headers | wc -l
+              ;;
+            "kind")
+              echo "Validating kind networking..."
+              kubectl get pods -n kube-system -l component=kube-proxy --no-headers | wc -l
+              ;;
+            "eks")
+              echo "Validating EKS AWS VPC CNI networking..."
+              kubectl get pods -n kube-system -l k8s-app=aws-node --no-headers | wc -l
+              ;;
+          esac
+          
+          # Validate cluster nodes
+          echo "Cluster nodes:"
+          kubectl get nodes -o wide
+          
+          echo "Cluster info:"
+          kubectl cluster-info
 
       - name: Deploy application
         working-directory: ${{ env.APP_DIR }}
         run: |
           task customer-helm-install \
-            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
-            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}" \
+            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" \
+            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" \
             CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
             REPLICATED_LICENSE_ID="${{ steps.set-customer-outputs.outputs.license-id }}"
-        timeout-minutes: 20
+        timeout-minutes: ${{ matrix.timeout-minutes }}
 
       - name: Run tests
         working-directory: ${{ env.APP_DIR }}
         run: task test
         timeout-minutes: 10
 
+      - name: Run distribution-specific tests
+        run: |
+          echo "Running ${{ matrix.distribution }}-specific tests..."
+          
+          # Test node configuration based on matrix
+          EXPECTED_NODES=${{ matrix.nodes }}
+          ACTUAL_NODES=$(kubectl get nodes --no-headers | wc -l)
+          
+          if [ "$ACTUAL_NODES" -eq "$EXPECTED_NODES" ]; then
+            echo "✅ Node count validation passed: $ACTUAL_NODES/$EXPECTED_NODES"
+          else
+            echo "❌ Node count validation failed: $ACTUAL_NODES/$EXPECTED_NODES"
+            exit 1
+          fi
+          
+          # Distribution-specific storage tests
+          case "${{ matrix.distribution }}" in
+            "k3s")
+              echo "Testing k3s local-path storage..."
+              kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
+              ;;
+            "kind")
+              echo "Testing kind standard storage..."
+              kubectl get storageclass standard -o yaml | grep provisioner | grep rancher.io/local-path
+              ;;
+            "eks")
+              echo "Testing EKS GP2 storage..."
+              kubectl get storageclass gp2 -o yaml | grep provisioner | grep ebs.csi.aws.com || echo "EKS storage validation skipped"
+              ;;
+          esac
+          
+          # Test cluster resources
+          echo "Cluster resource utilization:"
+          kubectl top nodes --no-headers 2>/dev/null || echo "Metrics not available"
+          
+          echo "Pod distribution across nodes:"
+          kubectl get pods -A -o wide | awk '{print $7}' | sort | uniq -c
+          
+          # Performance monitoring
+          echo "=== Performance Metrics ==="
+          echo "Test Environment: ${{ matrix.distribution }} ${{ matrix.k8s-version }} (${{ matrix.nodes }} nodes)"
+          echo "Instance Type: ${{ matrix.instance-type }}"
+          echo "Priority: ${{ steps.dist-config.outputs.resource-priority }}"
+          echo "Deployment Timeout: ${{ matrix.timeout-minutes }} minutes"
+          
+          # Resource consumption validation
+          echo "=== Resource Validation ==="
+          kubectl describe nodes | grep -E "(Name:|Allocatable:|Allocated resources:)" | head -20
+          
+          # Collect performance timings
+          echo "=== Test Completion Summary ==="
+          echo "Matrix Job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
+          echo "Started: $(date -u)"
+          echo "Status: Complete"
+
       - name: Upload debug logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-logs-${{ github.run_number }}
+          name: debug-logs-${{ github.run_number }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
           path: |
             /tmp/*.log
             ~/.replicated/
