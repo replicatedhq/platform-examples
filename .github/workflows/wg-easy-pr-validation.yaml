@@ -208,6 +208,8 @@ jobs:
           - k8s-version: "v1.31.2"
             distribution: "eks"
             nodes: 2
+            instance-type: "r1.medium"
+            timeout-minutes: 30
       fail-fast: false
       max-parallel: 4
     outputs:
