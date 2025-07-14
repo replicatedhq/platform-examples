@@ -87,12 +87,14 @@ jobs:
           path: ${{ steps.package.outputs.release-path }}
           retention-days: 7
 
-  create-release:
+  create-resources:
     runs-on: ubuntu-22.04
     needs: [setup, build-and-package]
     outputs:
-      channel-slug: ${{ steps.set-release-outputs.outputs.channel-slug }}
-      release-sequence: ${{ steps.set-release-outputs.outputs.release-sequence }}
+      channel-slug: ${{ steps.set-outputs.outputs.channel-slug }}
+      release-sequence: ${{ steps.set-outputs.outputs.release-sequence }}
+      customer-id: ${{ steps.set-outputs.outputs.customer-id }}
+      license-id: ${{ steps.set-outputs.outputs.license-id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -146,20 +148,98 @@ jobs:
           yaml-dir: ${{ env.APP_DIR }}/release
           promote-channel: ${{ needs.setup.outputs.channel-name }}
 
-      - name: Set release outputs
-        id: set-release-outputs
+      - name: Check if customer exists
+        id: check-customer
         run: |
+          set -e
+          CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}"
+          echo "Checking for existing customer: $CUSTOMER_NAME"
+          
+          # Get customers with error handling
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/customers")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "Response: $BODY"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Parse JSON response safely - select most recent customer by creation date
+          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
+            'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
+            | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
+          
+          CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
+          
+          if [ -n "$CUSTOMER_DATA" ] && [ "$CUSTOMER_DATA" != "null" ] && [ "$CUSTOMER_DATA" != "{}" ]; then
+            CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
+              'if .customers then [.customers[] | select(.name == $name)] | length else 0 end' 2>/dev/null)
+            echo "Found $CUSTOMER_COUNT customer(s) with name '$CUSTOMER_NAME', using most recent: $CUSTOMER_ID"
+          fi
+          
+          if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
+            echo "Found existing customer: $CUSTOMER_ID"
+            echo "customer-exists=true" >> $GITHUB_OUTPUT
+            echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
+            
+            # Get license ID for existing customer with error handling
+            LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
+            
+            LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
+            LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
+            
+            if [ "$LICENSE_HTTP_CODE" = "200" ]; then
+              LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
+              echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+            else
+              echo "Failed to get license ID for customer $CUSTOMER_ID"
+              echo "customer-exists=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Customer does not exist"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create customer
+        id: create-customer
+        if: steps.check-customer.outputs.customer-exists == 'false'
+        uses: replicatedhq/replicated-actions/create-customer@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-name: ${{ needs.setup.outputs.customer-name }}
+          channel-slug: ${{ steps.check-channel.outputs.channel-exists == 'true' && steps.check-channel.outputs.channel-slug || steps.release.outputs.channel-slug }}
+          license-type: dev
+
+      - name: Set consolidated outputs
+        id: set-outputs
+        run: |
+          # Set channel outputs
           if [ "${{ steps.check-channel.outputs.channel-exists }}" == "true" ]; then
             echo "channel-slug=${{ steps.check-channel.outputs.channel-slug }}" >> $GITHUB_OUTPUT
-            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
           else
             echo "channel-slug=${{ steps.release.outputs.channel-slug }}" >> $GITHUB_OUTPUT
-            echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          fi
+          echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+          
+          # Set customer outputs
+          if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
+            echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.check-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "customer-id=${{ steps.create-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
           fi
 
   test-deployment:
     runs-on: ubuntu-22.04
-    needs: [setup, create-release]
+    needs: [setup, create-resources]
     strategy:
       matrix:
         include:
@@ -206,8 +286,6 @@ jobs:
       fail-fast: false
       max-parallel: 4
     outputs:
-      customer-id: ${{ steps.set-customer-outputs.outputs.customer-id }}
-      license-id: ${{ steps.set-customer-outputs.outputs.license-id }}
       cluster-id: ${{ steps.set-cluster-outputs.outputs.cluster-id }}
     steps:
       - name: Set concurrency group
@@ -269,85 +347,6 @@ jobs:
           echo "Distribution: ${{ matrix.distribution }}, Nodes: ${{ matrix.nodes }}, Instance: ${{ matrix.instance-type }}"
           echo "Resource Priority: $(echo '${{ steps.dist-config.outputs.resource-priority }}' || echo 'medium')"
 
-      - name: Check if customer exists
-        id: check-customer
-        run: |
-          set -e
-          CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
-          echo "Checking for existing customer: $CUSTOMER_NAME"
-          
-          # Get customers with error handling
-          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-            "https://api.replicated.com/vendor/v3/customers")
-          
-          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
-          BODY=$(echo "$RESPONSE" | sed '$d')
-          
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "API request failed with HTTP $HTTP_CODE"
-            echo "Response: $BODY"
-            echo "customer-exists=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          
-          # Parse JSON response safely - select most recent customer by creation date
-          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
-            'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
-            | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
-          
-          CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
-          
-          if [ -n "$CUSTOMER_DATA" ] && [ "$CUSTOMER_DATA" != "null" ] && [ "$CUSTOMER_DATA" != "{}" ]; then
-            CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
-              'if .customers then [.customers[] | select(.name == $name)] | length else 0 end' 2>/dev/null)
-            echo "Found $CUSTOMER_COUNT customer(s) with name '$CUSTOMER_NAME', using most recent: $CUSTOMER_ID"
-          fi
-          
-          if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
-            echo "Found existing customer: $CUSTOMER_ID"
-            echo "customer-exists=true" >> $GITHUB_OUTPUT
-            echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
-            
-            # Get license ID for existing customer with error handling
-            LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
-            
-            LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
-            LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
-            
-            if [ "$LICENSE_HTTP_CODE" = "200" ]; then
-              LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
-              echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
-            else
-              echo "Failed to get license ID for customer $CUSTOMER_ID"
-              echo "customer-exists=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "Customer does not exist"
-            echo "customer-exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create customer
-        id: create-customer
-        if: steps.check-customer.outputs.customer-exists == 'false'
-        uses: replicatedhq/replicated-actions/create-customer@v1.19.0
-        with:
-          app-slug: ${{ env.REPLICATED_APP }}
-          api-token: ${{ env.REPLICATED_API_TOKEN }}
-          customer-name: ${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
-          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
-          license-type: dev
-
-      - name: Set customer outputs
-        id: set-customer-outputs
-        run: |
-          if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
-            echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
-            echo "license-id=${{ steps.check-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
-          else
-            echo "customer-id=${{ steps.create-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
-            echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Check if cluster exists
         id: check-cluster
@@ -480,10 +479,10 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: |
           task customer-helm-install \
-            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" \
+            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
             CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" \
-            CHANNEL_SLUG="${{ needs.create-release.outputs.channel-slug }}" \
-            REPLICATED_LICENSE_ID="${{ steps.set-customer-outputs.outputs.license-id }}"
+            CHANNEL_SLUG="${{ needs.create-resources.outputs.channel-slug }}" \
+            REPLICATED_LICENSE_ID="${{ needs.create-resources.outputs.license-id }}"
         timeout-minutes: ${{ matrix.timeout-minutes }}
 
       - name: Run tests
