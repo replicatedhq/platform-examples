@@ -369,44 +369,77 @@ jobs:
             exit 0
           fi
           
-          # Parse JSON response safely
-          CLUSTER_ID=$(echo "$BODY" | jq -r --arg name "$CLUSTER_NAME" \
-            'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | .id else empty end' 2>/dev/null | head -1)
+          # Parse JSON response safely - check cluster status and readiness
+          CLUSTER_DATA=$(echo "$BODY" | jq -r --arg name "$CLUSTER_NAME" \
+            'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | {id: .id, status: .status} else empty end' 2>/dev/null | head -1)
+          
+          CLUSTER_ID=$(echo "$CLUSTER_DATA" | jq -r '.id // empty' 2>/dev/null)
+          CLUSTER_STATUS=$(echo "$CLUSTER_DATA" | jq -r '.status // empty' 2>/dev/null)
           
           if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
-            echo "Found existing cluster: $CLUSTER_ID"
-            echo "cluster-exists=true" >> $GITHUB_OUTPUT
-            echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+            echo "Found existing cluster: $CLUSTER_ID with status: $CLUSTER_STATUS"
             
-            # Export kubeconfig for existing cluster with error handling
-            KUBECONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
-              "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig")
-            
-            KUBECONFIG_HTTP_CODE=$(echo "$KUBECONFIG_RESPONSE" | tail -n1)
-            KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
-            
-            if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
-              # Extract and decode the kubeconfig from JSON response
-              KUBECONFIG_CONTENT=$(echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null)
-              if [ -n "$KUBECONFIG_CONTENT" ] && [ "$KUBECONFIG_CONTENT" != "null" ] && [ "$KUBECONFIG_CONTENT" != "empty" ]; then
-                # Decode base64 kubeconfig content and write to file
-                echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig 2>/dev/null || echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
-                if [ -s /tmp/kubeconfig ]; then
-                  # Validate kubeconfig format
-                  if kubectl config view --kubeconfig=/tmp/kubeconfig --minify &>/dev/null; then
-                    echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
-                    echo "Successfully extracted and validated kubeconfig for existing cluster"
+            # Only consider cluster as existing if it's ready, otherwise treat as needs creation
+            if [ "$CLUSTER_STATUS" = "running" ]; then
+              echo "Cluster is running, attempting to get kubeconfig"
+              echo "cluster-exists=true" >> $GITHUB_OUTPUT
+              echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+              
+              # Wait for kubeconfig to be available and functional
+              echo "Waiting for kubeconfig to be ready..."
+              RETRY_COUNT=0
+              MAX_RETRIES=12  # 12 * 30s = 6 minutes max wait
+              
+              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                # Try to get kubeconfig
+                KUBECONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+                  "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig")
+                
+                KUBECONFIG_HTTP_CODE=$(echo "$KUBECONFIG_RESPONSE" | tail -n1)
+                KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
+                
+                if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
+                  # Extract and decode the kubeconfig from JSON response
+                  KUBECONFIG_CONTENT=$(echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null)
+                  if [ -n "$KUBECONFIG_CONTENT" ] && [ "$KUBECONFIG_CONTENT" != "null" ] && [ "$KUBECONFIG_CONTENT" != "empty" ]; then
+                    # Decode base64 kubeconfig content and write to file
+                    echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig 2>/dev/null || echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
+                    if [ -s /tmp/kubeconfig ]; then
+                      # Test actual connectivity to the cluster API server
+                      if timeout 30s kubectl --kubeconfig=/tmp/kubeconfig cluster-info &>/dev/null; then
+                        echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+                        echo "Successfully validated kubeconfig and cluster connectivity"
+                        break
+                      else
+                        echo "Kubeconfig file exists but cluster API is not ready yet (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)"
+                      fi
+                    else
+                      echo "Failed to write kubeconfig to file (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)"
+                    fi
                   else
-                    echo "Kubeconfig format validation failed, skipping cluster validation"
+                    echo "Kubeconfig content is empty or null (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)"
                   fi
                 else
-                  echo "Failed to write kubeconfig to file"
+                  echo "Failed to get kubeconfig HTTP $KUBECONFIG_HTTP_CODE (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)"
                 fi
-              else
-                echo "Failed to extract kubeconfig from response - content is empty or null"
+                
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "Waiting 30 seconds before retry..."
+                  sleep 30
+                fi
+              done
+              
+              # If we exhausted retries without success, treat cluster as not ready
+              if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+                echo "Cluster exists but kubeconfig is not ready after $((MAX_RETRIES * 30)) seconds"
+                echo "Will create a new cluster instead"
+                echo "cluster-exists=false" >> $GITHUB_OUTPUT
               fi
             else
-              echo "Failed to get kubeconfig for cluster $CLUSTER_ID"
+              echo "Cluster exists but status is '$CLUSTER_STATUS' (not running)"
+              echo "Will create a new cluster instead"
+              echo "cluster-exists=false" >> $GITHUB_OUTPUT
             fi
           else
             echo "Cluster does not exist"
@@ -446,27 +479,59 @@ jobs:
         run: |
           echo "Validating cluster readiness for ${{ matrix.distribution }} ${{ matrix.k8s-version }}"
           
-          # Check if kubeconfig is accessible and properly formatted
+          # Ensure kubeconfig is available
           if [ ! -f "$KUBECONFIG" ] || [ ! -s "$KUBECONFIG" ]; then
-            echo "Warning: kubeconfig file not found or empty, skipping cluster validation"
-            exit 0
+            echo "ERROR: kubeconfig file not found or empty at: $KUBECONFIG"
+            echo "This indicates a problem with cluster creation or kubeconfig export"
+            exit 1
           fi
           
-          # Test kubectl connectivity
+          echo "Found kubeconfig at: $KUBECONFIG"
+          
+          # Test kubectl client is working
           if ! kubectl version --client &>/dev/null; then
-            echo "Warning: kubectl client not working, skipping cluster validation"
-            exit 0
+            echo "ERROR: kubectl client is not working properly"
+            exit 1
           fi
           
-          # Test cluster connectivity with timeout
-          if ! timeout 30s kubectl cluster-info &>/dev/null; then
-            echo "Warning: cluster connectivity test failed, skipping validation"
-            exit 0
+          echo "kubectl client is functional"
+          
+          # Wait for cluster API server to be accessible with retries
+          echo "Testing cluster API connectivity..."
+          RETRY_COUNT=0
+          MAX_API_RETRIES=20  # 20 * 15s = 5 minutes max wait for API
+          
+          while [ $RETRY_COUNT -lt $MAX_API_RETRIES ]; do
+            if timeout 30s kubectl cluster-info &>/dev/null; then
+              echo "✅ Cluster API server is accessible"
+              break
+            else
+              echo "⏳ Cluster API not ready yet (attempt $((RETRY_COUNT+1))/$MAX_API_RETRIES)"
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_API_RETRIES ]; then
+                echo "Waiting 15 seconds before retry..."
+                sleep 15
+              fi
+            fi
+          done
+          
+          if [ $RETRY_COUNT -eq $MAX_API_RETRIES ]; then
+            echo "ERROR: Cluster API server not accessible after $((MAX_API_RETRIES * 15)) seconds"
+            echo "Cluster info debug:"
+            kubectl cluster-info || true
+            exit 1
           fi
           
-          # Wait for cluster to be ready
+          # Wait for cluster nodes to be ready
           echo "Waiting for cluster nodes to be ready..."
-          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s; then
+            echo "ERROR: Cluster nodes did not become ready within 5 minutes"
+            echo "Node status:"
+            kubectl get nodes -o wide || true
+            exit 1
+          fi
+          
+          echo "✅ All cluster nodes are ready"
           
           # Validate cluster nodes
           echo "Cluster nodes:"
