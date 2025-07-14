@@ -419,7 +419,7 @@ jobs:
           ttl: ${{ steps.dist-config.outputs.cluster-ttl }}
           nodes: ${{ matrix.nodes }}
           instance-type: ${{ matrix.instance-type }}
-          disk-size: ${{ steps.dist-config.outputs.cluster-disk-size }}
+          disk: ${{ steps.dist-config.outputs.cluster-disk-size }}
           export-kubeconfig: 'true'
 
       - name: Set cluster outputs
