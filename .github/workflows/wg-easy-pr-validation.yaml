@@ -160,9 +160,6 @@ jobs:
   test-deployment:
     runs-on: ubuntu-22.04
     needs: [setup, create-release]
-    concurrency:
-      group: cluster-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
-      cancel-in-progress: false
     strategy:
       matrix:
         include:
@@ -218,6 +215,11 @@ jobs:
       license-id: ${{ steps.set-customer-outputs.outputs.license-id }}
       cluster-id: ${{ steps.set-cluster-outputs.outputs.cluster-id }}
     steps:
+      - name: Set concurrency group
+        run: |
+          echo "CONCURRENCY_GROUP=cluster-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" >> $GITHUB_ENV
+          echo "Starting matrix job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
+      
       - name: Checkout code
         uses: actions/checkout@v4
 
