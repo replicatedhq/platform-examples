@@ -231,25 +231,21 @@ jobs:
             "k3s")
               echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
-              echo "networking-config=flannel" >> $GITHUB_OUTPUT
               echo "resource-priority=high" >> $GITHUB_OUTPUT
               ;;
             "kind")
               echo "cluster-disk-size=30" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
-              echo "networking-config=kindnet" >> $GITHUB_OUTPUT
               echo "resource-priority=medium" >> $GITHUB_OUTPUT
               ;;
             "eks")
               echo "cluster-disk-size=50" >> $GITHUB_OUTPUT
               echo "cluster-ttl=6h" >> $GITHUB_OUTPUT
-              echo "networking-config=aws-vpc-cni" >> $GITHUB_OUTPUT
               echo "resource-priority=low" >> $GITHUB_OUTPUT
               ;;
             *)
               echo "cluster-disk-size=20" >> $GITHUB_OUTPUT
               echo "cluster-ttl=4h" >> $GITHUB_OUTPUT
-              echo "networking-config=default" >> $GITHUB_OUTPUT
               echo "resource-priority=medium" >> $GITHUB_OUTPUT
               ;;
           esac
@@ -434,28 +430,12 @@ jobs:
         run: |
           task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
 
-      - name: Validate distribution-specific networking
+      - name: Validate cluster readiness
         run: |
-          echo "Validating ${{ matrix.distribution }} networking configuration: ${{ steps.dist-config.outputs.networking-config }}"
+          echo "Validating cluster readiness for ${{ matrix.distribution }} ${{ matrix.k8s-version }}"
           
           # Wait for cluster to be ready
           kubectl wait --for=condition=Ready nodes --all --timeout=300s
-          
-          # Validate networking based on distribution
-          case "${{ matrix.distribution }}" in
-            "k3s")
-              echo "Validating k3s Flannel networking..."
-              kubectl get pods -n kube-system -l app=flannel --no-headers | wc -l
-              ;;
-            "kind")
-              echo "Validating kind networking..."
-              kubectl get pods -n kube-system -l component=kube-proxy --no-headers | wc -l
-              ;;
-            "eks")
-              echo "Validating EKS AWS VPC CNI networking..."
-              kubectl get pods -n kube-system -l k8s-app=aws-node --no-headers | wc -l
-              ;;
-          esac
           
           # Validate cluster nodes
           echo "Cluster nodes:"
