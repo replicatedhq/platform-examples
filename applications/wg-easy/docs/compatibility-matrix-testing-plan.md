@@ -114,46 +114,49 @@ Implement a job matrix that tests across:
 ```yaml
 strategy:
   matrix:
+    k8s-version: ["v1.31.10", "v1.32.6"]
+    distribution: ["k3s", "kind", "eks"]
     include:
-      # k3s single-node configurations
-      - k8s-version: "v1.31.2"
+      # k3s single-node configurations (latest patch versions)
+      - k8s-version: "v1.31.10"
         distribution: "k3s"
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 15
-      - k8s-version: "v1.32.2"
+      - k8s-version: "v1.32.6"
         distribution: "k3s"
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 15
       # k3s multi-node configurations
-      - k8s-version: "v1.32.2"
+      - k8s-version: "v1.32.6"
         distribution: "k3s"
         nodes: 3
         instance-type: "r1.medium"
         timeout-minutes: 20
-      # kind configurations (maximum 1 node supported)
-      - k8s-version: "v1.31.2"
+      # kind configurations (maximum 1 node supported, latest patch versions)
+      - k8s-version: "v1.31.9"
         distribution: "kind"
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 20
-      - k8s-version: "v1.32.2"
+      - k8s-version: "v1.32.5"
         distribution: "kind"
         nodes: 1
         instance-type: "r1.small"
         timeout-minutes: 20
-      # EKS configurations (only v1.31.2 supported)
-      - k8s-version: "v1.31.2"
+      # EKS configurations (both v1.31 and v1.32 supported)
+      - k8s-version: "v1.31"
         distribution: "eks"
         nodes: 2
-        instance-type: "r1.medium"
+        instance-type: "c5.large"
         timeout-minutes: 30
-    exclude:
-      # Exclude unsupported Kubernetes versions for specific distributions
-      # EKS does not support v1.32.2 yet
-      - k8s-version: "v1.32.2"
+      - k8s-version: "v1.32"
         distribution: "eks"
+        nodes: 2
+        instance-type: "c5.large"
+        timeout-minutes: 30
+    exclude: []
   fail-fast: false
   max-parallel: 4
 ```
