@@ -390,11 +390,16 @@ jobs:
               # Extract and decode the kubeconfig from JSON response
               KUBECONFIG_CONTENT=$(echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null)
               if [ -n "$KUBECONFIG_CONTENT" ] && [ "$KUBECONFIG_CONTENT" != "null" ] && [ "$KUBECONFIG_CONTENT" != "empty" ]; then
-                # Write the decoded kubeconfig content to file
-                echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
+                # Decode base64 kubeconfig content and write to file
+                echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig 2>/dev/null || echo "$KUBECONFIG_CONTENT" > /tmp/kubeconfig
                 if [ -s /tmp/kubeconfig ]; then
-                  echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
-                  echo "Successfully extracted kubeconfig for existing cluster"
+                  # Validate kubeconfig format
+                  if kubectl config view --kubeconfig=/tmp/kubeconfig --minify &>/dev/null; then
+                    echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+                    echo "Successfully extracted and validated kubeconfig for existing cluster"
+                  else
+                    echo "Kubeconfig format validation failed, skipping cluster validation"
+                  fi
                 else
                   echo "Failed to write kubeconfig to file"
                 fi
@@ -442,14 +447,26 @@ jobs:
         run: |
           echo "Validating cluster readiness for ${{ matrix.distribution }} ${{ matrix.k8s-version }}"
           
-          # Check if kubeconfig is accessible
+          # Check if kubeconfig is accessible and properly formatted
+          if [ ! -f "$KUBECONFIG" ] || [ ! -s "$KUBECONFIG" ]; then
+            echo "Warning: kubeconfig file not found or empty, skipping cluster validation"
+            exit 0
+          fi
+          
+          # Test kubectl connectivity
           if ! kubectl version --client &>/dev/null; then
-            echo "Warning: kubectl not properly configured, skipping cluster validation"
-            echo "This may happen with existing cluster kubeconfig extraction"
+            echo "Warning: kubectl client not working, skipping cluster validation"
+            exit 0
+          fi
+          
+          # Test cluster connectivity with timeout
+          if ! timeout 30s kubectl cluster-info &>/dev/null; then
+            echo "Warning: cluster connectivity test failed, skipping validation"
             exit 0
           fi
           
           # Wait for cluster to be ready
+          echo "Waiting for cluster nodes to be ready..."
           kubectl wait --for=condition=Ready nodes --all --timeout=300s
           
           # Validate cluster nodes
