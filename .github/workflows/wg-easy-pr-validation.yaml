@@ -247,7 +247,7 @@ jobs:
             echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
           fi
 
-  test-deployment:
+  create-clusters:
     runs-on: ubuntu-22.04
     needs: [setup, create-resources]
     strategy:
@@ -294,9 +294,9 @@ jobs:
             timeout-minutes: 30
         exclude: []
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 7  # Allow all clusters to be created in parallel
     outputs:
-      cluster-id: ${{ steps.set-cluster-outputs.outputs.cluster-id }}
+      cluster-matrix: ${{ steps.set-cluster-matrix.outputs.cluster-matrix }}
     steps:
       - name: Set concurrency group
         run: |
@@ -500,10 +500,10 @@ jobs:
             --name "$CLUSTER_NAME" \
             --distribution "${{ matrix.distribution }}" \
             --version "${{ matrix.k8s-version }}" \
-            --disk "${{ steps.dist-config.outputs.cluster-disk-size }}" \
+            --disk "50" \
             --instance-type "${{ matrix.instance-type }}" \
             --nodes "${{ matrix.nodes }}" \
-            --ttl "${{ steps.dist-config.outputs.cluster-ttl }}"
+            --ttl "${{ matrix.distribution == 'eks' && '6h' || '4h' }}"
           
           CLUSTER_CREATE_EXIT_CODE=$?
           if [ $CLUSTER_CREATE_EXIT_CODE -ne 0 ]; then
@@ -626,6 +626,187 @@ jobs:
           
           echo "Cluster info:"
           kubectl cluster-info
+
+      - name: Set cluster matrix output
+        id: set-cluster-matrix
+        run: |
+          # Create cluster info for test deployment job
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          
+          CLUSTER_ID="${{ steps.set-cluster-outputs.outputs.cluster-id }}"
+          
+          # Create cluster matrix entry
+          CLUSTER_ENTRY='{"k8s-version":"${{ matrix.k8s-version }}","distribution":"${{ matrix.distribution }}","nodes":${{ matrix.nodes }},"instance-type":"${{ matrix.instance-type }}","timeout-minutes":${{ matrix.timeout-minutes }},"cluster-id":"'$CLUSTER_ID'","cluster-name":"'$CLUSTER_NAME'"}'
+          
+          echo "cluster-matrix=$CLUSTER_ENTRY" >> $GITHUB_OUTPUT
+          echo "Created cluster matrix entry: $CLUSTER_ENTRY"
+
+  test-deployment:
+    runs-on: ubuntu-22.04
+    needs: [setup, create-resources, create-clusters]
+    strategy:
+      matrix:
+        include:
+          # k3s single-node configurations (latest patch versions)
+          - k8s-version: "v1.31.10"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
+          - k8s-version: "v1.32.6"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
+          # k3s multi-node configurations
+          - k8s-version: "v1.32.6"
+            distribution: "k3s"
+            nodes: 3
+            instance-type: "r1.medium"
+            timeout-minutes: 20
+          # kind configurations (maximum 1 node supported, distribution-specific patch versions)
+          - k8s-version: "v1.31.9"
+            distribution: "kind"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 20
+          - k8s-version: "v1.32.5"
+            distribution: "kind"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 20
+          # EKS configurations (major.minor versions only)
+          - k8s-version: "v1.31"
+            distribution: "eks"
+            nodes: 2
+            instance-type: "c5.large"
+            timeout-minutes: 30
+          - k8s-version: "v1.32"
+            distribution: "eks"
+            nodes: 2
+            instance-type: "c5.large"
+            timeout-minutes: 30
+        exclude: []
+      fail-fast: false
+      max-parallel: 7  # Allow all tests to run in parallel
+    steps:
+      - name: Set concurrency group
+        run: |
+          echo "CONCURRENCY_GROUP=test-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" >> $GITHUB_ENV
+          echo "Starting test job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
+      
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          helm-version: ${{ env.HELM_VERSION }}
+          install-helmfile: 'true'
+
+      - name: Get cluster kubeconfig
+        shell: bash
+        run: |
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          
+          echo "Getting kubeconfig for cluster: $CLUSTER_NAME"
+          
+          # Get kubeconfig using replicated CLI
+          replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+          
+          if [ ! -f /tmp/kubeconfig ] || [ ! -s /tmp/kubeconfig ]; then
+            echo "ERROR: Failed to get kubeconfig for cluster $CLUSTER_NAME"
+            echo "Available clusters:"
+            replicated cluster ls
+            exit 1
+          fi
+          
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+          echo "Successfully retrieved kubeconfig for cluster $CLUSTER_NAME"
+
+      - name: Deploy application
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
+            CLUSTER_NAME="$CLUSTER_NAME" \
+            CHANNEL_SLUG="${{ needs.create-resources.outputs.channel-slug }}" \
+            REPLICATED_LICENSE_ID="${{ needs.create-resources.outputs.license-id }}"
+        timeout-minutes: ${{ matrix.timeout-minutes }}
+
+      - name: Run tests
+        working-directory: ${{ env.APP_DIR }}
+        run: task test
+        timeout-minutes: 10
+
+      - name: Run distribution-specific tests
+        run: |
+          echo "Running ${{ matrix.distribution }}-specific tests..."
+          
+          # Test node configuration based on matrix
+          EXPECTED_NODES=${{ matrix.nodes }}
+          ACTUAL_NODES=$(kubectl get nodes --no-headers | wc -l)
+          
+          if [ "$ACTUAL_NODES" -eq "$EXPECTED_NODES" ]; then
+            echo "✅ Node count validation passed: $ACTUAL_NODES/$EXPECTED_NODES"
+          else
+            echo "❌ Node count validation failed: $ACTUAL_NODES/$EXPECTED_NODES"
+            exit 1
+          fi
+          
+          # Distribution-specific storage tests
+          case "${{ matrix.distribution }}" in
+            "k3s")
+              echo "Testing k3s local-path storage..."
+              kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
+              ;;
+            "kind")
+              echo "Testing kind standard storage..."
+              kubectl get storageclass standard -o yaml | grep provisioner | grep rancher.io/local-path
+              ;;
+            "eks")
+              echo "Testing EKS GP2 storage..."
+              kubectl get storageclass gp2 -o yaml | grep provisioner | grep ebs.csi.aws.com || echo "EKS storage validation skipped"
+              ;;
+          esac
+          
+          # Test cluster resources
+          echo "Cluster resource utilization:"
+          kubectl top nodes --no-headers 2>/dev/null || echo "Metrics not available"
+          
+          echo "Pod distribution across nodes:"
+          kubectl get pods -A -o wide | awk '{print $7}' | sort | uniq -c
+          
+          # Performance monitoring
+          echo "=== Performance Metrics ==="
+          echo "Test Environment: ${{ matrix.distribution }} ${{ matrix.k8s-version }} (${{ matrix.nodes }} nodes)"
+          echo "Instance Type: ${{ matrix.instance-type }}"
+          echo "Deployment Timeout: ${{ matrix.timeout-minutes }} minutes"
+          
+          # Resource consumption validation
+          echo "=== Resource Validation ==="
+          kubectl describe nodes | grep -E "(Name:|Allocatable:|Allocated resources:)" | head -20
+          
+          # Collect performance timings
+          echo "=== Test Completion Summary ==="
+          echo "Matrix Job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
+          echo "Started: $(date -u)"
+          echo "Status: Complete"
+
+      - name: Upload debug logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-${{ github.run_number }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
 
       - name: Deploy application
         working-directory: ${{ env.APP_DIR }}
