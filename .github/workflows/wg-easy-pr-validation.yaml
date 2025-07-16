@@ -40,8 +40,8 @@ jobs:
           BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           # Channel name is normalized to lowercase with hyphens for Replicated channels
           CHANNEL_NAME=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
-          # Customer name includes run number to ensure uniqueness across workflow runs
-          CUSTOMER_NAME="${CHANNEL_NAME}-${{ github.run_number }}"
+          # Customer name uses normalized branch name for idempotent resource creation
+          CUSTOMER_NAME="${CHANNEL_NAME}"
           echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "channel-name=$CHANNEL_NAME" >> $GITHUB_OUTPUT
           echo "customer-name=$CUSTOMER_NAME" >> $GITHUB_OUTPUT
