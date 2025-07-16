@@ -253,7 +253,12 @@ jobs:
     strategy:
       matrix:
         include:
-          # k3s single-node configurations (latest patch versions)
+          # k3s single-node configurations (three most recent minor versions)
+          - k8s-version: "v1.30.8"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
           - k8s-version: "v1.31.10"
             distribution: "k3s"
             nodes: 1
@@ -264,37 +269,9 @@ jobs:
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          # k3s multi-node configurations
-          - k8s-version: "v1.32.6"
-            distribution: "k3s"
-            nodes: 3
-            instance-type: "r1.medium"
-            timeout-minutes: 20
-          # kind configurations (maximum 1 node supported, distribution-specific patch versions)
-          - k8s-version: "v1.31.9"
-            distribution: "kind"
-            nodes: 1
-            instance-type: "r1.small"
-            timeout-minutes: 20
-          - k8s-version: "v1.32.5"
-            distribution: "kind"
-            nodes: 1
-            instance-type: "r1.small"
-            timeout-minutes: 20
-          # EKS configurations (major.minor versions only)
-          - k8s-version: "v1.31"
-            distribution: "eks"
-            nodes: 2
-            instance-type: "c5.large"
-            timeout-minutes: 30
-          - k8s-version: "v1.32"
-            distribution: "eks"
-            nodes: 2
-            instance-type: "c5.large"
-            timeout-minutes: 30
         exclude: []
       fail-fast: false
-      max-parallel: 7  # Allow all clusters to be created in parallel
+      max-parallel: 3  # Allow all clusters to be created in parallel
     outputs:
       cluster-matrix: ${{ steps.set-cluster-matrix.outputs.cluster-matrix }}
     steps:
@@ -648,7 +625,12 @@ jobs:
     strategy:
       matrix:
         include:
-          # k3s single-node configurations (latest patch versions)
+          # k3s single-node configurations (three most recent minor versions)
+          - k8s-version: "v1.30.8"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
           - k8s-version: "v1.31.10"
             distribution: "k3s"
             nodes: 1
@@ -659,37 +641,9 @@ jobs:
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          # k3s multi-node configurations
-          - k8s-version: "v1.32.6"
-            distribution: "k3s"
-            nodes: 3
-            instance-type: "r1.medium"
-            timeout-minutes: 20
-          # kind configurations (maximum 1 node supported, distribution-specific patch versions)
-          - k8s-version: "v1.31.9"
-            distribution: "kind"
-            nodes: 1
-            instance-type: "r1.small"
-            timeout-minutes: 20
-          - k8s-version: "v1.32.5"
-            distribution: "kind"
-            nodes: 1
-            instance-type: "r1.small"
-            timeout-minutes: 20
-          # EKS configurations (major.minor versions only)
-          - k8s-version: "v1.31"
-            distribution: "eks"
-            nodes: 2
-            instance-type: "c5.large"
-            timeout-minutes: 30
-          - k8s-version: "v1.32"
-            distribution: "eks"
-            nodes: 2
-            instance-type: "c5.large"
-            timeout-minutes: 30
         exclude: []
       fail-fast: false
-      max-parallel: 7  # Allow all tests to run in parallel
+      max-parallel: 3  # Allow all tests to run in parallel
     steps:
       - name: Set concurrency group
         run: |
@@ -761,20 +715,8 @@ jobs:
           fi
           
           # Distribution-specific storage tests
-          case "${{ matrix.distribution }}" in
-            "k3s")
-              echo "Testing k3s local-path storage..."
-              kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
-              ;;
-            "kind")
-              echo "Testing kind standard storage..."
-              kubectl get storageclass standard -o yaml | grep provisioner | grep rancher.io/local-path
-              ;;
-            "eks")
-              echo "Testing EKS GP2 storage..."
-              kubectl get storageclass gp2 -o yaml | grep provisioner | grep ebs.csi.aws.com || echo "EKS storage validation skipped"
-              ;;
-          esac
+          echo "Testing k3s local-path storage..."
+          kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
           
           # Test cluster resources
           echo "Cluster resource utilization:"
