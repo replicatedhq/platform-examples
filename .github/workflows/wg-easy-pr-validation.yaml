@@ -355,7 +355,7 @@ jobs:
           esac
           
           echo "Distribution: ${{ matrix.distribution }}, Nodes: ${{ matrix.nodes }}, Instance: ${{ matrix.instance-type }}"
-          echo "Resource Priority: $(echo '${{ steps.dist-config.outputs.resource-priority }}' || echo 'medium')"
+          echo "Resource Priority: medium"
 
 
       - name: Check if cluster exists
@@ -808,84 +808,3 @@ jobs:
             /tmp/*.log
             ~/.replicated/
 
-      - name: Deploy application
-        working-directory: ${{ env.APP_DIR }}
-        run: |
-          # Normalize cluster name to match task expectations (replace dots with dashes)
-          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
-          task customer-helm-install \
-            CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
-            CLUSTER_NAME="$CLUSTER_NAME" \
-            CHANNEL_SLUG="${{ needs.create-resources.outputs.channel-slug }}" \
-            REPLICATED_LICENSE_ID="${{ needs.create-resources.outputs.license-id }}"
-        timeout-minutes: ${{ matrix.timeout-minutes }}
-
-      - name: Run tests
-        working-directory: ${{ env.APP_DIR }}
-        run: task test
-        timeout-minutes: 10
-
-      - name: Run distribution-specific tests
-        run: |
-          echo "Running ${{ matrix.distribution }}-specific tests..."
-          
-          # Test node configuration based on matrix
-          EXPECTED_NODES=${{ matrix.nodes }}
-          ACTUAL_NODES=$(kubectl get nodes --no-headers | wc -l)
-          
-          if [ "$ACTUAL_NODES" -eq "$EXPECTED_NODES" ]; then
-            echo "✅ Node count validation passed: $ACTUAL_NODES/$EXPECTED_NODES"
-          else
-            echo "❌ Node count validation failed: $ACTUAL_NODES/$EXPECTED_NODES"
-            exit 1
-          fi
-          
-          # Distribution-specific storage tests
-          case "${{ matrix.distribution }}" in
-            "k3s")
-              echo "Testing k3s local-path storage..."
-              kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
-              ;;
-            "kind")
-              echo "Testing kind standard storage..."
-              kubectl get storageclass standard -o yaml | grep provisioner | grep rancher.io/local-path
-              ;;
-            "eks")
-              echo "Testing EKS GP2 storage..."
-              kubectl get storageclass gp2 -o yaml | grep provisioner | grep ebs.csi.aws.com || echo "EKS storage validation skipped"
-              ;;
-          esac
-          
-          # Test cluster resources
-          echo "Cluster resource utilization:"
-          kubectl top nodes --no-headers 2>/dev/null || echo "Metrics not available"
-          
-          echo "Pod distribution across nodes:"
-          kubectl get pods -A -o wide | awk '{print $7}' | sort | uniq -c
-          
-          # Performance monitoring
-          echo "=== Performance Metrics ==="
-          echo "Test Environment: ${{ matrix.distribution }} ${{ matrix.k8s-version }} (${{ matrix.nodes }} nodes)"
-          echo "Instance Type: ${{ matrix.instance-type }}"
-          echo "Priority: ${{ steps.dist-config.outputs.resource-priority }}"
-          echo "Deployment Timeout: ${{ matrix.timeout-minutes }} minutes"
-          
-          # Resource consumption validation
-          echo "=== Resource Validation ==="
-          kubectl describe nodes | grep -E "(Name:|Allocatable:|Allocated resources:)" | head -20
-          
-          # Collect performance timings
-          echo "=== Test Completion Summary ==="
-          echo "Matrix Job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
-          echo "Started: $(date -u)"
-          echo "Status: Complete"
-
-      - name: Upload debug logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-logs-${{ github.run_number }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
-          path: |
-            /tmp/*.log
-            ~/.replicated/
