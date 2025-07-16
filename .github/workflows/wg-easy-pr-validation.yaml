@@ -360,24 +360,32 @@ jobs:
 
       - name: Check if cluster exists
         id: check-cluster
+        shell: bash
         run: |
+          set +e  # Disable exit on error to handle failures gracefully
+          
           # Normalize cluster name to match task expectations (replace dots with dashes)
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
           echo "Checking for existing cluster: $CLUSTER_NAME"
           
           # Get clusters with error handling
+          echo "Making API request to get clusters..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/clusters")
+          CURL_EXIT_CODE=$?
           
-          if [ $? -ne 0 ]; then
-            echo "curl command failed"
+          if [ $CURL_EXIT_CODE -ne 0 ]; then
+            echo "curl command failed with exit code $CURL_EXIT_CODE"
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           
+          echo "API request completed successfully"
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status Code: $HTTP_CODE"
           
           if [ "$HTTP_CODE" != "200" ]; then
             echo "API request failed with HTTP $HTTP_CODE"
@@ -387,8 +395,19 @@ jobs:
           fi
           
           # Parse JSON response safely - check cluster status and readiness
+          echo "Parsing JSON response for cluster: $CLUSTER_NAME"
           CLUSTER_DATA=$(echo "$BODY" | jq -r --arg name "$CLUSTER_NAME" \
             'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | {id: .id, status: .status} else empty end' 2>/dev/null | head -1)
+          JQ_EXIT_CODE=$?
+          
+          if [ $JQ_EXIT_CODE -ne 0 ]; then
+            echo "jq command failed with exit code $JQ_EXIT_CODE"
+            echo "JSON Body: $BODY"
+            echo "cluster-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "JSON parsing completed, cluster data: $CLUSTER_DATA"
           
           CLUSTER_ID=$(echo "$CLUSTER_DATA" | jq -r '.id // empty' 2>/dev/null)
           CLUSTER_STATUS=$(echo "$CLUSTER_DATA" | jq -r '.status // empty' 2>/dev/null)
@@ -466,15 +485,17 @@ jobs:
       - name: Create cluster
         id: create-cluster
         if: steps.check-cluster.outputs.cluster-exists == 'false'
-        env:
-          K8S_VERSION_NORMALIZED: ${{ matrix.k8s-version }}
+        shell: bash
         run: |
+          set +e  # Disable exit on error to handle failures gracefully
+          
           # Normalize cluster name to match task expectations (replace dots with dashes)
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
           echo "Creating cluster: $CLUSTER_NAME"
           
           # Use the replicated CLI to create the cluster with normalized name
+          echo "Running replicated cluster create command..."
           replicated cluster create \
             --name "$CLUSTER_NAME" \
             --distribution "${{ matrix.distribution }}" \
@@ -484,26 +505,45 @@ jobs:
             --nodes "${{ matrix.nodes }}" \
             --ttl "${{ steps.dist-config.outputs.cluster-ttl }}"
           
+          CLUSTER_CREATE_EXIT_CODE=$?
+          if [ $CLUSTER_CREATE_EXIT_CODE -ne 0 ]; then
+            echo "Failed to create cluster, exit code: $CLUSTER_CREATE_EXIT_CODE"
+            exit $CLUSTER_CREATE_EXIT_CODE
+          fi
+          
           # Wait for cluster to be running
           echo "Waiting for cluster to be running..."
           for i in {1..60}; do
-            STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .status')
+            STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .status' 2>/dev/null)
             if [ "$STATUS" = "running" ]; then
               echo "Cluster is running!"
               break
             fi
-            echo "Cluster status: $STATUS, waiting..."
+            echo "Cluster status: $STATUS, waiting... (attempt $i/60)"
             sleep 10
           done
+          
+          # Check final status
+          if [ "$STATUS" != "running" ]; then
+            echo "Cluster failed to reach running state after 10 minutes, final status: $STATUS"
+            exit 1
+          fi
           
           # Export kubeconfig
           echo "Exporting kubeconfig..."
           replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+          KUBECONFIG_EXIT_CODE=$?
+          if [ $KUBECONFIG_EXIT_CODE -ne 0 ]; then
+            echo "Failed to export kubeconfig, exit code: $KUBECONFIG_EXIT_CODE"
+            exit $KUBECONFIG_EXIT_CODE
+          fi
+          
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
           
           # Set output
-          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .id')
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .id' 2>/dev/null)
           echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+          echo "Cluster creation completed successfully: $CLUSTER_ID"
 
       - name: Set cluster outputs
         id: set-cluster-outputs
