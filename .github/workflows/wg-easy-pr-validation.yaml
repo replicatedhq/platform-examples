@@ -361,7 +361,9 @@ jobs:
       - name: Check if cluster exists
         id: check-cluster
         run: |
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
           echo "Checking for existing cluster: $CLUSTER_NAME"
           
           # Get clusters with error handling
@@ -464,17 +466,44 @@ jobs:
       - name: Create cluster
         id: create-cluster
         if: steps.check-cluster.outputs.cluster-exists == 'false'
-        uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
-        with:
-          api-token: ${{ env.REPLICATED_API_TOKEN }}
-          kubernetes-distribution: ${{ matrix.distribution }}
-          kubernetes-version: ${{ matrix.k8s-version }}
-          cluster-name: ${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}
-          ttl: ${{ steps.dist-config.outputs.cluster-ttl }}
-          nodes: ${{ matrix.nodes }}
-          instance-type: ${{ matrix.instance-type }}
-          disk: ${{ steps.dist-config.outputs.cluster-disk-size }}
-          export-kubeconfig: 'true'
+        env:
+          K8S_VERSION_NORMALIZED: ${{ matrix.k8s-version }}
+        run: |
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          echo "Creating cluster: $CLUSTER_NAME"
+          
+          # Use the replicated CLI to create the cluster with normalized name
+          replicated cluster create \
+            --name "$CLUSTER_NAME" \
+            --distribution "${{ matrix.distribution }}" \
+            --version "${{ matrix.k8s-version }}" \
+            --disk "${{ steps.dist-config.outputs.cluster-disk-size }}" \
+            --instance-type "${{ matrix.instance-type }}" \
+            --nodes "${{ matrix.nodes }}" \
+            --ttl "${{ steps.dist-config.outputs.cluster-ttl }}"
+          
+          # Wait for cluster to be running
+          echo "Waiting for cluster to be running..."
+          for i in {1..60}; do
+            STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .status')
+            if [ "$STATUS" = "running" ]; then
+              echo "Cluster is running!"
+              break
+            fi
+            echo "Cluster status: $STATUS, waiting..."
+            sleep 10
+          done
+          
+          # Export kubeconfig
+          echo "Exporting kubeconfig..."
+          replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+          
+          # Set output
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .id')
+          echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
 
       - name: Set cluster outputs
         id: set-cluster-outputs
@@ -488,7 +517,10 @@ jobs:
       - name: Setup cluster ports
         working-directory: ${{ env.APP_DIR }}
         run: |
-          task cluster-ports-expose CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}"
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          task cluster-ports-expose CLUSTER_NAME="$CLUSTER_NAME"
 
       - name: Validate cluster readiness
         run: |
@@ -558,9 +590,12 @@ jobs:
       - name: Deploy application
         working-directory: ${{ env.APP_DIR }}
         run: |
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
           task customer-helm-install \
             CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
-            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" \
+            CLUSTER_NAME="$CLUSTER_NAME" \
             CHANNEL_SLUG="${{ needs.create-resources.outputs.channel-slug }}" \
             REPLICATED_LICENSE_ID="${{ needs.create-resources.outputs.license-id }}"
         timeout-minutes: ${{ matrix.timeout-minutes }}
