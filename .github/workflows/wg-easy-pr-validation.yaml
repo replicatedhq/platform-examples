@@ -342,8 +342,9 @@ jobs:
           set +e  # Disable exit on error to handle failures gracefully
           
           # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           echo "Checking for existing cluster: $CLUSTER_NAME"
           
           # Get clusters with error handling
@@ -467,8 +468,9 @@ jobs:
           set +e  # Disable exit on error to handle failures gracefully
           
           # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           echo "Creating cluster: $CLUSTER_NAME"
           
           # Use the replicated CLI to create the cluster with normalized name
@@ -535,8 +537,9 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: |
           # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           task cluster-ports-expose CLUSTER_NAME="$CLUSTER_NAME"
 
       - name: Validate cluster readiness
@@ -608,8 +611,9 @@ jobs:
         id: set-cluster-matrix
         run: |
           # Create cluster info for test deployment job
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           
           CLUSTER_ID="${{ steps.set-cluster-outputs.outputs.cluster-id }}"
           
@@ -663,8 +667,9 @@ jobs:
         shell: bash
         run: |
           # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           
           echo "Getting kubeconfig for cluster: $CLUSTER_NAME"
           
@@ -685,8 +690,9 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: |
           # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}"
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           task customer-helm-install \
             CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}" \
             CLUSTER_NAME="$CLUSTER_NAME" \
