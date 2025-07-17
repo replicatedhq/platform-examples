@@ -20,16 +20,12 @@
       "Bash(task release-prepare)",
       "Bash(task setup-kubeconfig)",
       "Bash(task test)",
-      "Bash(helm lint:*)",
-      "Bash(helmfile template:*)",
+      "Bash(helm lint *)",
+      "Bash(helmfile template *)",
       "Bash(kubectl:*)",
       "Bash(KUBECONFIG=./test-cluster.kubeconfig kubectl:*)"
     ],
     "deny": []
   },
-  "timeout": {
-    "Bash(task helm-install)": 1200000,
-    "Bash(task full-test-cycle)": 1800000,
-    "Bash(task cluster-create)": 600000
-  }
+  "enableAllProjectMcpServers": false
 }
