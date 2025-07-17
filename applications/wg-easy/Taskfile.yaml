@@ -75,7 +75,7 @@ tasks:
       - |
         # Check if cluster exists and output info if it does
         NORMALIZED_NAME=$(task utils:normalize-name INPUT_NAME="{{.CLUSTER_NAME}}")
-        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'")')
+        CLUSTER_INFO=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$NORMALIZED_NAME'") // empty')
         if [ -n "$CLUSTER_INFO" ]; then
           echo "Found existing cluster $NORMALIZED_NAME:"
           echo "$CLUSTER_INFO" | jq -r '"  ID: " + .id + "\n  Status: " + .status + "\n  Distribution: " + .distribution + "\n  Created: " + .created_at + "\n  Expires: " + .expires_at'
@@ -458,7 +458,7 @@ tasks:
 
         # First check if customer already exists
         echo "Looking for existing customer $NORMALIZED_NAME for app {{.APP_SLUG}}..."
-        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
+        EXISTING_CUSTOMER=$(replicated customer ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id // empty' | head -1)
 
         if [ -n "$EXISTING_CUSTOMER" ] && [ "$EXISTING_CUSTOMER" != "null" ]; then
           echo "Found existing customer $NORMALIZED_NAME with ID: $EXISTING_CUSTOMER"
@@ -601,7 +601,7 @@ tasks:
         echo "Creating channel $NORMALIZED_NAME for app {{.APP_SLUG}}..."
 
         # Check if channel already exists
-        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id' | head -1)
+        EXISTING_CHANNEL_ID=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.name=="'$NORMALIZED_NAME'") | .id // empty' | head -1)
 
         if [ -n "$EXISTING_CHANNEL_ID" ] && [ "$EXISTING_CHANNEL_ID" != "null" ]; then
           echo "Channel $NORMALIZED_NAME already exists for app {{.APP_SLUG}} with ID: $EXISTING_CHANNEL_ID"
@@ -626,7 +626,7 @@ tasks:
       - echo "Archiving channel ID {{.RELEASE_CHANNEL_ID}} for app {{.APP_SLUG}}..."
       - |
         # Get channel name for logging
-        CHANNEL_NAME=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.RELEASE_CHANNEL_ID}}") | .name' | head -1)
+        CHANNEL_NAME=$(replicated channel ls --app {{.APP_SLUG}} --output json | jq -r '.[] | select(.id=="{{.RELEASE_CHANNEL_ID}}") | .name // empty' | head -1)
 
         if [ -z "$CHANNEL_NAME" ] || [ "$CHANNEL_NAME" = "null" ]; then
           echo "Error: Channel ID {{.RELEASE_CHANNEL_ID}} not found for app {{.APP_SLUG}}"
