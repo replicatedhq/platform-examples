@@ -109,31 +109,31 @@ jobs:
         id: check-channel
         run: |
           echo "Checking for existing channel: ${{ needs.setup.outputs.channel-name }}"
-
+          
           # Get channels with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels")
-
+          
           if [ $? -ne 0 ]; then
             echo "curl command failed"
             echo "channel-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-
+          
           if [ "$HTTP_CODE" != "200" ]; then
             echo "API request failed with HTTP $HTTP_CODE"
             echo "Response: $BODY"
             echo "channel-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           # Parse JSON response safely
           CHANNEL_ID=$(echo "$BODY" | jq -r --arg name "${{ needs.setup.outputs.channel-name }}" \
             'if .channels then .channels[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
-
+          
           if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
             echo "Found existing channel: $CHANNEL_ID"
             echo "channel-exists=true" >> $GITHUB_OUTPUT
@@ -158,52 +158,52 @@ jobs:
         run: |
           CUSTOMER_NAME="${{ needs.setup.outputs.customer-name }}"
           echo "Checking for existing customer: $CUSTOMER_NAME"
-
+          
           # Get customers with error handling
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/customers")
-
+          
           if [ $? -ne 0 ]; then
             echo "curl command failed"
             echo "customer-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-
+          
           if [ "$HTTP_CODE" != "200" ]; then
             echo "API request failed with HTTP $HTTP_CODE"
             echo "Response: $BODY"
             echo "customer-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           # Parse JSON response safely - select most recent customer by creation date
           CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
             'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
             | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
-
+          
           CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
-
+          
           if [ -n "$CUSTOMER_DATA" ] && [ "$CUSTOMER_DATA" != "null" ] && [ "$CUSTOMER_DATA" != "{}" ]; then
             CUSTOMER_COUNT=$(echo "$BODY" | jq -r --arg name "$CUSTOMER_NAME" \
               'if .customers then [.customers[] | select(.name == $name)] | length else 0 end' 2>/dev/null)
             echo "Found $CUSTOMER_COUNT customer(s) with name '$CUSTOMER_NAME', using most recent: $CUSTOMER_ID"
           fi
-
+          
           if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
             echo "Found existing customer: $CUSTOMER_ID"
             echo "customer-exists=true" >> $GITHUB_OUTPUT
             echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
-
+            
             # Get license ID for existing customer with error handling
             LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
               "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
-
+            
             LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
             LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
-
+            
             if [ "$LICENSE_HTTP_CODE" = "200" ]; then
               LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
               echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
@@ -237,7 +237,7 @@ jobs:
             echo "channel-slug=${{ steps.release.outputs.channel-slug }}" >> $GITHUB_OUTPUT
           fi
           echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
-
+          
           # Set customer outputs
           if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
             echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
@@ -279,7 +279,7 @@ jobs:
         run: |
           echo "CONCURRENCY_GROUP=cluster-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" >> $GITHUB_ENV
           echo "Starting matrix job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
-
+      
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -314,7 +314,7 @@ jobs:
               echo "resource-priority=medium" >> $GITHUB_OUTPUT
               ;;
           esac
-
+          
           # Set resource limits based on node count and instance type
           case "${{ matrix.nodes }}" in
             "1")
@@ -330,7 +330,7 @@ jobs:
               echo "max-parallel-jobs=2" >> $GITHUB_OUTPUT
               ;;
           esac
-
+          
           echo "Distribution: ${{ matrix.distribution }}, Nodes: ${{ matrix.nodes }}, Instance: ${{ matrix.instance-type }}"
           echo "Resource Priority: medium"
 
@@ -340,78 +340,78 @@ jobs:
         shell: bash
         run: |
           set +e  # Disable exit on error to handle failures gracefully
-
+          
           # Normalize cluster name to match task expectations (replace dots with dashes)
           # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           echo "Checking for existing cluster: $CLUSTER_NAME"
-
+          
           # Get clusters with error handling
           echo "Making API request to get clusters..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
             "https://api.replicated.com/vendor/v3/clusters")
           CURL_EXIT_CODE=$?
-
+          
           if [ $CURL_EXIT_CODE -ne 0 ]; then
             echo "curl command failed with exit code $CURL_EXIT_CODE"
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           echo "API request completed successfully"
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-
+          
           echo "HTTP Status Code: $HTTP_CODE"
-
+          
           if [ "$HTTP_CODE" != "200" ]; then
             echo "API request failed with HTTP $HTTP_CODE"
             echo "Response: $BODY"
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           # Parse JSON response safely - check cluster status and readiness
           echo "Parsing JSON response for cluster: $CLUSTER_NAME"
           CLUSTER_DATA=$(echo "$BODY" | jq -r --arg name "$CLUSTER_NAME" \
             'if .clusters then .clusters[] | select(.name == $name and .status != "terminated") | {id: .id, status: .status} else empty end' 2>/dev/null | head -1)
           JQ_EXIT_CODE=$?
-
+          
           if [ $JQ_EXIT_CODE -ne 0 ]; then
             echo "jq command failed with exit code $JQ_EXIT_CODE"
             echo "JSON Body: $BODY"
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-
+          
           echo "JSON parsing completed, cluster data: $CLUSTER_DATA"
-
+          
           CLUSTER_ID=$(echo "$CLUSTER_DATA" | jq -r '.id // empty' 2>/dev/null)
           CLUSTER_STATUS=$(echo "$CLUSTER_DATA" | jq -r '.status // empty' 2>/dev/null)
-
+          
           if [ -n "$CLUSTER_ID" ] && [ "$CLUSTER_ID" != "null" ]; then
             echo "Found existing cluster: $CLUSTER_ID with status: $CLUSTER_STATUS"
-
+            
             # Only consider cluster as existing if it's ready, otherwise treat as needs creation
             if [ "$CLUSTER_STATUS" = "running" ]; then
               echo "Cluster is running, attempting to get kubeconfig"
               echo "cluster-exists=true" >> $GITHUB_OUTPUT
               echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
-
+              
               # Wait for kubeconfig to be available and functional
               echo "Waiting for kubeconfig to be ready..."
               RETRY_COUNT=0
               MAX_RETRIES=12  # 12 * 30s = 6 minutes max wait
-
+              
               while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
                 # Try to get kubeconfig
                 KUBECONFIG_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
                   "https://api.replicated.com/vendor/v3/cluster/$CLUSTER_ID/kubeconfig")
-
+                
                 KUBECONFIG_HTTP_CODE=$(echo "$KUBECONFIG_RESPONSE" | tail -n1)
                 KUBECONFIG_BODY=$(echo "$KUBECONFIG_RESPONSE" | sed '$d')
-
+                
                 if [ "$KUBECONFIG_HTTP_CODE" = "200" ]; then
                   # Extract and decode the kubeconfig from JSON response
                   KUBECONFIG_CONTENT=$(echo "$KUBECONFIG_BODY" | jq -r '.kubeconfig // empty' 2>/dev/null)
@@ -436,14 +436,14 @@ jobs:
                 else
                   echo "Failed to get kubeconfig HTTP $KUBECONFIG_HTTP_CODE (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)"
                 fi
-
+                
                 RETRY_COUNT=$((RETRY_COUNT + 1))
                 if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
                   echo "Waiting 30 seconds before retry..."
                   sleep 30
                 fi
               done
-
+              
               # If we exhausted retries without success, treat cluster as not ready
               if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
                 echo "Cluster exists but kubeconfig is not ready after $((MAX_RETRIES * 30)) seconds"
@@ -460,27 +460,69 @@ jobs:
             echo "cluster-exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Normalize cluster name
-        id: normalize-name
-        if: steps.check-cluster.outputs.cluster-exists == 'false'
-        run: |
-          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
-          echo "cluster-name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
-
       - name: Create cluster
         id: create-cluster
         if: steps.check-cluster.outputs.cluster-exists == 'false'
-        uses: replicatedhq/replicated-actions/create-cluster@v1.19.0
-        with:
-          api-token: ${{ env.REPLICATED_API_TOKEN }}
-          cluster-name: ${{ steps.normalize-name.outputs.cluster-name }}
-          kubernetes-version: ${{ matrix.k8s-version }}
-          kubernetes-distribution: ${{ matrix.distribution }}
-          instance-type: ${{ matrix.instance-type }}
-          disk: 50
-          nodes: ${{ matrix.nodes }}
-          ttl: ${{ matrix.distribution == 'eks' && '6h' || '4h' }}
+        shell: bash
+        run: |
+          set +e  # Disable exit on error to handle failures gracefully
+          
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
+          echo "Creating cluster: $CLUSTER_NAME"
+          
+          # Use the replicated CLI to create the cluster with normalized name
+          echo "Running replicated cluster create command..."
+          replicated cluster create \
+            --name "$CLUSTER_NAME" \
+            --distribution "${{ matrix.distribution }}" \
+            --version "${{ matrix.k8s-version }}" \
+            --disk "50" \
+            --instance-type "${{ matrix.instance-type }}" \
+            --nodes "${{ matrix.nodes }}" \
+            --ttl "${{ matrix.distribution == 'eks' && '6h' || '4h' }}"
+          
+          CLUSTER_CREATE_EXIT_CODE=$?
+          if [ $CLUSTER_CREATE_EXIT_CODE -ne 0 ]; then
+            echo "Failed to create cluster, exit code: $CLUSTER_CREATE_EXIT_CODE"
+            exit $CLUSTER_CREATE_EXIT_CODE
+          fi
+          
+          # Wait for cluster to be running
+          echo "Waiting for cluster to be running..."
+          for i in {1..60}; do
+            STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .status' 2>/dev/null)
+            if [ "$STATUS" = "running" ]; then
+              echo "Cluster is running!"
+              break
+            fi
+            echo "Cluster status: $STATUS, waiting... (attempt $i/60)"
+            sleep 10
+          done
+          
+          # Check final status
+          if [ "$STATUS" != "running" ]; then
+            echo "Cluster failed to reach running state after 10 minutes, final status: $STATUS"
+            exit 1
+          fi
+          
+          # Export kubeconfig
+          echo "Exporting kubeconfig..."
+          replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+          KUBECONFIG_EXIT_CODE=$?
+          if [ $KUBECONFIG_EXIT_CODE -ne 0 ]; then
+            echo "Failed to export kubeconfig, exit code: $KUBECONFIG_EXIT_CODE"
+            exit $KUBECONFIG_EXIT_CODE
+          fi
+          
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+          
+          # Set output
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .id' 2>/dev/null)
+          echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+          echo "Cluster creation completed successfully: $CLUSTER_ID"
 
       - name: Set cluster outputs
         id: set-cluster-outputs
@@ -489,51 +531,43 @@ jobs:
             echo "cluster-id=${{ steps.check-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
           else
             echo "cluster-id=${{ steps.create-cluster.outputs.cluster-id }}" >> $GITHUB_OUTPUT
-            # Set kubeconfig from the official action
-            echo "${{ steps.create-cluster.outputs.kubeconfig }}" > /tmp/kubeconfig
-            echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
           fi
 
       - name: Setup cluster ports
         working-directory: ${{ env.APP_DIR }}
         run: |
-          # Use the normalized cluster name from either check-cluster or normalize-name step
-          if [ "${{ steps.check-cluster.outputs.cluster-exists }}" == "true" ]; then
-            # Get cluster name from check-cluster step (existing cluster)
-            K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
-            CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
-          else
-            # Use normalized name from the normalize-name step (new cluster)
-            CLUSTER_NAME="${{ steps.normalize-name.outputs.cluster-name }}"
-          fi
+          # Normalize cluster name to match task expectations (replace dots with dashes)
+          # Include run number to ensure unique cluster names across workflow runs
+          K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
+          CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
           task cluster-ports-expose CLUSTER_NAME="$CLUSTER_NAME"
 
       - name: Validate cluster readiness
         run: |
           echo "Validating cluster readiness for ${{ matrix.distribution }} ${{ matrix.k8s-version }}"
-
+          
           # Ensure kubeconfig is available
           if [ ! -f "$KUBECONFIG" ] || [ ! -s "$KUBECONFIG" ]; then
             echo "ERROR: kubeconfig file not found or empty at: $KUBECONFIG"
             echo "This indicates a problem with cluster creation or kubeconfig export"
             exit 1
           fi
-
+          
           echo "Found kubeconfig at: $KUBECONFIG"
-
+          
           # Test kubectl client is working
           if ! kubectl version --client &>/dev/null; then
             echo "ERROR: kubectl client is not working properly"
             exit 1
           fi
-
+          
           echo "kubectl client is functional"
-
+          
           # Wait for cluster API server to be accessible with retries
           echo "Testing cluster API connectivity..."
           RETRY_COUNT=0
           MAX_API_RETRIES=20  # 20 * 15s = 5 minutes max wait for API
-
+          
           while [ $RETRY_COUNT -lt $MAX_API_RETRIES ]; do
             if timeout 30s kubectl cluster-info &>/dev/null; then
               echo "✅ Cluster API server is accessible"
@@ -547,14 +581,14 @@ jobs:
               fi
             fi
           done
-
+          
           if [ $RETRY_COUNT -eq $MAX_API_RETRIES ]; then
             echo "ERROR: Cluster API server not accessible after $((MAX_API_RETRIES * 15)) seconds"
             echo "Cluster info debug:"
             kubectl cluster-info || true
             exit 1
           fi
-
+          
           # Wait for cluster nodes to be ready
           echo "Waiting for cluster nodes to be ready..."
           if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s; then
@@ -563,13 +597,13 @@ jobs:
             kubectl get nodes -o wide || true
             exit 1
           fi
-
+          
           echo "✅ All cluster nodes are ready"
-
+          
           # Validate cluster nodes
           echo "Cluster nodes:"
           kubectl get nodes -o wide
-
+          
           echo "Cluster info:"
           kubectl cluster-info
 
@@ -580,12 +614,12 @@ jobs:
           # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
-
+          
           CLUSTER_ID="${{ steps.set-cluster-outputs.outputs.cluster-id }}"
-
+          
           # Create cluster matrix entry
           CLUSTER_ENTRY='{"k8s-version":"${{ matrix.k8s-version }}","distribution":"${{ matrix.distribution }}","nodes":${{ matrix.nodes }},"instance-type":"${{ matrix.instance-type }}","timeout-minutes":${{ matrix.timeout-minutes }},"cluster-id":"'$CLUSTER_ID'","cluster-name":"'$CLUSTER_NAME'"}'
-
+          
           echo "cluster-matrix=$CLUSTER_ENTRY" >> $GITHUB_OUTPUT
           echo "Created cluster matrix entry: $CLUSTER_ENTRY"
 
@@ -619,7 +653,7 @@ jobs:
         run: |
           echo "CONCURRENCY_GROUP=test-${{ needs.setup.outputs.channel-name }}-${{ matrix.k8s-version }}-${{ matrix.distribution }}" >> $GITHUB_ENV
           echo "Starting test job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
-
+      
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -636,19 +670,19 @@ jobs:
           # Include run number to ensure unique cluster names across workflow runs
           K8S_VERSION_NORMALIZED=$(echo "${{ matrix.k8s-version }}" | tr '.' '-')
           CLUSTER_NAME="${{ needs.setup.outputs.channel-name }}-$K8S_VERSION_NORMALIZED-${{ matrix.distribution }}-${{ github.run_number }}"
-
+          
           echo "Getting kubeconfig for cluster: $CLUSTER_NAME"
-
+          
           # Get kubeconfig using replicated CLI
           replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
-
+          
           if [ ! -f /tmp/kubeconfig ] || [ ! -s /tmp/kubeconfig ]; then
             echo "ERROR: Failed to get kubeconfig for cluster $CLUSTER_NAME"
             echo "Available clusters:"
             replicated cluster ls
             exit 1
           fi
-
+          
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
           echo "Successfully retrieved kubeconfig for cluster $CLUSTER_NAME"
 
@@ -674,39 +708,39 @@ jobs:
       - name: Run distribution-specific tests
         run: |
           echo "Running ${{ matrix.distribution }}-specific tests..."
-
+          
           # Test node configuration based on matrix
           EXPECTED_NODES=${{ matrix.nodes }}
           ACTUAL_NODES=$(kubectl get nodes --no-headers | wc -l)
-
+          
           if [ "$ACTUAL_NODES" -eq "$EXPECTED_NODES" ]; then
             echo "✅ Node count validation passed: $ACTUAL_NODES/$EXPECTED_NODES"
           else
             echo "❌ Node count validation failed: $ACTUAL_NODES/$EXPECTED_NODES"
             exit 1
           fi
-
+          
           # Distribution-specific storage tests
           echo "Testing k3s local-path storage..."
           kubectl get storageclass local-path -o yaml | grep provisioner | grep rancher.io/local-path
-
+          
           # Test cluster resources
           echo "Cluster resource utilization:"
           kubectl top nodes --no-headers 2>/dev/null || echo "Metrics not available"
-
+          
           echo "Pod distribution across nodes:"
           kubectl get pods -A -o wide | awk '{print $7}' | sort | uniq -c
-
+          
           # Performance monitoring
           echo "=== Performance Metrics ==="
           echo "Test Environment: ${{ matrix.distribution }} ${{ matrix.k8s-version }} (${{ matrix.nodes }} nodes)"
           echo "Instance Type: ${{ matrix.instance-type }}"
           echo "Deployment Timeout: ${{ matrix.timeout-minutes }} minutes"
-
+          
           # Resource consumption validation
           echo "=== Resource Validation ==="
           kubectl describe nodes | grep -E "(Name:|Allocatable:|Allocated resources:)" | head -20
-
+          
           # Collect performance timings
           echo "=== Test Completion Summary ==="
           echo "Matrix Job: ${{ matrix.k8s-version }}-${{ matrix.distribution }}-${{ matrix.nodes }}nodes"
