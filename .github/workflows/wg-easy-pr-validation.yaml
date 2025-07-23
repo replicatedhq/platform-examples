@@ -27,7 +27,7 @@ env:
 
 jobs:
   setup:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       branch-name: ${{ steps.vars.outputs.branch-name }}
       channel-name: ${{ steps.vars.outputs.channel-name }}
@@ -48,7 +48,7 @@ jobs:
           echo "Branch: $BRANCH_NAME, Channel: $CHANNEL_NAME, Customer: $CUSTOMER_NAME"
 
   validate-charts:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: setup
     steps:
       - name: Checkout code
@@ -65,7 +65,7 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
 
   build-and-package:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [setup, validate-charts]
     outputs:
       release-path: ${{ steps.package.outputs.release-path }}
@@ -88,7 +88,7 @@ jobs:
           retention-days: 7
 
   create-resources:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [setup, build-and-package]
     outputs:
       channel-slug: ${{ steps.set-outputs.outputs.channel-slug }}
@@ -248,7 +248,7 @@ jobs:
           fi
 
   create-clusters:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [setup, create-resources]
     strategy:
       matrix:
@@ -590,7 +590,7 @@ jobs:
           echo "Created cluster matrix entry: $CLUSTER_ENTRY"
 
   test-deployment:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [setup, create-resources, create-clusters]
     strategy:
       matrix:
