@@ -38,10 +38,19 @@ tasks:
         # Download and install based on OS
         if [ "$OS" = "linux" ]; then
           echo "Downloading Replicated CLI for Linux..."
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
-            | head -1 \
-            | cut -d '"' -f 4)
+          # Use authenticated API call if GITHUB_TOKEN is available
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          else
+            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          fi
           
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Error: Could not find download URL for *_linux_${ARCH}.tar.gz"
@@ -54,10 +63,19 @@ tasks:
           
         elif [ "$OS" = "darwin" ]; then
           echo "Downloading Replicated CLI for macOS..."
-          DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*_darwin_all.tar.gz" \
-            | head -1 \
-            | cut -d '"' -f 4)
+          # Use authenticated API call if GITHUB_TOKEN is available
+          if [ -n "${GITHUB_TOKEN:-}" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_darwin_all.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          else
+            DOWNLOAD_URL=$(curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_darwin_all.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          fi
           
           if [ -z "$DOWNLOAD_URL" ]; then
             echo "Error: Could not find download URL for *_darwin_all.tar.gz"
@@ -158,7 +176,7 @@ tasks:
         start=$(date +%s)
         attempt=1
         while true; do
-          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status')
+          CLUSTER_STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .status // empty')
           
           if [ "$CLUSTER_STATUS" = "running" ]; then
             elapsed=$(($(date +%s) - start))
@@ -186,7 +204,7 @@ tasks:
     cmds:
       - |
         set -e
-        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id')
+        CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "{{.CLUSTER_NAME}}") | .id // empty')
         if [ -z "$CLUSTER_ID" ]; then
           echo "Error: Could not find cluster with name {{.CLUSTER_NAME}}"
           exit 1
@@ -266,7 +284,7 @@ tasks:
         fi
         
         # Get customer license ID using Replicated CLI
-        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId')
+        LICENSE_ID=$(replicated customer ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") | .installationId // empty')
         
         if [ -z "$LICENSE_ID" ] || [ "$LICENSE_ID" = "null" ]; then
           echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'" >&2
@@ -328,7 +346,7 @@ tasks:
         if [ -n "{{.CUSTOMER_NAME}}" ]; then
           # Find customer by name
           echo "Looking up customer by name: {{.NORMALIZED_CUSTOMER_NAME}}"
-          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}")')
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.name == "{{.NORMALIZED_CUSTOMER_NAME}}") // empty')
           
           if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
             echo "ERROR: Could not find customer with name '{{.NORMALIZED_CUSTOMER_NAME}}'"
@@ -340,7 +358,7 @@ tasks:
         elif [ -n "{{.CUSTOMER_ID}}" ]; then
           # Find customer by ID
           echo "Looking up customer by ID: {{.CUSTOMER_ID}}"
-          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.id == "{{.CUSTOMER_ID}}")')
+          CUSTOMER_INFO=$(echo "$CUSTOMERS_JSON" | jq -r '.[] | select(.id == "{{.CUSTOMER_ID}}") // empty')
           
           if [ -z "$CUSTOMER_INFO" ] || [ "$CUSTOMER_INFO" = "null" ]; then
             echo "ERROR: Could not find customer with ID '{{.CUSTOMER_ID}}'"
@@ -381,7 +399,7 @@ tasks:
         fi
         
         # Get channel slug using Replicated CLI
-        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .channelSlug')
+        CHANNEL_SLUG=$(replicated channel ls --output json | jq -r '.[] | select(.id == "{{.CHANNEL_ID}}") | .channelSlug // empty')
         
         if [ -z "$CHANNEL_SLUG" ] || [ "$CHANNEL_SLUG" = "null" ]; then
           echo "ERROR: Could not find channel with ID '{{.CHANNEL_ID}}'"
@@ -412,7 +430,7 @@ tasks:
         fi
         
         # Get channel ID using Replicated CLI
-        CHANNEL_ID=$(replicated channel ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CHANNEL_NAME}}") | .id')
+        CHANNEL_ID=$(replicated channel ls --output json | jq -r '.[] | select(.name == "{{.NORMALIZED_CHANNEL_NAME}}") | .id // empty')
         
         if [ -z "$CHANNEL_ID" ] || [ "$CHANNEL_ID" = "null" ]; then
           echo "ERROR: Could not find channel with name '{{.NORMALIZED_CHANNEL_NAME}}'"

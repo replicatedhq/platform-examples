@@ -47,6 +47,7 @@ runs:
           /usr/local/bin/yq
           /usr/local/bin/preflight
           /usr/local/bin/helmfile
+          /usr/local/bin/replicated
           ~/.replicated
         key: tools-${{ runner.os }}-yq-v4.44.3-preflight-v0.95.0-helmfile-v0.170.0-replicated-${{ hashFiles('**/taskfiles/utils.yml') }}
         restore-keys: |
@@ -90,5 +91,65 @@ runs:
     
     - name: Install Replicated CLI
       shell: bash
-      working-directory: ${{ inputs.app-dir }}
-      run: task utils:install-replicated-cli
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        if [ ! -f /usr/local/bin/replicated ]; then
+          echo "Installing Replicated CLI..."
+          
+          # Detect OS and architecture
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          
+          # Map architecture names
+          case $ARCH in
+            x86_64)
+              ARCH="amd64"
+              ;;
+            aarch64|arm64)
+              ARCH="arm64"
+              ;;
+            *)
+              echo "Unsupported architecture: $ARCH"
+              exit 1
+              ;;
+          esac
+          
+          echo "Detected OS: $OS, Architecture: $ARCH"
+          
+          # Get download URL using authenticated API call
+          if [ "$OS" = "linux" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_linux_${ARCH}.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          elif [ "$OS" = "darwin" ]; then
+            DOWNLOAD_URL=$(curl -s -H "Authorization: token ${GITHUB_TOKEN}" \
+              https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+              | grep "browser_download_url.*_darwin_all.tar.gz" \
+              | head -1 \
+              | cut -d '"' -f 4)
+          else
+            echo "Unsupported operating system: $OS"
+            exit 1
+          fi
+          
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "Error: Could not find download URL for Replicated CLI"
+            exit 1
+          fi
+          
+          echo "Downloading from: $DOWNLOAD_URL"
+          curl -L -o replicated.tar.gz "$DOWNLOAD_URL"
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          sudo chmod +x /usr/local/bin/replicated
+          rm replicated.tar.gz
+          
+          echo "Replicated CLI installed successfully!"
+          replicated version
+        else
+          echo "Replicated CLI already installed (cached)"
+          replicated version
+        fi
