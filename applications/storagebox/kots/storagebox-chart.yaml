@@ -6,6 +6,17 @@ spec:
   chart:
     name: storagebox
     chartVersion: 0.20.0
+  builder:
+    replicated:
+      enabled: true
+    nfs-server:
+      enabled: true
+    cassandra:
+      enabled: true
+    postgres:
+      enabled: true
+    tenant:
+      enabled: true
   values:
     replicated:
       enabled: true
