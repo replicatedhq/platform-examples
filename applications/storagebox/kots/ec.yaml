@@ -20,18 +20,18 @@ spec:
         - name: cloudnative-pg
           chartname: cnpg/cloudnative-pg
           namespace: cnpg
-          version: "0.22.1"
+          version: "0.25.0"
           values: |
             cloudnative-pg:
               enabled: true
         - name: minio-operator
           chartname: minio-operator/operator
           namespace: minio
-          version: "6.0.4"
+          version: "7.1.1"
         - name: cert-manager
           chartname: jetstack/cert-manager
           namespace: cert-manager
-          version: "v1.16.3"
+          version: "v1.18.2"
           values: |
             crds:
               enabled: true
@@ -40,7 +40,7 @@ spec:
         - name: ingress-nginx
           chartname: ingress-nginx/ingress-nginx
           namespace: ingress-nginx
-          version: "4.9.1"
+          version: "4.13.0"
           values: |
             controller:
               service:
