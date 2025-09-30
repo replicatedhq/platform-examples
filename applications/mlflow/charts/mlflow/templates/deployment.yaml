@@ -129,7 +129,7 @@ spec:
             name: {{ include "mlflow.fullname" . }}
       {{- end }}
       {{- with .Values.mlflow.extraInitContainers }}
-        {{ toYaml . | nindent 8 }}
+      {{ toYaml . | nindent 6 }}
       {{- end }}
       containers:
       - name: {{ include "mlflow.fullname" . }}
@@ -235,7 +235,7 @@ spec:
           {{- end }}
       {{- end }}
       {{- with .Values.mlflow.extraVolumes }}
-        {{- toYaml . | nindent 8 }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- with .Values.mlflow.hostAliases }}
       hostAliases:

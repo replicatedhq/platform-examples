@@ -74,10 +74,7 @@ mlflow:
     # ENV_NAME_2: value
 
     # Extra environment variables in mlflow container (not in init containers)
-    # Required for MLflow 3.x with basic auth enabled
-    container:
-      - name: MLFLOW_FLASK_SERVER_SECRET_KEY
-        value: "change-me-in-production"
+    container: []
     # - name: extra-env-name-1
     #   value: extra-env-value-1
     # - name: extra-env-name-2
@@ -106,19 +103,9 @@ mlflow:
 
   # -- Extra volumes that can be mounted by containers belonging to the mlflow pod
   extraVolumes: []
-  # - name: mlflow-volume
-  #   persistentVolumeClaim:
-  #     name: mlflow-pvc
-  # - name: mlflow-configmap-volume
-  #   configMap:
-  #     name: mlflow-configmap
 
   # -- Extra volume mounts to mount into the mlflow container's file system
   extraVolumeMounts: []
-  # - name: mlflow-volume
-  #   mountPath: /opt/mlflow
-  # - name: mlflow-configmap-volume
-  #   mountPath: /etc/mlflow
 
   # -- Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames.
   # [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/)
@@ -267,9 +254,10 @@ mlflow:
 
     # Basic authentication configuration,
     # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
+    # NOTE: Basic auth is disabled due to compatibility issues with MLflow 3.x
     basicAuth:
       # -- Specifies whether to enable basic authentication
-      enabled: true
+      enabled: false
       # -- Name of an existing secret which contains key `basic_auth.ini`
       existingSecret: ""
       # If enables BasicAuth and no existing secret is specified, creates a secret to store authentication configurations
@@ -278,8 +266,8 @@ mlflow:
         defaultPermission: READ
         # -- Default admin username if the admin is not already created
         adminUsername: admin
-        # -- Default admin password if the admin is not already created
-        adminPassword: password
+        # -- Default admin password if the admin is not already created (min 12 chars for MLflow 3.x)
+        adminPassword: password123456
         # -- Function to authenticate requests
         authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
 
