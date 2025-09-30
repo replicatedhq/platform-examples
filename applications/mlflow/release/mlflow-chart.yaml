@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: mlflow
-    chartVersion: 0.4.7
+    chartVersion: 0.4.8
   weight: 10
   helmUpgradeFlags:
     - --wait
