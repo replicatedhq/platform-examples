@@ -8,7 +8,7 @@ crdCheck:
     # -- Image repository
     repository: bitnami/kubectl
     # -- Image tag
-    tag: latest
+    tag: "1.31.2"
   # -- CRDs to check
   crds:
     - name: tenants.minio.min.io

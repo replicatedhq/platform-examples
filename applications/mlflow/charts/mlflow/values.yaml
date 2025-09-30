@@ -688,3 +688,16 @@ postgres:
     port: 5432
     # -- External Postgres database
     database: mlflow
+
+  # -- Postgres backup configuration
+  backup:
+    # -- Image details for the postgres backup deployment
+    image:
+      # -- Image registry
+      registry: docker.io
+      # -- Image repository
+      repository: bitnami/postgresql
+      # -- Image tag
+      tag: "16.6.0"
+      # -- Image pull policy
+      pullPolicy: IfNotPresent

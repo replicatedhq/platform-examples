@@ -25,8 +25,8 @@ spec:
             defaultMode: 0777
       initContainers:
         - name: wait-for-postgresql
-          image: docker.io/bitnami/postgresql:15.3.0-debian-11-r0
-          imagePullPolicy: {{ .Values.mlflow.image.pullPolicy }}
+          image: "{{ .Values.postgres.backup.image.registry }}/{{ .Values.postgres.backup.image.repository }}:{{ .Values.postgres.backup.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.backup.image.pullPolicy }}
           command:
             [
               "sh",
@@ -37,8 +37,8 @@ spec:
             - secretRef:
                 name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
         - name: restore-db
-          image: docker.io/bitnami/postgresql:15.3.0-debian-11-r0
-          imagePullPolicy: {{ .Values.mlflow.image.pullPolicy }}
+          image: "{{ .Values.postgres.backup.image.registry }}/{{ .Values.postgres.backup.image.repository }}:{{ .Values.postgres.backup.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.backup.image.pullPolicy }}
           command: ["/bin/sh", "/scripts/db-restore.sh"]
           envFrom:
             - secretRef:
@@ -50,7 +50,7 @@ spec:
               mountPath: /scripts
       containers:
         - name: sleep
-          image: docker.io/bitnami/postgresql:15.3.0-debian-11-r0
+          image: "{{ .Values.postgres.backup.image.registry }}/{{ .Values.postgres.backup.image.repository }}:{{ .Values.postgres.backup.image.tag }}"
           command: ["sh", "-c", "sleep infinity"]
           envFrom:
               - secretRef:
