@@ -6,9 +6,9 @@ crdCheck:
     # -- Image registry
     registry: docker.io
     # -- Image repository
-    repository: bitnami/kubectl
+    repository: bitnamilegacy/kubectl
     # -- Image tag
-    tag: "1.31.2"
+    tag: "1.33.4-debian-12-r0"
   # -- CRDs to check
   crds:
     - name: tenants.minio.min.io

@@ -696,8 +696,8 @@ postgres:
       # -- Image registry
       registry: docker.io
       # -- Image repository
-      repository: bitnami/postgresql
+      repository: bitnamilegacy/postgresql
       # -- Image tag
-      tag: "16.6.0"
+      tag: "17.6.0-debian-12-r4"
       # -- Image pull policy
       pullPolicy: IfNotPresent
