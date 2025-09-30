@@ -1,6 +1,6 @@
 setuptools>=65.0.0
 wheel>=0.40.0
-mlflow==2.11.0
+mlflow==3.4.0
 # Pre-built wheels for problematic packages
 numpy<2.0.0
 pandas<2.2.0
