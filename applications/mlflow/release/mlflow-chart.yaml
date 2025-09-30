@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: mlflow
-    chartVersion: 0.4.0
+    chartVersion: 0.4.1
   weight: 10
   helmUpgradeFlags:
     - --wait
@@ -15,7 +15,7 @@ spec:
     mlflow:
       image:
         registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
-        repository: 'repl{{HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/mlflow'
+        repository: 'repl{{HasLocalRegistry | ternary LocalRegistryNamespace "bitnamilegacy" }}/mlflow'
       ingress:
         enabled: true
         className: repl{{ ConfigOption "mlflow_ingress_class_name"}}
