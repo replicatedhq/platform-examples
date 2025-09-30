@@ -41,7 +41,7 @@ mlflow:
     # -- Image repository
     repository: bitnamilegacy/mlflow
     # -- Image tag
-    tag: 3.3.2-debian-12-r0
+    tag: 2.22.1-debian-12-r1
     # -- Image pull policy
     pullPolicy: IfNotPresent
   # -- Pod Labels for the mlflow deployment
@@ -251,7 +251,7 @@ mlflow:
     # -- Number of gunicorn worker processes to handle requests
     workers: 1
     # -- Extra arguments passed to the `mlflow server` command
-    extraArgs: []
+    extraArgs:
     # A prefix which will be prepended to the path of all static paths
     # - --static-prefix TEXT
     # Additional command line options forwarded to gunicorn processes
@@ -260,7 +260,8 @@ mlflow:
     # - --waitress-opts TEXT
     # Path to the directory where metrics will be stored
     # - --expose-prometheus /metrics
-    # Note: --dev flag cannot be used with --app-name in MLflow 3.x+
+    # If enabled, run the server with debug logging and auto-reload
+    - --dev
 
     # Basic authentication configuration,
     # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
