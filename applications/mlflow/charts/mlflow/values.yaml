@@ -286,8 +286,8 @@ mlflow:
   # For more information about how to configure backend store, please visit https://mlflow.org/docs/latest/tracking/backend-stores.html
   backendStore:
     # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
-    # Required for MLflow 3.x with basic auth to initialize auth tables
-    databaseUpgrade: true
+    # MLflow 3.x with basic auth will auto-create auth tables on first run
+    databaseUpgrade: false
     # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
     # If an existing secret is not provided, a new secret will be created to store the backend store URI using the details from .Values.postgres when Embedded PostgreSQL is enabled
     existingSecret: ""
