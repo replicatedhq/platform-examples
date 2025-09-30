@@ -64,9 +64,7 @@ mlflow:
   # -- Extra environment variables in mlflow container
   env:
     # Extra environment variables sourced via ConfigMap
-    configMap:
-      # Required for MLflow 3.x with basic auth enabled
-      MLFLOW_FLASK_SERVER_SECRET_KEY: "change-me-in-production"
+    configMap: {}
     # ENV_NAME_1: value
     # ENV_NAME_2: value
 
@@ -75,8 +73,11 @@ mlflow:
     # ENV_NAME_1: value
     # ENV_NAME_2: value
 
-    # Extra environment variables in mlflow container
-    container: []
+    # Extra environment variables in mlflow container (not in init containers)
+    # Required for MLflow 3.x with basic auth enabled
+    container:
+      - name: MLFLOW_FLASK_SERVER_SECRET_KEY
+        value: "change-me-in-production"
     # - name: extra-env-name-1
     #   value: extra-env-value-1
     # - name: extra-env-name-2

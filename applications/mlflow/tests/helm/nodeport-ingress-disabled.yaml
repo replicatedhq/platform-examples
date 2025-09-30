@@ -15,7 +15,8 @@ mlflow:
     nodePort: 30080
     # Service port name
     name: http
-  # Environment configuration
+  # Environment configuration (only for main container, not init containers)
   env:
-    configMap:
-      MLFLOW_FLASK_SERVER_SECRET_KEY: "change-me-in-production"
+    container:
+      - name: MLFLOW_FLASK_SERVER_SECRET_KEY
+        value: "change-me-in-production"

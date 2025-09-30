@@ -2,7 +2,7 @@ apiVersion: v2
 name: mlflow
 description: A Helm chart for MLflow - Open source platform for the machine learning lifecycle.
 type: application
-version: "0.4.8"
+version: "0.4.9"
 appVersion: "3.3.2"
 home: https://github.com/mlflow/mlflow/tree/master/charts/mlflow
 sources:
