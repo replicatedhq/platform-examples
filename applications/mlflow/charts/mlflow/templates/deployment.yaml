@@ -93,16 +93,14 @@ spec:
       {{- end }}
       {{- end }}
       initContainers:
-      {{- if .Values.mlflow.trackingServer.basicAuth.enabled }}
-      {{- if not .Values.mlflow.trackingServer.basicAuth.existingSecret }}
+      {{- if .Values.postgres.embedded.enabled }}
       - name: wait-for-postgresql
-        image: docker.io/bitnami/postgresql:15.3.0-debian-11-r0
-        imagePullPolicy: {{ .Values.mlflow.image.pullPolicy }}
+        image: "{{ .Values.postgres.backup.image.registry }}/{{ .Values.postgres.backup.image.repository }}:{{ .Values.postgres.backup.image.tag }}"
+        imagePullPolicy: {{ .Values.postgres.backup.image.pullPolicy }}
         command: ["sh", "-c", "until PGPASSWORD=$POSTGRES_PASSWORD psql -U $POSTGRES_USER -h $POSTGRES_HOST -p 5432 -d $POSTGRES_DB -c 'SELECT 1'; do sleep 1; done;"]
         envFrom:
         - secretRef:
             name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
-      {{- end }}
       {{- end }}
       {{- if .Values.mlflow.backendStore.databaseUpgrade }}
       - name: mlflow-database-upgrade
@@ -129,7 +127,7 @@ spec:
             name: {{ include "mlflow.fullname" . }}
       {{- end }}
       {{- with .Values.mlflow.extraInitContainers }}
-        {{ toYaml . | nindent 8 }}
+      {{ toYaml . | nindent 6 }}
       {{- end }}
       containers:
       - name: {{ include "mlflow.fullname" . }}
@@ -235,7 +233,7 @@ spec:
           {{- end }}
       {{- end }}
       {{- with .Values.mlflow.extraVolumes }}
-        {{- toYaml . | nindent 8 }}
+      {{- toYaml . | nindent 6 }}
       {{- end }}
       {{- with .Values.mlflow.hostAliases }}
       hostAliases:

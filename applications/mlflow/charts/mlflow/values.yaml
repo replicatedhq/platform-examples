@@ -39,9 +39,9 @@ mlflow:
     # -- Image registry
     registry: docker.io
     # -- Image repository
-    repository: bitnami/mlflow
+    repository: bitnamilegacy/mlflow
     # -- Image tag
-    tag: 2.12.2-debian-12-r1
+    tag: 3.3.2-debian-12-r0
     # -- Image pull policy
     pullPolicy: IfNotPresent
   # -- Pod Labels for the mlflow deployment
@@ -73,7 +73,7 @@ mlflow:
     # ENV_NAME_1: value
     # ENV_NAME_2: value
 
-    # Extra environment variables in mlflow container
+    # Extra environment variables in mlflow container (not in init containers)
     container: []
     # - name: extra-env-name-1
     #   value: extra-env-value-1
@@ -103,19 +103,9 @@ mlflow:
 
   # -- Extra volumes that can be mounted by containers belonging to the mlflow pod
   extraVolumes: []
-  # - name: mlflow-volume
-  #   persistentVolumeClaim:
-  #     name: mlflow-pvc
-  # - name: mlflow-configmap-volume
-  #   configMap:
-  #     name: mlflow-configmap
 
   # -- Extra volume mounts to mount into the mlflow container's file system
   extraVolumeMounts: []
-  # - name: mlflow-volume
-  #   mountPath: /opt/mlflow
-  # - name: mlflow-configmap-volume
-  #   mountPath: /etc/mlflow
 
   # -- Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames.
   # [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/)
@@ -251,7 +241,7 @@ mlflow:
     # -- Number of gunicorn worker processes to handle requests
     workers: 1
     # -- Extra arguments passed to the `mlflow server` command
-    extraArgs:
+    extraArgs: []
     # A prefix which will be prepended to the path of all static paths
     # - --static-prefix TEXT
     # Additional command line options forwarded to gunicorn processes
@@ -260,14 +250,14 @@ mlflow:
     # - --waitress-opts TEXT
     # Path to the directory where metrics will be stored
     # - --expose-prometheus /metrics
-    # If enabled, run the server with debug logging and auto-reload
-    - --dev
+    # Note: --dev flag cannot be used with --app-name in MLflow 3.x+
 
     # Basic authentication configuration,
     # for more information, please visit https://mlflow.org/docs/latest/auth/index.html#configuration
+    # NOTE: Basic auth is disabled due to compatibility issues with MLflow 3.x
     basicAuth:
       # -- Specifies whether to enable basic authentication
-      enabled: true
+      enabled: false
       # -- Name of an existing secret which contains key `basic_auth.ini`
       existingSecret: ""
       # If enables BasicAuth and no existing secret is specified, creates a secret to store authentication configurations
@@ -276,14 +266,15 @@ mlflow:
         defaultPermission: READ
         # -- Default admin username if the admin is not already created
         adminUsername: admin
-        # -- Default admin password if the admin is not already created
-        adminPassword: password
+        # -- Default admin password if the admin is not already created (min 12 chars for MLflow 3.x)
+        adminPassword: password123456
         # -- Function to authenticate requests
         authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
 
   # For more information about how to configure backend store, please visit https://mlflow.org/docs/latest/tracking/backend-stores.html
   backendStore:
     # -- Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store
+    # MLflow 3.x with basic auth will auto-create auth tables on first run
     databaseUpgrade: false
     # -- Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI`
     # If an existing secret is not provided, a new secret will be created to store the backend store URI using the details from .Values.postgres when Embedded PostgreSQL is enabled
@@ -688,3 +679,16 @@ postgres:
     port: 5432
     # -- External Postgres database
     database: mlflow
+
+  # -- Postgres backup configuration
+  backup:
+    # -- Image details for the postgres backup deployment
+    image:
+      # -- Image registry
+      registry: docker.io
+      # -- Image repository
+      repository: bitnamilegacy/postgresql
+      # -- Image tag
+      tag: "17.6.0-debian-12-r4"
+      # -- Image pull policy
+      pullPolicy: IfNotPresent

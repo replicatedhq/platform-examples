@@ -2,7 +2,7 @@
 # These values specifically configure the service to use NodePort for testing
 
 mlflow:
-  ingress: 
+  ingress:
     enabled: false
   # Service configuration for MLflow
   service:
@@ -10,8 +10,11 @@ mlflow:
     type: NodePort
     # Service port number (internal)
     port: 5000
-    # Hardcoded nodePort for consistent access 
+    # Hardcoded nodePort for consistent access
     # Note: Must be between 30000-32767
     nodePort: 30080
     # Service port name
     name: http
+  # Environment configuration
+  # env:
+  #   container: []

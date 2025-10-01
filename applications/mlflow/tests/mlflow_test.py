@@ -48,8 +48,8 @@ def check_server_connection(tracking_uri, timeout=30, retry_interval=5):
     host = parsed_url.hostname
     port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
     
-    # Authentication credentials
-    auth = ("admin", "password")
+    # Authentication disabled for MLflow 3.x compatibility
+    auth = None
     
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -65,8 +65,8 @@ def check_server_connection(tracking_uri, timeout=30, retry_interval=5):
             
         # Then try an HTTP request to the root URL
         try:
-            # For our test environment, always disable SSL verification and include auth
-            response = requests.get(health_url, timeout=5, verify=False, auth=auth)
+            # For our test environment, always disable SSL verification
+            response = requests.get(health_url, timeout=5, verify=False, auth=auth if auth else None)
             status_code = response.status_code
             logger.info(f"Server returned status code: {status_code}")
             
@@ -109,12 +109,8 @@ def run_mlflow_test(tracking_uri, connection_timeout=60):
             logger.error("Failed to connect to MLflow server, aborting test")
             return False
         
-        # Set MLflow tracking URI with authentication
-        # Format: http(s)://username:password@hostname:port
-        parsed_url = urlparse(tracking_uri)
-        auth_url = f"{parsed_url.scheme}://admin:password@{parsed_url.netloc}{parsed_url.path}"
-        logger.info(f"Using authenticated tracking URI")
-        mlflow.set_tracking_uri(auth_url)
+        # Set MLflow tracking URI
+        mlflow.set_tracking_uri(tracking_uri)
         
         # Load the Iris dataset
         logger.info("Loading dataset and training model...")
@@ -246,8 +242,8 @@ def main():
     if args.protocol == "http":
         logger.info("Using HTTP protocol (insecure)")
     
-    # Note about hardcoded credentials
-    logger.info("Using hardcoded authentication (admin/password)")
+    # Note: Authentication disabled for MLflow 3.x
+    logger.info("Authentication disabled (MLflow 3.x without basic auth)")
     
     # Ensure dependencies are installed
     ensure_dependencies()
