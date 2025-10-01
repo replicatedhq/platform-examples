@@ -93,8 +93,7 @@ spec:
       {{- end }}
       {{- end }}
       initContainers:
-      {{- if .Values.mlflow.trackingServer.basicAuth.enabled }}
-      {{- if not .Values.mlflow.trackingServer.basicAuth.existingSecret }}
+      {{- if .Values.postgres.embedded.enabled }}
       - name: wait-for-postgresql
         image: "{{ .Values.postgres.backup.image.registry }}/{{ .Values.postgres.backup.image.repository }}:{{ .Values.postgres.backup.image.tag }}"
         imagePullPolicy: {{ .Values.postgres.backup.image.pullPolicy }}
@@ -102,7 +101,6 @@ spec:
         envFrom:
         - secretRef:
             name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
-      {{- end }}
       {{- end }}
       {{- if .Values.mlflow.backendStore.databaseUpgrade }}
       - name: mlflow-database-upgrade
