@@ -28,6 +28,17 @@ NODE_COUNT ?= 1
 DISK_SIZE ?= 50
 TTL ?= 4h
 
+# CMX VM configuration (for Embedded Cluster testing)
+VM_DISTRIBUTION ?= ubuntu-22.04
+VM_VERSION ?= latest
+ADMIN_CONSOLE_PORT ?= 30000
+ADMIN_PASSWORD ?= password
+EC_VERSION := $(shell grep 'version:' $(KOTS_DIR)/ec.yaml | head -1 | awk '{print $$2}')
+EC_DOWNLOAD_URL ?= https://get.embeddedcluster.com/$(EC_VERSION)/$(EC_VERSION).tgz
+EC_AUTH_TOKEN ?=
+EC_ARCHIVE_NAME ?= storagebox-ec.tgz
+CONFIG_VALUES_FILE ?= development-values.yaml
+
 # Function to extract version from Chart.yaml
 define get_storagebox_chart_version
 	cat $(STORAGEBOX_CHART_PATH) | grep '^version:' | cut -d ' ' -f 2
@@ -53,7 +64,7 @@ package-and-update: clean
 	    version=$$(eval $(call get_helm_chart_version,$$chart)); \
 		chart_name=$$(basename $$chart); \
 	    echo "Updating version to $$version in $(KOTS_DIR)/*-chart.yaml"; \
-	    sed -i '' 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: '$$version'|g' $(KOTS_DIR)/$$chart_name-chart.yaml; \
+	    sed -i.bak "s|chartVersion: [0-9a-zA-Z.-]*|chartVersion: $$version|g" $(KOTS_DIR)/$$chart_name-chart.yaml && rm -f $(KOTS_DIR)/$$chart_name-chart.yaml.bak; \
 	done
 
 
@@ -257,6 +268,156 @@ deploy-logs:
 
 
 # ============================================================================
+# CMX VM Management (Embedded Cluster Testing)
+# ============================================================================
+
+.PHONY: vm-1node
+vm-1node:
+	@echo "Creating 1-node CMX VM for Embedded Cluster testing"
+	@echo "Cluster prefix: $(CLUSTER_PREFIX)"
+	@replicated vm create \
+		--name "$(CLUSTER_PREFIX)-node-1" \
+		--distribution $(VM_DISTRIBUTION) --version $(VM_VERSION) \
+		--count 1 --instance-type $(INSTANCE_TYPE) --disk $(DISK_SIZE) --ttl $(TTL) \
+		--tag cluster=$(CLUSTER_PREFIX) \
+		--wait 5m
+	@echo "✓ VM created successfully"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  3. Install EC:   make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+
+.PHONY: vm-3node
+vm-3node:
+	@echo "Creating 3-node CMX VM cluster for Embedded Cluster testing"
+	@echo "Cluster prefix: $(CLUSTER_PREFIX)"
+	@echo ""
+	@echo "Creating node-1 to establish network..."
+	@replicated vm create \
+		--name "$(CLUSTER_PREFIX)-node-1" \
+		--distribution $(VM_DISTRIBUTION) --version $(VM_VERSION) \
+		--count 1 --instance-type $(INSTANCE_TYPE) --disk $(DISK_SIZE) --ttl $(TTL) \
+		--tag cluster=$(CLUSTER_PREFIX) --tag role=control --tag node_number=1 \
+		--wait 5m
+	@network_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1") | .network_id' | head -1); \
+	echo "Network established. Network ID: $$network_id"; \
+	echo ""; \
+	echo "Creating nodes 2-3 in parallel..."; \
+	replicated vm create \
+		--name "$(CLUSTER_PREFIX)-node-2" \
+		--distribution $(VM_DISTRIBUTION) --version $(VM_VERSION) \
+		--count 1 --instance-type $(INSTANCE_TYPE) --disk $(DISK_SIZE) --ttl $(TTL) \
+		--network $$network_id \
+		--tag cluster=$(CLUSTER_PREFIX) --tag role=control --tag node_number=2 \
+		--wait 5m & \
+	replicated vm create \
+		--name "$(CLUSTER_PREFIX)-node-3" \
+		--distribution $(VM_DISTRIBUTION) --version $(VM_VERSION) \
+		--count 1 --instance-type $(INSTANCE_TYPE) --disk $(DISK_SIZE) --ttl $(TTL) \
+		--network $$network_id \
+		--tag cluster=$(CLUSTER_PREFIX) --tag role=control --tag node_number=3 \
+		--wait 5m & \
+	wait
+	@echo "✓ 3-node cluster created successfully"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  3. Install EC:   make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+
+.PHONY: vm-list
+vm-list:
+	@replicated vm ls
+
+.PHONY: vm-status
+vm-status:
+	@echo "CMX VM Status for $(CLUSTER_PREFIX):"
+	@echo "======================================"
+	@replicated vm ls --output json | jq -r '.[] | select(.name | startswith("$(CLUSTER_PREFIX)-")) | "\(.name): \(.status) (\(.id))"' | sort
+
+.PHONY: vm-cleanup
+vm-cleanup:
+	@echo "Cleaning up CMX VMs for cluster: $(CLUSTER_PREFIX)"
+	@replicated vm ls --output json | jq -r '.[] | select(.name | startswith("$(CLUSTER_PREFIX)-")) | "\(.id) \(.name)"' | \
+	while read vm_id vm_name; do \
+		echo "Deleting $$vm_name ($$vm_id)..."; \
+		replicated vm rm $$vm_id; \
+	done
+	@echo "✓ Cleanup completed for $(CLUSTER_PREFIX)"
+
+.PHONY: vm-download-ec
+vm-download-ec:
+	@echo "Downloading Embedded Cluster binary to all nodes"
+	@echo "EC Version: $(EC_VERSION)"
+	@echo "Download URL: $(EC_DOWNLOAD_URL)"
+	@vm_list=$$(replicated vm ls --output json | jq -r '.[] | select(.name | startswith("$(CLUSTER_PREFIX)-")) | select(.status == "running") | .name'); \
+	if [ -z "$$vm_list" ]; then \
+		echo "ERROR: No running VMs found with prefix '$(CLUSTER_PREFIX)'"; \
+		exit 1; \
+	fi; \
+	echo "Found VMs:"; \
+	echo "$$vm_list" | sed 's/^/  - /'; \
+	echo ""; \
+	for vm_name in $$vm_list; do \
+		echo "Downloading to $$vm_name..."; \
+		vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "'$$vm_name'" and .status == "running") | .id'); \
+		ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
+		ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
+			cd ~ && \
+			echo 'Downloading EC binary...' && \
+			curl -fsSL '$(EC_DOWNLOAD_URL)' \
+				$(if $(EC_AUTH_TOKEN),-H 'Authorization: $(EC_AUTH_TOKEN)') \
+				-o $(EC_ARCHIVE_NAME) && \
+			tar -xzf $(EC_ARCHIVE_NAME) && \
+			chmod +x storagebox && \
+			echo '✓ EC binary downloaded and extracted' \
+		" || { echo "ERROR: Failed to download to $$vm_name"; exit 1; }; \
+	done; \
+	echo ""; \
+	echo "✓ EC binary downloaded to all nodes"
+
+.PHONY: vm-expose-ports
+vm-expose-ports:
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	echo "Exposing admin console port $(ADMIN_CONSOLE_PORT) on node-1..."; \
+	replicated vm port expose $$vm_id --port $(ADMIN_CONSOLE_PORT); \
+	echo ""; \
+	echo "✓ Ports exposed successfully"; \
+	echo ""; \
+	echo "Admin Console URL:"; \
+	hostname=$$(replicated vm port ls $$vm_id --output json | jq -r '.[] | select(.upstream_port == $(ADMIN_CONSOLE_PORT)) | .hostname'); \
+	echo "  https://$$hostname"
+
+.PHONY: vm-ec-install
+vm-ec-install:
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
+	echo "Installing Embedded Cluster on $(CLUSTER_PREFIX)-node-1..."; \
+	echo ""; \
+	ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
+		sudo ./storagebox install \
+			--admin-console-password $(ADMIN_PASSWORD) \
+			--license ~/license.yaml \
+	" && \
+	echo "" && \
+	echo "✓ Embedded Cluster installed successfully" && \
+	echo "" && \
+	echo "Admin Console:" && \
+	hostname=$$(replicated vm port ls $$vm_id --output json | jq -r '.[] | select(.upstream_port == $(ADMIN_CONSOLE_PORT)) | .hostname'); \
+	echo "  URL:      https://$$hostname" && \
+	echo "  Password: $(ADMIN_PASSWORD)"
+
+
+# ============================================================================
 # Helper Targets
 # ============================================================================
 
@@ -310,6 +471,16 @@ help:
 	@echo "  make deploy-status            - Check deployment status"
 	@echo "  make deploy-logs              - View pod logs"
 	@echo ""
+	@echo "CMX VM Management (Embedded Cluster Testing):"
+	@echo "  make vm-1node                 - Create single-node CMX VM"
+	@echo "  make vm-3node                 - Create 3-node CMX VM cluster"
+	@echo "  make vm-list                  - List all CMX VMs"
+	@echo "  make vm-status                - Show VM status for cluster"
+	@echo "  make vm-cleanup               - Delete all VMs for cluster"
+	@echo "  make vm-download-ec           - Download EC binary to all nodes"
+	@echo "  make vm-expose-ports          - Expose admin console port"
+	@echo "  make vm-ec-install            - Install Embedded Cluster on node-1"
+	@echo ""
 	@echo "Workflows:"
 	@echo "  make test-cycle               - Full test cycle: release + cluster + ready"
 	@echo ""
@@ -325,7 +496,15 @@ help:
 	@echo "  TTL                           - Cluster TTL (default: 4h)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  # Regular cluster testing (KOTS)"
 	@echo "  make cluster-create CLUSTER_NAME=my-test"
 	@echo "  make deploy CLUSTER_NAME=my-test CHANNEL=test-v018-k8s131"
 	@echo "  make cluster-status CLUSTER_NAME=my-test"
 	@echo "  make cluster-rm CLUSTER_NAME=my-test"
+	@echo ""
+	@echo "  # Embedded Cluster testing (CMX VM)"
+	@echo "  make vm-1node CLUSTER_PREFIX=my-test"
+	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test"
+	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
+	@echo "  make vm-ec-install CLUSTER_PREFIX=my-test"
+	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"
