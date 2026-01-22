@@ -29,8 +29,8 @@ DISK_SIZE ?= 50
 TTL ?= 4h
 
 # CMX VM configuration (for Embedded Cluster testing)
-VM_DISTRIBUTION ?= ubuntu-22.04
-VM_VERSION ?= latest
+VM_DISTRIBUTION ?= ubuntu
+VM_VERSION ?= 22.04
 ADMIN_CONSOLE_PORT ?= 30000
 ADMIN_PASSWORD ?= password
 EC_VERSION := $(shell grep 'version:' $(KOTS_DIR)/ec.yaml | head -1 | awk '{print $$2}')
