@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.16.0
+    chartVersion: 0.18.0
   values:
     replicated:
       enabled: true
