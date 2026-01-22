@@ -286,7 +286,9 @@ vm-1node:
 	@echo "Next steps:"
 	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
 	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  3. Install EC:   make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  3. Install EC:"
+	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
 
 .PHONY: vm-3node
 vm-3node:
@@ -324,7 +326,9 @@ vm-3node:
 	@echo "Next steps:"
 	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
 	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  3. Install EC:   make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  3. Install EC:"
+	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
 
 .PHONY: vm-list
 vm-list:
@@ -393,6 +397,40 @@ vm-expose-ports:
 	hostname=$$(replicated vm port ls $$vm_id --output json | jq -r '.[] | select(.upstream_port == $(ADMIN_CONSOLE_PORT)) | .hostname'); \
 	echo "  https://$$hostname"
 
+.PHONY: vm-copy-license
+vm-copy-license:
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
+	echo "Getting license for storagebox..."; \
+	customer_id=$$(replicated customer ls --output json | jq -r '.[0].id'); \
+	if [ -z "$$customer_id" ]; then \
+		echo "ERROR: No customers found. Create a customer first."; \
+		exit 1; \
+	fi; \
+	replicated customer download-license --customer "$$customer_id" > /tmp/storagebox-license.yaml; \
+	echo "Copying license to $(CLUSTER_PREFIX)-node-1..."; \
+	ssh_host=$$(echo $$ssh_endpoint | sed 's|ssh://||' | sed 's|:| |'); \
+	scp -o StrictHostKeyChecking=no -P $$(echo $$ssh_host | awk '{print $$2}') /tmp/storagebox-license.yaml $$(echo $$ssh_host | awk '{print $$1}'):license.yaml; \
+	rm /tmp/storagebox-license.yaml; \
+	echo "✓ License copied successfully"
+
+.PHONY: vm-copy-config
+vm-copy-config:
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
+	echo "Copying config values to $(CLUSTER_PREFIX)-node-1..."; \
+	ssh_host=$$(echo $$ssh_endpoint | sed 's|ssh://||' | sed 's|:| |'); \
+	scp -o StrictHostKeyChecking=no -P $$(echo $$ssh_host | awk '{print $$2}') $(CONFIG_VALUES_FILE) $$(echo $$ssh_host | awk '{print $$1}'):config-values.yaml; \
+	echo "✓ Config values copied successfully"
+
 .PHONY: vm-ec-install
 vm-ec-install:
 	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
@@ -401,7 +439,7 @@ vm-ec-install:
 		exit 1; \
 	fi; \
 	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
-	echo "Installing Embedded Cluster on $(CLUSTER_PREFIX)-node-1..."; \
+	echo "Installing Embedded Cluster on $(CLUSTER_PREFIX)-node-1 (UI mode)..."; \
 	echo ""; \
 	ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
 		sudo ./storagebox install \
@@ -415,6 +453,33 @@ vm-ec-install:
 	hostname=$$(replicated vm port ls $$vm_id --output json | jq -r '.[] | select(.upstream_port == $(ADMIN_CONSOLE_PORT)) | .hostname'); \
 	echo "  URL:      https://$$hostname" && \
 	echo "  Password: $(ADMIN_PASSWORD)"
+
+.PHONY: vm-ec-install-headless
+vm-ec-install-headless: vm-copy-license vm-copy-config
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
+	echo "Installing Embedded Cluster on $(CLUSTER_PREFIX)-node-1 (headless mode)..."; \
+	echo "Using config values from: $(CONFIG_VALUES_FILE)"; \
+	echo ""; \
+	ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
+		sudo ./storagebox install \
+			--admin-console-password $(ADMIN_PASSWORD) \
+			--license ~/license.yaml \
+			--config-values ~/config-values.yaml \
+	" && \
+	echo "" && \
+	echo "✓ Embedded Cluster installed successfully (headless)" && \
+	echo "" && \
+	echo "Admin Console:" && \
+	hostname=$$(replicated vm port ls $$vm_id --output json | jq -r '.[] | select(.upstream_port == $(ADMIN_CONSOLE_PORT)) | .hostname'); \
+	echo "  URL:      https://$$hostname" && \
+	echo "  Password: $(ADMIN_PASSWORD)" && \
+	echo "" && \
+	echo "Note: Application configured with values from $(CONFIG_VALUES_FILE)"
 
 
 # ============================================================================
@@ -479,7 +544,10 @@ help:
 	@echo "  make vm-cleanup               - Delete all VMs for cluster"
 	@echo "  make vm-download-ec           - Download EC binary to all nodes"
 	@echo "  make vm-expose-ports          - Expose admin console port"
-	@echo "  make vm-ec-install            - Install Embedded Cluster on node-1"
+	@echo "  make vm-copy-license          - Copy license to node-1"
+	@echo "  make vm-copy-config           - Copy config values to node-1"
+	@echo "  make vm-ec-install            - Install EC on node-1 (UI mode)"
+	@echo "  make vm-ec-install-headless   - Install EC on node-1 (headless)"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make test-cycle               - Full test cycle: release + cluster + ready"
@@ -502,9 +570,16 @@ help:
 	@echo "  make cluster-status CLUSTER_NAME=my-test"
 	@echo "  make cluster-rm CLUSTER_NAME=my-test"
 	@echo ""
-	@echo "  # Embedded Cluster testing (CMX VM)"
+	@echo "  # Embedded Cluster testing (CMX VM) - UI mode"
 	@echo "  make vm-1node CLUSTER_PREFIX=my-test"
 	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test"
 	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
 	@echo "  make vm-ec-install CLUSTER_PREFIX=my-test"
+	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"
+	@echo ""
+	@echo "  # Embedded Cluster testing (CMX VM) - Headless mode"
+	@echo "  make vm-1node CLUSTER_PREFIX=my-test"
+	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test"
+	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
+	@echo "  make vm-ec-install-headless CLUSTER_PREFIX=my-test"
 	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"
