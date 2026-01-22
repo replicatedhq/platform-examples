@@ -23,6 +23,7 @@ This is designed for EC deployments where cluster-scope operators (MinIO, Cloudn
 
 ## Build and Release Commands
 
+### Build Commands
 ```bash
 # Update Helm chart dependencies
 make update-dependencies
@@ -38,7 +39,75 @@ make add-helm-repositories
 
 # Create a Replicated release and promote to Unstable channel
 make release
+
+# Show all available commands
+make help
 ```
+
+### Deployment Commands
+
+#### Cluster Management
+```bash
+# Create a single-node test cluster (default: k3s 1.31)
+make cluster-create
+
+# Create a cluster with custom settings
+make cluster-create CLUSTER_NAME=my-test DISTRIBUTION=k3s K8S_VERSION=1.31
+
+# List all active clusters
+make cluster-list
+
+# Get kubeconfig for a cluster
+make cluster-kubeconfig CLUSTER_NAME=my-test
+
+# Check cluster status and pods
+make cluster-status CLUSTER_NAME=my-test
+
+# Delete a cluster
+make cluster-rm CLUSTER_NAME=my-test
+```
+
+#### Application Deployment
+```bash
+# Deploy storagebox to a cluster
+make deploy CLUSTER_NAME=my-test CHANNEL=test-v018-k8s131
+
+# Check deployment status
+make deploy-status CLUSTER_NAME=my-test
+
+# View pod logs
+make deploy-logs CLUSTER_NAME=my-test
+
+# View specific pod logs
+make deploy-logs CLUSTER_NAME=my-test POD=cassandra-0
+```
+
+#### Complete Test Workflow
+```bash
+# Run full test cycle: build, release, create cluster, get kubeconfig
+make test-cycle
+
+# Run test cycle with custom channel
+make test-cycle CHANNEL=test-v018-k8s131
+
+# Follow the printed instructions to deploy and test
+```
+
+### Configuration Variables
+
+All commands support these environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLUSTER_NAME` | storagebox-test-\<timestamp\> | Cluster name |
+| `CLUSTER_PREFIX` | storagebox | Cluster name prefix for test-cycle |
+| `CHANNEL` | test-v018-k8s131 | Release channel |
+| `DISTRIBUTION` | k3s | Kubernetes distribution |
+| `K8S_VERSION` | 1.31 | Kubernetes version |
+| `INSTANCE_TYPE` | r1.medium | VM instance type |
+| `NODE_COUNT` | 1 | Number of nodes (single-node default) |
+| `DISK_SIZE` | 50 | Disk size in GB |
+| `TTL` | 4h | Cluster time-to-live |
 
 ## Project Architecture
 
@@ -103,6 +172,119 @@ Chart version is tracked in `charts/storagebox/Chart.yaml`. The Makefile automat
 
 ## Development Guidelines
 
+### **CRITICAL: The Four-Way Contract**
+
+**This is MANDATORY for all work in this repository, by the main Claude process and all subagents.**
+
+A complex contract must be maintained between four configuration sources. Breaking this contract will cause deployment failures, CI/CD failures, and runtime configuration errors.
+
+#### The Contract
+
+```
+development-values.yaml <-> KOTS Config <-> KOTS HelmChart <-> charts/values.yaml
+        (1)                     (2)              (3)                   (4)
+```
+
+1. **`development-values.yaml`** (at repo root)
+   - Kind: `ConfigValues` (kots.io/v1beta1)
+   - Purpose: Represents KOTS Config values for headless installations and CI/CD
+   - Contains: Default values that would be generated from KOTS Config screen
+   - Required: Must exist and stay synchronized with KOTS Config defaults
+
+2. **`kots/kots-config.yaml`**
+   - Kind: `Config` (kots.io/v1beta1)
+   - Purpose: Defines the Admin Console configuration UI
+   - Contains: User-facing config items (text fields, booleans, selects, files)
+   - Required: All config items must have defaults that match development-values.yaml
+
+3. **`kots/storagebox-chart.yaml`**
+   - Kind: `HelmChart` (kots.io/v1beta2)
+   - Purpose: Source of truth for Helm chart values in KOTS deployment
+   - Contains: Values with `repl{{ ConfigOption "..." }}` template functions
+   - Required: Must accurately represent the structure of `charts/storagebox/values.yaml`
+   - **Critical**: Any change to chart values schema MUST be reflected here
+
+4. **`charts/storagebox/values.yaml`**
+   - Purpose: Base Helm chart values schema
+   - Contains: Default values for all Helm chart parameters
+   - Required: Structure must match what HelmChart kind expects
+
+#### Contract Rules
+
+**Rule 1: Chart Values Changes Require HelmChart Updates**
+When you modify `charts/storagebox/values.yaml`:
+- You MUST update `kots/storagebox-chart.yaml` to reflect the new structure
+- You MUST update `kots/kots-config.yaml` if user input is required
+- You MUST update `development-values.yaml` with appropriate ConfigValue defaults
+
+**Rule 2: KOTS Config Changes Require Full Sync**
+When you modify `kots/kots-config.yaml`:
+- You MUST update `development-values.yaml` with new config item defaults
+- You MUST update `kots/storagebox-chart.yaml` to use the new ConfigOption
+- You MUST verify the chart values.yaml supports the change
+
+**Rule 3: Development Values Must Match Config Defaults**
+`development-values.yaml` must contain:
+- Every config item from `kots-config.yaml`
+- Default values that match the `default:` field in kots-config.yaml
+- Structure that allows headless installation via `kubectl kots install --config-values`
+
+**Rule 4: HelmChart is Source of Truth**
+The `kots/storagebox-chart.yaml` file is the authoritative source for:
+- What values the Helm chart receives during KOTS installation
+- How KOTS Config options map to Helm values
+- What structure the chart must support
+
+#### Prior Art Reference
+
+See: `/Users/ada/src/github.com/progress-platform-services/chef-replicated/chef-360`
+- `development-config-values.yaml` - Example ConfigValues structure
+- `manifests/kots-config.yaml` - Example Config with extensive options
+- `manifests/kots-helm-chart.yaml` - Example HelmChart with complex mappings
+
+#### Validation Checklist
+
+Before committing any configuration changes, verify:
+
+- [ ] `development-values.yaml` exists and contains all config items
+- [ ] All KOTS Config items have defaults matching development-values.yaml
+- [ ] All `repl{{ ConfigOption "..." }}` references exist in kots-config.yaml
+- [ ] HelmChart values structure matches charts/values.yaml
+- [ ] Run `make validate-config` to check contract integrity
+- [ ] Test with `make test-cycle` using development-values.yaml
+
+#### Example: Adding a New Configuration
+
+When adding a new config option (e.g., Cassandra replication factor):
+
+**1. Update `kots/kots-config.yaml`:**
+```yaml
+- name: cassandra_replication_factor
+  title: Cassandra Replication Factor
+  type: text
+  default: "3"
+  required: true
+```
+
+**2. Update `kots/storagebox-chart.yaml`:**
+```yaml
+cassandra:
+  replicaCount: repl{{ ConfigOption "cassandra_replication_factor" }}
+```
+
+**3. Update `development-values.yaml`:**
+```yaml
+cassandra_replication_factor:
+  default: "3"
+  value: "3"
+```
+
+**4. Verify `charts/storagebox/values.yaml` supports it:**
+```yaml
+cassandra:
+  replicaCount: 3
+```
+
 ### Project Hygiene
 
 **Version synchronization**: When updating Helm chart dependencies:
@@ -149,6 +331,8 @@ When updating to major versions:
 
 ## Testing
 
+### Local Validation
+
 Validate Helm templates locally:
 ```bash
 helm template storagebox ./charts/storagebox --debug
@@ -164,6 +348,148 @@ Validate KOTS manifests:
 # Uses kots-lint.yaml for linting rules
 replicated release lint --yaml-dir ./kots
 ```
+
+### Deployment Testing Workflow
+
+#### Quick Start - Full Test Cycle
+
+The fastest way to test is using the `test-cycle` target which automates the entire workflow:
+
+```bash
+# This will:
+# 1. Clean, package, and create a release
+# 2. Create a test cluster
+# 3. Get kubeconfig
+# 4. Print next steps for deployment
+make test-cycle CHANNEL=test-v018-k8s131
+```
+
+After the cluster is ready, follow the printed instructions:
+```bash
+# Deploy the application
+make deploy CLUSTER_NAME=storagebox-0.18.0 CHANNEL=test-v018-k8s131
+
+# Check status
+make cluster-status CLUSTER_NAME=storagebox-0.18.0
+
+# View logs
+make deploy-logs CLUSTER_NAME=storagebox-0.18.0
+
+# Clean up when done
+make cluster-rm CLUSTER_NAME=storagebox-0.18.0
+```
+
+#### Manual Step-by-Step Testing
+
+For more control over the testing process:
+
+**1. Create and promote a release:**
+```bash
+make clean
+make package-and-update
+replicated release create --yaml-dir ./kots --promote test-v018-k8s131 --version "0.18.0"
+```
+
+**2. Create a test cluster:**
+```bash
+make cluster-create CLUSTER_NAME=my-test-cluster
+```
+
+**3. Wait for cluster to be ready (1-2 minutes), then get kubeconfig:**
+```bash
+make cluster-kubeconfig CLUSTER_NAME=my-test-cluster
+```
+
+**4. Deploy the application:**
+```bash
+make deploy CLUSTER_NAME=my-test-cluster CHANNEL=test-v018-k8s131
+```
+
+**5. Verify deployment:**
+```bash
+# Check overall status
+make cluster-status CLUSTER_NAME=my-test-cluster
+
+# Check KOTS app status
+make deploy-status CLUSTER_NAME=my-test-cluster
+
+# View logs
+make deploy-logs CLUSTER_NAME=my-test-cluster
+```
+
+**6. Test storage backends:**
+
+Set your KUBECONFIG and test each component:
+```bash
+export KUBECONFIG=~/.kube/my-test-cluster-config
+
+# Test Cassandra
+kubectl get pods -l app.kubernetes.io/name=cassandra
+kubectl logs cassandra-0
+
+# Test PostgreSQL
+kubectl get clusters.postgresql.cnpg.io
+kubectl get pods -l cnpg.io/cluster
+
+# Test MinIO
+kubectl get tenant -n default
+kubectl get pods -l v1.min.io/tenant
+
+# Test NFS
+kubectl get pods -l app=nfs-server
+```
+
+**7. Clean up:**
+```bash
+make cluster-rm CLUSTER_NAME=my-test-cluster
+```
+
+### Testing Different Configurations
+
+**Test with different Kubernetes versions:**
+```bash
+make cluster-create CLUSTER_NAME=test-k8s-130 K8S_VERSION=1.30
+make cluster-create CLUSTER_NAME=test-k8s-131 K8S_VERSION=1.31
+```
+
+**Test with different distributions:**
+```bash
+make cluster-create CLUSTER_NAME=test-k3s DISTRIBUTION=k3s
+make cluster-create CLUSTER_NAME=test-kind DISTRIBUTION=kind
+make cluster-create CLUSTER_NAME=test-eks DISTRIBUTION=eks
+```
+
+**Test different channels:**
+```bash
+make deploy CLUSTER_NAME=my-test CHANNEL=test-v018-k8s131
+make deploy CLUSTER_NAME=my-test CHANNEL=test-v017
+make deploy CLUSTER_NAME=my-test CHANNEL=Unstable
+```
+
+### Cluster Management Tips
+
+**List all active clusters:**
+```bash
+make cluster-list
+```
+
+**Monitor cluster resources:**
+```bash
+# Get kubeconfig if you don't have it
+make cluster-kubeconfig CLUSTER_NAME=my-test
+
+# Set KUBECONFIG and use kubectl directly
+export KUBECONFIG=~/.kube/my-test-config
+kubectl get nodes
+kubectl get pods -A
+kubectl top nodes
+kubectl top pods -A
+```
+
+**Cluster TTL (Time-to-Live):**
+- Default is 4 hours
+- Clusters are automatically deleted after TTL expires
+- Extend if needed: `make cluster-create TTL=8h`
 
 ## Common Issues and Troubleshooting
 
