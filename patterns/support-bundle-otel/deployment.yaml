@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+spec:
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      volumes:
+      - name: otel-data
+        emptyDir: {}
+      - name: otel-config
+        configMap:
+          name: otel-collector-config
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.91.0
+        command:
+          - "/otelcol-contrib"
+          - "--config=/etc/otel-config/config.yaml"
+        volumeMounts:
+        - name: otel-config
+          mountPath: /etc/otel-config
+        - name: otel-data
+          mountPath: /var/log/otel
+        ports:
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      - name: file-sidecar
+        image: busybox:1.35
+        command:
+          - "sh"
+          - "-c"
+          - "while true; do sleep 60; done"
+        volumeMounts:
+        - name: otel-data
+          mountPath: /var/log/otel

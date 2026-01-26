@@ -1,0 +1,62 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: otel-support-bundle
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources: {}
+
+    # Copy telemetry files from the file-sidecar container
+    - copy:
+        name: otel-traces
+        selector:
+          - app=otel-collector
+        namespace: otel-system
+        containerPath: /var/log/otel/traces.jsonl
+        containerName: file-sidecar
+
+    - copy:
+        name: otel-metrics
+        selector:
+          - app=otel-collector
+        namespace: otel-system
+        containerPath: /var/log/otel/metrics.jsonl
+        containerName: file-sidecar
+
+    - copy:
+        name: otel-logs
+        selector:
+          - app=otel-collector
+        namespace: otel-system
+        containerPath: /var/log/otel/logs.jsonl
+        containerName: file-sidecar
+
+    # Verify files exist in the pod
+    - exec:
+        name: otel-file-listing
+        selector:
+          - app=otel-collector
+        namespace: otel-system
+        containerName: file-sidecar
+        command: ["ls"]
+        args: ["-la", "/var/log/otel/"]
+        timeout: 10s
+
+    # Get collector logs for debugging
+    - logs:
+        name: otel-collector-logs
+        selector:
+          - app=otel-collector
+        namespace: otel-system
+        containerName: otel-collector
+        limits:
+          maxAge: 24h
+          maxLines: 1000
+
+    # Test HTTP connectivity to the collector
+    - http:
+        collectorName: otel-health
+        get:
+          url: http://otel-collector.otel-system.svc.cluster.local:4318
+          timeout: 10s
