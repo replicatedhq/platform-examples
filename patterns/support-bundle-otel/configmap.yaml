@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+        send_batch_max_size: 2048
+
+    exporters:
+      # File exporter for traces
+      file/traces:
+        path: /var/log/otel/traces.jsonl
+        format: json
+
+      # File exporter for metrics
+      file/metrics:
+        path: /var/log/otel/metrics.jsonl
+        format: json
+
+      # File exporter for logs
+      file/logs:
+        path: /var/log/otel/logs.jsonl
+        format: json
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [file/traces]
+
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [file/metrics]
+
+        logs:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [file/logs]
