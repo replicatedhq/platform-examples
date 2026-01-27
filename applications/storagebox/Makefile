@@ -33,11 +33,13 @@ VM_DISTRIBUTION ?= ubuntu
 VM_VERSION ?= 22.04
 ADMIN_CONSOLE_PORT ?= 30000
 ADMIN_PASSWORD ?= password
-EC_VERSION := $(shell grep 'version:' $(KOTS_DIR)/ec.yaml | head -1 | awk '{print $$2}')
-EC_DOWNLOAD_URL ?= https://get.embeddedcluster.com/$(EC_VERSION)/$(EC_VERSION).tgz
-EC_AUTH_TOKEN ?=
-EC_ARCHIVE_NAME ?= storagebox-ec.tgz
 CONFIG_VALUES_FILE ?= development-values.yaml
+
+# EC binary download configuration
+APP_SLUG := storagebox
+EC_BASE_URL := https://app.xyyzx.net/embedded
+CUSTOMER_NAME ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "default")
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
 # Function to extract version from Chart.yaml
 define get_storagebox_chart_version
@@ -53,6 +55,26 @@ endef
 # Function to get chart version
 define get_helm_chart_version
     helm show chart $(1) | grep '^version:' | cut -d ' ' -f 2
+endef
+
+# Function to get customer ID by name
+define get_customer_id
+	replicated customer ls --app $(APP_SLUG) --output json | jq -r '.[] | select(.name == "$(1)") | .id' | head -1
+endef
+
+# Function to get customer's license ID
+define get_license_id
+	replicated customer download-license --app $(APP_SLUG) --customer "$(1)" | grep "licenseID:" | awk '{print $$2}'
+endef
+
+# Function to get customer's assigned channel
+define get_customer_channel
+	replicated customer ls --app $(APP_SLUG) --output json | jq -r --arg id "$(1)" '.[] | select(.id == $$id) | .channels[0].name' | head -1
+endef
+
+# Function to get customer's assigned channel slug (for EC binary download URLs)
+define get_customer_channel_slug
+	replicated customer ls --app $(APP_SLUG) --output json | jq -r --arg id "$(1)" '.[] | select(.id == $$id) | .channels[0].channelSlug' | head -1
 endef
 
 # Target to package charts and update versions
@@ -150,6 +172,70 @@ release: package-and-update
 	@chart_version=$$(eval $(call get_storagebox_chart_version)); \
 	echo "Creating a new release with Replicated using version $$chart_version"; \
 	replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
+
+
+# ============================================================================
+# Customer & License Management
+# ============================================================================
+
+.PHONY: customer-list
+customer-list:
+	@echo "Listing all customers:"
+	@replicated customer ls --app $(APP_SLUG)
+
+.PHONY: customer-create
+customer-create:
+	@if [ -z "$(CUSTOMER_NAME)" ]; then \
+		echo "Error: CUSTOMER_NAME is required"; \
+		echo "Usage: make customer-create CUSTOMER_NAME=<name> CHANNEL=<channel>"; \
+		exit 1; \
+	fi; \
+	if [ -z "$(CHANNEL)" ]; then \
+		echo "Error: CHANNEL is required"; \
+		echo "Usage: make customer-create CUSTOMER_NAME=<name> CHANNEL=<channel>"; \
+		exit 1; \
+	fi; \
+	echo "Creating customer '$(CUSTOMER_NAME)' assigned to channel '$(CHANNEL)'..."; \
+	replicated customer create --app $(APP_SLUG) \
+		--name "$(CUSTOMER_NAME)" \
+		--channel "$(CHANNEL)" \
+		--type dev \
+		--expires-in 720h; \
+	echo "✓ Customer created successfully"
+
+.PHONY: customer-info
+customer-info:
+	@customer_id=$$(eval $(call get_customer_id,$(CUSTOMER_NAME))); \
+	if [ -z "$$customer_id" ]; then \
+		echo "ERROR: Customer '$(CUSTOMER_NAME)' not found"; \
+		echo "Available customers:"; \
+		replicated customer ls --app $(APP_SLUG) --output json | jq -r '.[].name' | sed 's/^/  - /'; \
+		exit 1; \
+	fi; \
+	echo "Customer: $(CUSTOMER_NAME)"; \
+	echo "ID: $$customer_id"; \
+	license_id=$$(eval $(call get_license_id,$$customer_id)); \
+	echo "License ID: $$license_id"; \
+	channel=$$(eval $(call get_customer_channel,$$customer_id)); \
+	echo "Channel: $$channel"
+
+.PHONY: customer-ensure
+customer-ensure:
+	@echo "Ensuring customer exists for: $(CUSTOMER_NAME)"
+	@customer_id=$$(eval $(call get_customer_id,$(CUSTOMER_NAME))); \
+	if [ -z "$$customer_id" ]; then \
+		echo "Customer '$(CUSTOMER_NAME)' not found"; \
+		if [ -z "$(CHANNEL)" ]; then \
+			echo "ERROR: CHANNEL is required to create new customer"; \
+			echo "Usage: make customer-ensure CUSTOMER_NAME=<name> CHANNEL=<channel>"; \
+			exit 1; \
+		fi; \
+		echo "Creating customer '$(CUSTOMER_NAME)' on channel '$(CHANNEL)'..."; \
+		$(MAKE) customer-create CUSTOMER_NAME="$(CUSTOMER_NAME)" CHANNEL="$(CHANNEL)"; \
+	else \
+		echo "✓ Customer '$(CUSTOMER_NAME)' already exists"; \
+		$(MAKE) customer-info CUSTOMER_NAME="$(CUSTOMER_NAME)"; \
+	fi
 
 
 # ============================================================================
@@ -284,11 +370,18 @@ vm-1node:
 	@echo "✓ VM created successfully"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  3. Install EC:"
-	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  1. Ensure customer exists:"
+	@echo "     make customer-ensure CUSTOMER_NAME=$(GIT_BRANCH) CHANNEL=<channel-name>"
+	@echo ""
+	@echo "  2. Download EC binary:"
+	@echo "     make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
+	@echo ""
+	@echo "  3. Expose ports:"
+	@echo "     make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo ""
+	@echo "  4. Install EC:"
+	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
+	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
 
 .PHONY: vm-3node
 vm-3node:
@@ -324,11 +417,18 @@ vm-3node:
 	@echo "✓ 3-node cluster created successfully"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Download EC: make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  2. Expose ports: make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "  3. Install EC:"
-	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
-	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo "  1. Ensure customer exists:"
+	@echo "     make customer-ensure CUSTOMER_NAME=$(GIT_BRANCH) CHANNEL=<channel-name>"
+	@echo ""
+	@echo "  2. Download EC binary:"
+	@echo "     make vm-download-ec CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
+	@echo ""
+	@echo "  3. Expose ports:"
+	@echo "     make vm-expose-ports CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+	@echo ""
+	@echo "  4. Install EC:"
+	@echo "     - UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
+	@echo "     - Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=<customer>"
 
 .PHONY: vm-list
 vm-list:
@@ -352,10 +452,45 @@ vm-cleanup:
 
 .PHONY: vm-download-ec
 vm-download-ec:
-	@echo "Downloading Embedded Cluster binary to all nodes"
-	@echo "EC Version: $(EC_VERSION)"
-	@echo "Download URL: $(EC_DOWNLOAD_URL)"
-	@vm_list=$$(replicated vm ls --output json | jq -r '.[] | select(.name | startswith("$(CLUSTER_PREFIX)-")) | select(.status == "running") | .name'); \
+	@echo "=== Embedded Cluster Binary Download ==="
+	@echo "Customer: $(CUSTOMER_NAME)"
+	@echo "Git Branch: $(GIT_BRANCH)"
+	@echo ""
+	@customer_id=$$(eval $(call get_customer_id,$(CUSTOMER_NAME))); \
+	if [ -z "$$customer_id" ]; then \
+		echo "ERROR: Customer '$(CUSTOMER_NAME)' not found"; \
+		echo ""; \
+		echo "Available customers:"; \
+		replicated customer ls --app $(APP_SLUG) --output json | jq -r '.[].name' | sed 's/^/  - /'; \
+		echo ""; \
+		echo "To create a customer for this branch:"; \
+		echo "  make customer-create CUSTOMER_NAME=$(CUSTOMER_NAME) CHANNEL=<channel-name>"; \
+		exit 1; \
+	fi; \
+	echo "Found customer ID: $$customer_id"; \
+	echo ""; \
+	license_id=$$(eval $(call get_license_id,$$customer_id)); \
+	if [ -z "$$license_id" ]; then \
+		echo "ERROR: Failed to get license ID for customer '$(CUSTOMER_NAME)'"; \
+		exit 1; \
+	fi; \
+	echo "License ID: $$license_id"; \
+	echo ""; \
+	channel=$$(eval $(call get_customer_channel,$$customer_id)); \
+	channel_slug=$$(eval $(call get_customer_channel_slug,$$customer_id)); \
+	if [ -z "$$channel" ]; then \
+		echo "ERROR: Customer '$(CUSTOMER_NAME)' is not assigned to any channel"; \
+		echo "Assign customer to a channel in vendor portal"; \
+		exit 1; \
+	fi; \
+	echo "Assigned Channel: $$channel ($$channel_slug)"; \
+	echo ""; \
+	download_url="$(EC_BASE_URL)/$(APP_SLUG)/$$channel_slug"; \
+	archive_name="$(APP_SLUG)-$$channel_slug.tgz"; \
+	echo "Download URL: $$download_url"; \
+	echo "Archive name: $$archive_name"; \
+	echo ""; \
+	vm_list=$$(replicated vm ls --output json | jq -r '.[] | select(.name | startswith("$(CLUSTER_PREFIX)-")) | select(.status == "running") | .name'); \
 	if [ -z "$$vm_list" ]; then \
 		echo "ERROR: No running VMs found with prefix '$(CLUSTER_PREFIX)'"; \
 		exit 1; \
@@ -369,16 +504,17 @@ vm-download-ec:
 		ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
 		ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
 			cd ~ && \
-			echo 'Downloading EC binary...' && \
-			curl -fsSL '$(EC_DOWNLOAD_URL)' \
-				$(if $(EC_AUTH_TOKEN),-H 'Authorization: $(EC_AUTH_TOKEN)') \
-				-o $(EC_ARCHIVE_NAME) && \
-			tar -xzf $(EC_ARCHIVE_NAME) && \
+			echo 'Downloading EC binary from: $$download_url' && \
+			curl -fsSL '$$download_url' \
+				-H 'Authorization: $$license_id' \
+				-o '$$archive_name' && \
+			echo 'Extracting archive...' && \
+			tar -xzf '$$archive_name' && \
 			chmod +x storagebox && \
 			echo '✓ EC binary downloaded and extracted' \
 		" || { echo "ERROR: Failed to download to $$vm_name"; exit 1; }; \
+		echo ""; \
 	done; \
-	echo ""; \
 	echo "✓ EC binary downloaded to all nodes"
 
 .PHONY: vm-expose-ports
@@ -399,20 +535,38 @@ vm-expose-ports:
 
 .PHONY: vm-copy-license
 vm-copy-license:
+	@echo "=== Copying License to VM ==="
+	@echo "Customer: $(CUSTOMER_NAME)"
+	@echo ""
+	@# Get customer ID
+	@customer_id=$$(eval $(call get_customer_id,$(CUSTOMER_NAME))); \
+	if [ -z "$$customer_id" ]; then \
+		echo "ERROR: Customer '$(CUSTOMER_NAME)' not found"; \
+		echo ""; \
+		echo "Available customers:"; \
+		replicated customer ls --app $(APP_SLUG) --output json | jq -r '.[].name' | sed 's/^/  - /'; \
+		echo ""; \
+		echo "To create a customer:"; \
+		echo "  make customer-create CUSTOMER_NAME=$(CUSTOMER_NAME) CHANNEL=<channel-name>"; \
+		exit 1; \
+	fi; \
+	echo "Found customer ID: $$customer_id"; \
+	echo ""; \
+	@# Get VM info
 	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
 	if [ -z "$$vm_id" ]; then \
 		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
 		exit 1; \
 	fi; \
+	echo "Target VM: $(CLUSTER_PREFIX)-node-1"; \
+	echo ""; \
+	@# Download and copy license
+	@customer_id=$$(eval $(call get_customer_id,$(CUSTOMER_NAME))); \
+	vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
 	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id); \
-	echo "Getting license for storagebox..."; \
-	customer_id=$$(replicated customer ls --output json | jq -r '.[0].id'); \
-	if [ -z "$$customer_id" ]; then \
-		echo "ERROR: No customers found. Create a customer first."; \
-		exit 1; \
-	fi; \
-	replicated customer download-license --customer "$$customer_id" > /tmp/storagebox-license.yaml; \
-	echo "Copying license to $(CLUSTER_PREFIX)-node-1..."; \
+	echo "Downloading license..."; \
+	replicated customer download-license --app $(APP_SLUG) --customer "$$customer_id" > /tmp/storagebox-license.yaml; \
+	echo "Copying license to node-1..."; \
 	ssh_host=$$(echo $$ssh_endpoint | sed 's|ssh://||' | sed 's|:| |'); \
 	scp -o StrictHostKeyChecking=no -P $$(echo $$ssh_host | awk '{print $$2}') /tmp/storagebox-license.yaml $$(echo $$ssh_host | awk '{print $$1}'):license.yaml; \
 	rm /tmp/storagebox-license.yaml; \
@@ -486,6 +640,39 @@ vm-ec-install-headless: vm-copy-license vm-copy-config
 # Helper Targets
 # ============================================================================
 
+.PHONY: vm-ec-test-cycle
+vm-ec-test-cycle:
+	@echo "=== Full Embedded Cluster Test Cycle ==="
+	@echo "Customer: $(CUSTOMER_NAME)"
+	@echo "Channel: $(CHANNEL)"
+	@echo "Cluster prefix: $(CLUSTER_PREFIX)"
+	@echo ""
+	@if [ -z "$(CHANNEL)" ]; then \
+		echo "ERROR: CHANNEL is required"; \
+		echo "Usage: make vm-ec-test-cycle CUSTOMER_NAME=<name> CHANNEL=<channel> CLUSTER_PREFIX=<prefix>"; \
+		exit 1; \
+	fi
+	@echo "Step 1/6: Ensuring customer exists..."
+	@$(MAKE) customer-ensure CUSTOMER_NAME="$(CUSTOMER_NAME)" CHANNEL="$(CHANNEL)"
+	@echo ""
+	@echo "Step 2/6: Creating VM..."
+	@$(MAKE) vm-1node CLUSTER_PREFIX="$(CLUSTER_PREFIX)"
+	@echo ""
+	@echo "Step 3/6: Downloading EC binary..."
+	@$(MAKE) vm-download-ec CLUSTER_PREFIX="$(CLUSTER_PREFIX)" CUSTOMER_NAME="$(CUSTOMER_NAME)"
+	@echo ""
+	@echo "Step 4/6: Exposing admin console port..."
+	@$(MAKE) vm-expose-ports CLUSTER_PREFIX="$(CLUSTER_PREFIX)"
+	@echo ""
+	@echo "=== Test cycle preparation complete ==="
+	@echo ""
+	@echo "Next steps to complete installation:"
+	@echo "  UI mode:      make vm-ec-install CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=$(CUSTOMER_NAME)"
+	@echo "  Headless:     make vm-ec-install-headless CLUSTER_PREFIX=$(CLUSTER_PREFIX) CUSTOMER_NAME=$(CUSTOMER_NAME)"
+	@echo ""
+	@echo "To cleanup when done:"
+	@echo "  make vm-cleanup CLUSTER_PREFIX=$(CLUSTER_PREFIX)"
+
 .PHONY: test-cycle
 test-cycle: clean package-and-update
 	@echo "=== Starting full test cycle ==="
@@ -524,6 +711,12 @@ help:
 	@echo "  make validate-helmchart-refs  - Verify ConfigOption references"
 	@echo "  make validate-development-values - Verify development-values.yaml"
 	@echo ""
+	@echo "Customer & License Management:"
+	@echo "  make customer-list            - List all customers"
+	@echo "  make customer-create          - Create a new customer assigned to channel"
+	@echo "  make customer-info            - Show customer details (ID, license, channel)"
+	@echo "  make customer-ensure          - Create customer if it doesn't exist"
+	@echo ""
 	@echo "Cluster Management:"
 	@echo "  make cluster-create           - Create a single-node test cluster"
 	@echo "  make cluster-list             - List all clusters"
@@ -550,11 +743,13 @@ help:
 	@echo "  make vm-ec-install-headless   - Install EC on node-1 (headless)"
 	@echo ""
 	@echo "Workflows:"
-	@echo "  make test-cycle               - Full test cycle: release + cluster + ready"
+	@echo "  make test-cycle               - Full KOTS test cycle: release + cluster + ready"
+	@echo "  make vm-ec-test-cycle         - Full EC test cycle: customer + VM + download + expose"
 	@echo ""
 	@echo "Configuration (override with VARIABLE=value):"
 	@echo "  CLUSTER_NAME                  - Cluster name (default: storagebox-test-<timestamp>)"
 	@echo "  CLUSTER_PREFIX                - Cluster name prefix (default: storagebox)"
+	@echo "  CUSTOMER_NAME                 - Customer name (default: current git branch)"
 	@echo "  CHANNEL                       - Release channel (default: test-v018-k8s131)"
 	@echo "  DISTRIBUTION                  - K8s distribution (default: k3s)"
 	@echo "  K8S_VERSION                   - Kubernetes version (default: 1.31)"
@@ -564,22 +759,42 @@ help:
 	@echo "  TTL                           - Cluster TTL (default: 4h)"
 	@echo ""
 	@echo "Examples:"
+	@echo "  # Customer Management"
+	@echo "  make customer-list"
+	@echo "  make customer-create CUSTOMER_NAME=my-branch CHANNEL=test-my-feature"
+	@echo "  make customer-info CUSTOMER_NAME=my-branch"
+	@echo "  make customer-ensure CUSTOMER_NAME=my-branch CHANNEL=test-my-feature"
+	@echo ""
 	@echo "  # Regular cluster testing (KOTS)"
 	@echo "  make cluster-create CLUSTER_NAME=my-test"
 	@echo "  make deploy CLUSTER_NAME=my-test CHANNEL=test-v018-k8s131"
 	@echo "  make cluster-status CLUSTER_NAME=my-test"
 	@echo "  make cluster-rm CLUSTER_NAME=my-test"
 	@echo ""
-	@echo "  # Embedded Cluster testing (CMX VM) - UI mode"
+	@echo "  # Embedded Cluster testing (CMX VM) - Full workflow"
+	@echo "  # Step 1: Create or verify customer"
+	@echo "  make customer-ensure CUSTOMER_NAME=my-feature-branch CHANNEL=test-my-feature"
+	@echo ""
+	@echo "  # Step 2: Create VM"
 	@echo "  make vm-1node CLUSTER_PREFIX=my-test"
-	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test"
+	@echo ""
+	@echo "  # Step 3: Download EC binary (uses customer's license)"
+	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature-branch"
+	@echo ""
+	@echo "  # Step 4: Expose ports"
 	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
-	@echo "  make vm-ec-install CLUSTER_PREFIX=my-test"
+	@echo ""
+	@echo "  # Step 5: Install (UI or headless)"
+	@echo "  make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature-branch"
+	@echo "  # OR"
+	@echo "  make vm-ec-install-headless CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature-branch"
+	@echo ""
+	@echo "  # Step 6: Cleanup"
 	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"
 	@echo ""
-	@echo "  # Embedded Cluster testing (CMX VM) - Headless mode"
-	@echo "  make vm-1node CLUSTER_PREFIX=my-test"
-	@echo "  make vm-download-ec CLUSTER_PREFIX=my-test"
-	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
-	@echo "  make vm-ec-install-headless CLUSTER_PREFIX=my-test"
+	@echo "  # Embedded Cluster testing (CMX VM) - Automated workflow"
+	@echo "  make vm-ec-test-cycle CUSTOMER_NAME=my-feature CHANNEL=test-my-feature CLUSTER_PREFIX=my-test"
+	@echo "  # Then install:"
+	@echo "  make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature"
+	@echo "  # Cleanup:"
 	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"

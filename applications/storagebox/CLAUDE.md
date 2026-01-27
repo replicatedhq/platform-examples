@@ -101,6 +101,7 @@ All commands support these environment variables:
 |----------|---------|-------------|
 | `CLUSTER_NAME` | storagebox-test-\<timestamp\> | Cluster name |
 | `CLUSTER_PREFIX` | storagebox | Cluster name prefix for test-cycle |
+| `CUSTOMER_NAME` | current git branch | Customer name for EC testing |
 | `CHANNEL` | test-v018-k8s131 | Release channel |
 | `DISTRIBUTION` | k3s | Kubernetes distribution |
 | `K8S_VERSION` | 1.31 | Kubernetes version |
@@ -311,13 +312,130 @@ cassandra:
 - Do not promote to Stable/Beta without thorough testing
 - Default `make release` promotes to Unstable channel
 
-### VM Testing
+### Embedded Cluster VM Testing
 
-**Note**: VM testing targets are NOT available in this directory. VM infrastructure and testing workflows exist at a different level in the organization. To test Embedded Cluster installations:
+**IMPORTANT**: All VM testing uses CMX (Compatibility Matrix) VMs only. Never consider cloud resources.
 
-1. Create a test release: `replicated release create --yaml-dir ./kots --promote test-channel`
-2. Deploy using Replicated's compatibility matrix (CMX) or manual VM provisioning
-3. Use the install command from the vendor portal
+The Makefile provides comprehensive Embedded Cluster testing workflows with proper customer/license management.
+
+#### Customer Management Workflow
+
+**Key Concepts:**
+- Each customer is assigned to a single channel
+- EC binary downloads require a customer's license ID
+- For feature branch testing, create a customer with the same name as your git branch
+- Download URL pattern: `https://app.xyyzx.net/embedded/storagebox/{channel}`
+- Authorization header uses the customer's license ID
+
+**Customer Management Commands:**
+```bash
+# List all customers
+make customer-list
+
+# Create a new customer assigned to a channel
+make customer-create CUSTOMER_NAME=my-feature-branch CHANNEL=test-my-feature
+
+# Show customer details (ID, license ID, channel)
+make customer-info CUSTOMER_NAME=my-feature-branch
+
+# Create customer if it doesn't exist (recommended)
+make customer-ensure CUSTOMER_NAME=my-feature-branch CHANNEL=test-my-feature
+```
+
+#### Automated EC Test Cycle
+
+The fastest way to set up an EC test environment:
+
+```bash
+# Complete automated workflow (customer + VM + download + expose)
+make vm-ec-test-cycle CUSTOMER_NAME=my-feature CHANNEL=test-my-feature CLUSTER_PREFIX=my-test
+
+# Then install (UI or headless mode)
+make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+# OR
+make vm-ec-install-headless CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Cleanup when done
+make vm-cleanup CLUSTER_PREFIX=my-test
+```
+
+#### Manual Step-by-Step EC Testing
+
+For more control over the testing process:
+
+**Step 1: Ensure customer exists**
+```bash
+# Uses current git branch name by default
+make customer-ensure CUSTOMER_NAME=$(git rev-parse --abbrev-ref HEAD) CHANNEL=test-my-feature
+```
+
+**Step 2: Create CMX VM cluster**
+```bash
+# Single-node cluster
+make vm-1node CLUSTER_PREFIX=my-test
+
+# Three-node HA cluster
+make vm-3node CLUSTER_PREFIX=my-test
+```
+
+**Step 3: Download EC binary**
+```bash
+# Downloads to all VMs using customer's license ID
+make vm-download-ec CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# The target will:
+# - Fetch customer ID by name
+# - Get the customer's license ID
+# - Determine the customer's assigned channel
+# - Download from: https://app.xyyzx.net/embedded/storagebox/{channel}
+# - Use Authorization: {licenseID} header
+# - Extract and prepare binary on all nodes
+```
+
+**Step 4: Expose admin console port**
+```bash
+make vm-expose-ports CLUSTER_PREFIX=my-test
+```
+
+**Step 5: Install Embedded Cluster**
+```bash
+# UI mode (configure via admin console)
+make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Headless mode (uses development-values.yaml)
+make vm-ec-install-headless CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+```
+
+**Step 6: Cleanup**
+```bash
+# Delete all VMs for the cluster
+make vm-cleanup CLUSTER_PREFIX=my-test
+```
+
+#### Additional VM Management Commands
+
+```bash
+# List all CMX VMs
+make vm-list
+
+# Show status for specific cluster
+make vm-status CLUSTER_PREFIX=my-test
+
+# Copy license manually (usually automatic)
+make vm-copy-license CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Copy config values manually (usually automatic in headless mode)
+make vm-copy-config CLUSTER_PREFIX=my-test
+```
+
+#### Default Behavior
+
+- `CUSTOMER_NAME` defaults to current git branch name
+- `CLUSTER_PREFIX` defaults to "storagebox"
+- The download target automatically resolves:
+  - Customer ID from name
+  - License ID from customer
+  - Channel from customer's assignment
 
 ### Breaking Changes Checklist
 
