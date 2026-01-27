@@ -151,6 +151,18 @@ spec:
         #   name: repl{{ ConfigOption "minio_tenant_user_name" }}
         #   accessKey: repl{{ ConfigOption "minio_tenant_user_access_key" }}
         #   secretKey: repl{{ ConfigOption "minio_tenant_user_secret_key" }}
+    rqlite:
+      enabled: repl{{ ConfigOptionEquals "rqlite_enabled" "1" }}
+      replicas: repl{{ ConfigOption "rqlite_replicas" }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}/rqlite/rqlite
+        # When undefined, the Chart defaults the pod spec tag to "appVersion" defined in Chart.yaml
+        tag: repl{{ ConfigOption "rqlite_image_tag" }}
+        # When undefined, the Chart omits this field from pod specs, so k8s default image pull policy is used
+        # See https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+        pullPolicy: repl{{ ConfigOption "rqlite_image_pull_policy" }}
+        pullSecrets:
+          - repl{{ ImagePullSecretName }}
 
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_no_ssl" }}'

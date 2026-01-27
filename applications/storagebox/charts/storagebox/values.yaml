@@ -1537,3 +1537,9 @@ tenant:
 certmanager:
   selfSignedClusterIssuer:
     enabled: true
+
+# See all congiguration options, run:
+# helm helm repo add rqlite https://rqlite.github.io/helm-charts
+# helm show values rqlite/rqlite --version 2.0.0
+rqlite:
+  enabled: false

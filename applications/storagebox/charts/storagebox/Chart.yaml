@@ -21,3 +21,7 @@ dependencies:
   version: "7.1.1"
   repository: https://operator.min.io
   condition: tenant.enabled
+- name: rqlite
+  version: "2.0.0"
+  repository: https://rqlite.github.io/helm-charts
+  condition: rqlite.enabled

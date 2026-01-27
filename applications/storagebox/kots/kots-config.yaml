@@ -258,3 +258,39 @@ spec:
     #   required: true
     #   description: The secret key for the MinIO Tenant User
     #   secret: true
+  # rqlite settings
+  - name: rqlite
+    title: rqlite (relational Sqlite) chart settings
+    items:
+    - name: rqlite_enabled
+      type: bool
+      required: true
+      default: false
+      help_text: Enable rqlite
+    - name: rqlite_replicas
+      when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
+      type: text
+      help_text: Replicas
+      default: 1
+      regex:
+        pattern: ^\d+$
+        message: Replicas must be a whole number greater than or equal to 0.
+    - name: rqlite_image_tag
+      when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
+      type: text
+      # When undefined ("null"), the Chart defaults the pod spec tag to "appVersion" defined in Chart.yaml
+      help_text: Tag. Leave "null" to use the Chart's "appVersion" as tag
+      default: "null"
+      regex:
+        pattern: "[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}"
+        message: Must be 1–128 characters. The first character must be a letter, digit, or underscore (_); the remaining characters may be letters, digits, underscores (_), periods (.), or dashes (-). See https://kubernetes.io/docs/concepts/containers/images/#image-names
+    - name: rqlite_image_pull_policy
+      when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
+      type: text
+      # When undefined ("null"), the Chart omits this field from pod specs, so k8s default image pull policy is used
+      # See https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+      help_text: Tag. Leave "null" to use k8s default image pull policy. See https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+      default: "null"
+      regex:
+        pattern: ^(IfNotPresent|Always|Never|null)$
+        message: "Value must be one of: IfNotPresent, Always, Never, or null."
