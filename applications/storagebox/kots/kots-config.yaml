@@ -271,7 +271,7 @@ spec:
       when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
       type: text
       help_text: Replicas
-      default: 1
+      default: "1"
       validation:
         regex:
           pattern: ^\d+$
