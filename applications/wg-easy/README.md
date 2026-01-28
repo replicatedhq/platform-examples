@@ -72,6 +72,19 @@ applications/wg-easy/
 
 The pattern provides a complete workflow from development to deployment. Here are the essential commands:
 
+### Pre-reqs
+
+Local tools & Helm plugins needed:
+
+```bash
+helm, helmfile
+go-task
+replicatedhq/replicated/cli
+
+helm-diff plugin:
+helm plugin install https://github.com/databus23/helm-diff --verify=false
+```
+
 ```bash
 # List all available tasks
 task --list
@@ -80,7 +93,8 @@ task --list
 task -v full-test-cycle
 
 # Individual development tasks
-task cluster-create           # Create test cluster
+task cluster-create          # Create test cluster
+task dependencies-update     # Download Chart dependencies
 task -v helm-install         # Deploy charts with detailed output
 task test                    # Run validation tests
 task cluster-delete          # Clean up resources

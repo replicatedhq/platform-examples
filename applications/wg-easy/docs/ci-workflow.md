@@ -48,7 +48,7 @@ replicated cluster create \
 
 # List and manage clusters
 replicated cluster ls --output json
-replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+replicated cluster kubeconfig "$CLUSTER_NAME" --output-path /tmp/kubeconfig
 replicated cluster rm "$CLUSTER_ID"
 ```
 
@@ -103,7 +103,7 @@ The deployment process begins by ensuring all necessary resources exist:
 
 ```bash
 # Get cluster kubeconfig
-replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+replicated cluster kubeconfig "$CLUSTER_NAME" --output-path /tmp/kubeconfig
 
 # Validate cluster connectivity
 kubectl cluster-info
