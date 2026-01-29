@@ -306,7 +306,7 @@ The workflow tests across multiple Kubernetes environments:
 - **EKS**: Amazon Elastic Kubernetes Service (when available)
 
 ### Test Versions
-- **k3s**: v1.30.8, v1.31.10, v1.32.6
+- **k3s**: v1.33.x, v1.34.x, v1.35.x
 - **Node Configuration**: Single-node clusters
 - **Instance Type**: r1.small
 - **Timeout**: 15 minutes per test
