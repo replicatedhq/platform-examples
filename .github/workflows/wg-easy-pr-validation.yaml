@@ -254,17 +254,17 @@ jobs:
       matrix:
         include:
           # k3s single-node configurations (three most recent minor versions)
-          - k8s-version: "v1.30.8"
+          - k8s-version: "v1.33"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          - k8s-version: "v1.31.10"
+          - k8s-version: "v1.34"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          - k8s-version: "v1.32.6"
+          - k8s-version: "v1.35"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
@@ -630,17 +630,17 @@ jobs:
       matrix:
         include:
           # k3s single-node configurations (three most recent minor versions)
-          - k8s-version: "v1.30.8"
+          - k8s-version: "v1.33"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          - k8s-version: "v1.31.10"
+          - k8s-version: "v1.34"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
             timeout-minutes: 15
-          - k8s-version: "v1.32.6"
+          - k8s-version: "v1.35"
             distribution: "k3s"
             nodes: 1
             instance-type: "r1.small"
