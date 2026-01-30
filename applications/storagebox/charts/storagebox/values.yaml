@@ -1543,3 +1543,5 @@ certmanager:
 # helm show values rqlite/rqlite --version 2.0.0
 rqlite:
   enabled: false
+  image:
+    pullSecrets: []
