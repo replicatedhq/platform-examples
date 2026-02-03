@@ -11,5 +11,8 @@ dependencies:
 - name: tenant
   repository: https://operator.min.io
   version: 7.1.1
-digest: sha256:0cd39151418ecaa449ecda2489cabd6501b1165e709e48c1644f701fab0cfb2e
-generated: "2026-01-22T13:01:44.703607-05:00"
+- name: rqlite
+  repository: https://rqlite.github.io/helm-charts
+  version: 2.0.0
+digest: sha256:23a274091d9eb7b2e8c6495b08de88637e27b082894ecca375bfd3e77af6ae6d
+generated: "2026-01-28T17:07:59.589679-05:00"

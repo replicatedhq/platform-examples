@@ -6,6 +6,7 @@ spec:
   title: StorageBox
   allowRollback: false
   statusInformers:
-    - deployment/kotsadm
     - statefulset/kotsadm-rqlite
-    - statefulset/storagebox-cassandra
+    - deployment/kotsadm
+    - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}statefulset/storagebox-cassandra{{repl end}}'
+    - '{{repl if ConfigOptionEquals "rqlite_enabled" "1"}}statefulset/storagebox-rqlite{{repl end}}'

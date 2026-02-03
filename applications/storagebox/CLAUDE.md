@@ -48,11 +48,11 @@ make help
 
 #### Cluster Management
 ```bash
-# Create a single-node test cluster (default: k3s 1.31)
+# Create a single-node test cluster (default: k3s 1.33)
 make cluster-create
 
 # Create a cluster with custom settings
-make cluster-create CLUSTER_NAME=my-test DISTRIBUTION=k3s K8S_VERSION=1.31
+make cluster-create CLUSTER_NAME=my-test DISTRIBUTION=k3s K8S_VERSION=1.33
 
 # List all active clusters
 make cluster-list
@@ -103,7 +103,7 @@ All commands support these environment variables:
 | `CLUSTER_PREFIX` | storagebox | Cluster name prefix for test-cycle |
 | `CHANNEL` | test-v018-k8s131 | Release channel |
 | `DISTRIBUTION` | k3s | Kubernetes distribution |
-| `K8S_VERSION` | 1.31 | Kubernetes version |
+| `K8S_VERSION` | 1.33 | Kubernetes version |
 | `INSTANCE_TYPE` | r1.medium | VM instance type |
 | `NODE_COUNT` | 1 | Number of nodes (single-node default) |
 | `DISK_SIZE` | 50 | Disk size in GB |
@@ -367,16 +367,16 @@ make test-cycle CHANNEL=test-v018-k8s131
 After the cluster is ready, follow the printed instructions:
 ```bash
 # Deploy the application
-make deploy CLUSTER_NAME=storagebox-0.18.0 CHANNEL=test-v018-k8s131
+make deploy CLUSTER_NAME=storagebox-0.19.0 CHANNEL=test-v018-k8s131
 
 # Check status
-make cluster-status CLUSTER_NAME=storagebox-0.18.0
+make cluster-status CLUSTER_NAME=storagebox-0.19.0
 
 # View logs
-make deploy-logs CLUSTER_NAME=storagebox-0.18.0
+make deploy-logs CLUSTER_NAME=storagebox-0.19.0
 
 # Clean up when done
-make cluster-rm CLUSTER_NAME=storagebox-0.18.0
+make cluster-rm CLUSTER_NAME=storagebox-0.19.0
 ```
 
 #### Manual Step-by-Step Testing
@@ -387,7 +387,7 @@ For more control over the testing process:
 ```bash
 make clean
 make package-and-update
-replicated release create --yaml-dir ./kots --promote test-v018-k8s131 --version "0.18.0"
+replicated release create --yaml-dir ./kots --promote test-v018-k8s131 --version "0.19.0"
 ```
 
 **2. Create a test cluster:**
@@ -449,7 +449,7 @@ make cluster-rm CLUSTER_NAME=my-test-cluster
 **Test with different Kubernetes versions:**
 ```bash
 make cluster-create CLUSTER_NAME=test-k8s-130 K8S_VERSION=1.30
-make cluster-create CLUSTER_NAME=test-k8s-131 K8S_VERSION=1.31
+make cluster-create CLUSTER_NAME=test-k8s-131 K8S_VERSION=1.33
 ```
 
 **Test with different distributions:**
@@ -528,14 +528,14 @@ helm repo update
 
 ## Current Version Status
 
-- **Chart Version**: 0.18.0
-- **Embedded Cluster**: 2.10.0+k0s-1.31
-- **Kubernetes Version**: 1.31 (k0s distribution)
-- **Last Updated**: 2026-01-22
+- **Chart Version**: 0.19.0
+- **Embedded Cluster**: 2.13.3+k8s-1.33
+- **Kubernetes Version**: 1.33 (k0s distribution)
+- **Last Updated**: 2026-01-30
 
 ## Application CRD
 
-The file `kots/k8s-app.yaml` uses `app.k8s.io/v1beta1` which is the current and only version of the Kubernetes Application CRD from the [kubernetes-sigs/application](https://github.com/kubernetes-sigs/application) project. This is **not deprecated** and is compatible with Kubernetes 1.31.
+The file `kots/k8s-app.yaml` uses `app.k8s.io/v1beta1` which is the current and only version of the Kubernetes Application CRD from the [kubernetes-sigs/application](https://github.com/kubernetes-sigs/application) project. This is **not deprecated** and is compatible with Kubernetes 1.33.
 
 Note: This is different from the CRD definition API (`apiextensions.k8s.io/v1beta1`) which was deprecated. The Application resource itself (`app.k8s.io/v1beta1`) is actively maintained and has no stable v1 version yet.
 
