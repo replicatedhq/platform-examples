@@ -115,6 +115,27 @@ Key components:
 - **Shared Templates**: Provide reusable components across charts
 - **Replicated Integration**: Enables enterprise distribution
 
+## Automated Testing
+
+### Weekly Chart Validation
+
+The repository includes an automated weekly test workflow that runs every Monday at 9:00 AM UTC to ensure the chart remains installable and functional:
+
+**Workflow:** `.github/workflows/wg-easy-weekly-test.yaml`
+
+**What it tests:**
+- Chart validation and linting
+- Chart packaging and release creation
+- Deployment to a fresh Kubernetes cluster (latest stable version)
+- Application health checks and functionality tests
+
+**Notifications:**
+- Creates a GitHub Issue automatically when tests fail
+- Comments on existing issues when tests pass again
+- Can be triggered manually via workflow_dispatch
+
+This provides continuous validation that the chart is always ready to install, even during periods of low development activity.
+
 ## Learn More
 
 - [Chart Structure Guide](docs/chart-structure.md)

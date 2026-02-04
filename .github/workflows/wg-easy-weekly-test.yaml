@@ -1,0 +1,454 @@
+---
+name: WG-Easy Weekly Test - Verify Chart Installation
+
+on:
+  schedule:
+    # Run every Monday at 9:00 AM UTC (1:00 AM PST / 4:00 AM EST)
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      notify_on_success:
+        description: 'Send notification even on success'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: wg-easy-weekly-test
+  cancel-in-progress: false
+
+env:
+  APP_DIR: applications/wg-easy
+  REPLICATED_API_TOKEN: ${{ secrets.WG_EASY_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ vars.WG_EASY_REPLICATED_APP }}
+  HELM_VERSION: "3.17.3"
+  KUBECTL_VERSION: "v1.30.0"
+  CHANNEL_NAME: "weekly-test"
+  CUSTOMER_NAME: "weekly-test-customer"
+
+jobs:
+  validate-charts:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate charts
+        uses: ./.github/actions/chart-validate
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Validate Taskfile syntax
+        run: task --list-all
+        working-directory: ${{ env.APP_DIR }}
+
+  build-and-package:
+    runs-on: ubuntu-24.04
+    needs: validate-charts
+    outputs:
+      release-path: ${{ steps.package.outputs.release-path }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Package charts
+        id: package
+        uses: ./.github/actions/chart-package
+        with:
+          app-dir: ${{ env.APP_DIR }}
+          helm-version: ${{ env.HELM_VERSION }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wg-easy-weekly-test-${{ github.run_number }}
+          path: ${{ steps.package.outputs.release-path }}
+          retention-days: 7
+
+  create-resources:
+    runs-on: ubuntu-24.04
+    needs: build-and-package
+    outputs:
+      channel-slug: ${{ steps.set-outputs.outputs.channel-slug }}
+      release-sequence: ${{ steps.set-outputs.outputs.release-sequence }}
+      customer-id: ${{ steps.set-outputs.outputs.customer-id }}
+      license-id: ${{ steps.set-outputs.outputs.license-id }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: wg-easy-weekly-test-${{ github.run_number }}
+          path: ${{ env.APP_DIR }}/release
+
+      - name: Check if channel exists
+        id: check-channel
+        run: |
+          echo "Checking for existing channel: ${{ env.CHANNEL_NAME }}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/apps/${{ env.REPLICATED_APP }}/channels")
+
+          if [ $? -ne 0 ]; then
+            echo "curl command failed"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHANNEL_ID=$(echo "$BODY" | jq -r --arg name "${{ env.CHANNEL_NAME }}" \
+            'if .channels then .channels[] | select(.name == $name) | .id else empty end' 2>/dev/null | head -1)
+
+          if [ -n "$CHANNEL_ID" ] && [ "$CHANNEL_ID" != "null" ]; then
+            echo "Found existing channel: $CHANNEL_ID"
+            echo "channel-exists=true" >> $GITHUB_OUTPUT
+            echo "channel-id=$CHANNEL_ID" >> $GITHUB_OUTPUT
+            echo "channel-slug=${{ env.CHANNEL_NAME }}" >> $GITHUB_OUTPUT
+          else
+            echo "Channel does not exist"
+            echo "channel-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Replicated release
+        id: release
+        uses: replicatedhq/replicated-actions/create-release@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          yaml-dir: ${{ env.APP_DIR }}/release
+          promote-channel: ${{ env.CHANNEL_NAME }}
+
+      - name: Check if customer exists
+        id: check-customer
+        run: |
+          echo "Checking for existing customer: ${{ env.CUSTOMER_NAME }}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/customers")
+
+          if [ $? -ne 0 ]; then
+            echo "curl command failed"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "API request failed with HTTP $HTTP_CODE"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CUSTOMER_DATA=$(echo "$BODY" | jq -r --arg name "${{ env.CUSTOMER_NAME }}" \
+            'if .customers then .customers[] | select(.name == $name) | {id: .id, created: .createdAt} else empty end' 2>/dev/null \
+            | jq -s 'sort_by(.created) | reverse | .[0] // empty' 2>/dev/null)
+
+          CUSTOMER_ID=$(echo "$CUSTOMER_DATA" | jq -r '.id // empty' 2>/dev/null)
+
+          if [ -n "$CUSTOMER_ID" ] && [ "$CUSTOMER_ID" != "null" ]; then
+            echo "Found existing customer: $CUSTOMER_ID"
+            echo "customer-exists=true" >> $GITHUB_OUTPUT
+            echo "customer-id=$CUSTOMER_ID" >> $GITHUB_OUTPUT
+
+            LICENSE_RESPONSE=$(curl -s -w "\n%{http_code}" -H "Authorization: ${{ env.REPLICATED_API_TOKEN }}" \
+              "https://api.replicated.com/vendor/v3/customer/$CUSTOMER_ID")
+
+            LICENSE_HTTP_CODE=$(echo "$LICENSE_RESPONSE" | tail -n1)
+            LICENSE_BODY=$(echo "$LICENSE_RESPONSE" | sed '$d')
+
+            if [ "$LICENSE_HTTP_CODE" = "200" ]; then
+              LICENSE_ID=$(echo "$LICENSE_BODY" | jq -r '.customer.installationId // empty' 2>/dev/null)
+              echo "license-id=$LICENSE_ID" >> $GITHUB_OUTPUT
+            else
+              echo "Failed to get license ID for customer $CUSTOMER_ID"
+              echo "customer-exists=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Customer does not exist"
+            echo "customer-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create customer
+        id: create-customer
+        if: steps.check-customer.outputs.customer-exists == 'false'
+        uses: replicatedhq/replicated-actions/create-customer@v1.19.0
+        with:
+          app-slug: ${{ env.REPLICATED_APP }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-name: ${{ env.CUSTOMER_NAME }}
+          channel-slug: ${{ steps.check-channel.outputs.channel-exists == 'true' && steps.check-channel.outputs.channel-slug || steps.release.outputs.channel-slug }}
+          license-type: dev
+
+      - name: Set consolidated outputs
+        id: set-outputs
+        run: |
+          if [ "${{ steps.check-channel.outputs.channel-exists }}" == "true" ]; then
+            echo "channel-slug=${{ steps.check-channel.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+          else
+            echo "channel-slug=${{ steps.release.outputs.channel-slug }}" >> $GITHUB_OUTPUT
+          fi
+          echo "release-sequence=${{ steps.release.outputs.release-sequence }}" >> $GITHUB_OUTPUT
+
+          if [ "${{ steps.check-customer.outputs.customer-exists }}" == "true" ]; then
+            echo "customer-id=${{ steps.check-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.check-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          else
+            echo "customer-id=${{ steps.create-customer.outputs.customer-id }}" >> $GITHUB_OUTPUT
+            echo "license-id=${{ steps.create-customer.outputs.license-id }}" >> $GITHUB_OUTPUT
+          fi
+
+  test-deployment:
+    runs-on: ubuntu-24.04
+    needs: create-resources
+    strategy:
+      matrix:
+        # Test on latest stable Kubernetes version only for weekly runs
+        include:
+          - k8s-version: "v1.35"
+            distribution: "k3s"
+            nodes: 1
+            instance-type: "r1.small"
+            timeout-minutes: 15
+      fail-fast: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          helm-version: ${{ env.HELM_VERSION }}
+          install-helmfile: 'true'
+
+      - name: Create test cluster
+        id: create-cluster
+        shell: bash
+        run: |
+          CLUSTER_NAME="weekly-test-${{ github.run_number }}"
+          echo "Creating cluster: $CLUSTER_NAME"
+
+          replicated cluster create \
+            --name "$CLUSTER_NAME" \
+            --distribution "${{ matrix.distribution }}" \
+            --version "${{ matrix.k8s-version }}" \
+            --disk "50" \
+            --instance-type "${{ matrix.instance-type }}" \
+            --nodes "${{ matrix.nodes }}" \
+            --ttl "4h"
+
+          if [ $? -ne 0 ]; then
+            echo "Failed to create cluster"
+            exit 1
+          fi
+
+          echo "Waiting for cluster to be running..."
+          for i in {1..60}; do
+            STATUS=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .status' 2>/dev/null)
+            if [ "$STATUS" = "running" ]; then
+              echo "Cluster is running!"
+              break
+            fi
+            echo "Cluster status: $STATUS, waiting... (attempt $i/60)"
+            sleep 10
+          done
+
+          if [ "$STATUS" != "running" ]; then
+            echo "Cluster failed to reach running state"
+            exit 1
+          fi
+
+          replicated cluster kubeconfig --name "$CLUSTER_NAME" --output-path /tmp/kubeconfig
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+          echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+
+          CLUSTER_ID=$(replicated cluster ls --output json | jq -r '.[] | select(.name == "'$CLUSTER_NAME'") | .id' 2>/dev/null)
+          echo "cluster-id=$CLUSTER_ID" >> $GITHUB_OUTPUT
+
+      - name: Setup cluster ports
+        working-directory: ${{ env.APP_DIR }}
+        run: task cluster-ports-expose CLUSTER_NAME="${{ env.CLUSTER_NAME }}"
+
+      - name: Validate cluster readiness
+        run: |
+          echo "Validating cluster readiness..."
+
+          if ! kubectl cluster-info; then
+            echo "ERROR: Cluster API server not accessible"
+            exit 1
+          fi
+
+          if ! kubectl wait --for=condition=Ready nodes --all --timeout=300s; then
+            echo "ERROR: Cluster nodes did not become ready"
+            kubectl get nodes -o wide
+            exit 1
+          fi
+
+          echo "✅ Cluster is ready"
+          kubectl get nodes -o wide
+
+      - name: Deploy application
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          task customer-helm-install \
+            CUSTOMER_NAME="${{ env.CUSTOMER_NAME }}" \
+            CLUSTER_NAME="${{ env.CLUSTER_NAME }}" \
+            CHANNEL_SLUG="${{ needs.create-resources.outputs.channel-slug }}" \
+            REPLICATED_LICENSE_ID="${{ needs.create-resources.outputs.license-id }}"
+        timeout-minutes: ${{ matrix.timeout-minutes }}
+
+      - name: Run application tests
+        working-directory: ${{ env.APP_DIR }}
+        run: task test
+        timeout-minutes: 10
+
+      - name: Verify deployment health
+        run: |
+          echo "Verifying deployment health..."
+
+          # Check pods are running
+          kubectl get pods -A
+
+          # Verify WG-Easy pod is running
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=wg-easy --timeout=300s -n default || {
+            echo "WG-Easy pod failed to become ready"
+            kubectl describe pods -l app.kubernetes.io/name=wg-easy -n default
+            kubectl logs -l app.kubernetes.io/name=wg-easy -n default --tail=100
+            exit 1
+          }
+
+          echo "✅ Application deployed and healthy"
+
+      - name: Cleanup test cluster
+        if: always()
+        run: |
+          if [ -n "${{ env.CLUSTER_NAME }}" ]; then
+            echo "Cleaning up cluster: ${{ env.CLUSTER_NAME }}"
+            replicated cluster rm --name "${{ env.CLUSTER_NAME }}" || echo "Cluster cleanup failed or already removed"
+          fi
+
+      - name: Upload debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs-weekly-test-${{ github.run_number }}
+          path: |
+            /tmp/*.log
+            ~/.replicated/
+
+  notify-on-failure:
+    runs-on: ubuntu-24.04
+    needs: [validate-charts, build-and-package, create-resources, test-deployment]
+    if: failure()
+    steps:
+      - name: Create GitHub Issue on Failure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const issueTitle = `[Weekly Test Failure] WG-Easy chart installation failed - ${new Date().toISOString().split('T')[0]}`;
+            const issueBody = `## Weekly Test Failure Report
+
+            The weekly automated test for the WG-Easy Helm chart has failed.
+
+            **Workflow Run:** ${runUrl}
+            **Date:** ${new Date().toISOString()}
+            **Trigger:** ${context.eventName === 'schedule' ? 'Scheduled weekly test' : 'Manual workflow dispatch'}
+
+            ### Failed Jobs
+            Check the workflow run for detailed logs and failure information.
+
+            ### Next Steps
+            1. Review the workflow logs at the link above
+            2. Investigate the root cause of the failure
+            3. Fix any issues with the chart or dependencies
+            4. Re-run the workflow to verify the fix
+
+            ### Related Files
+            - Chart: \`applications/wg-easy/charts/wg-easy/\`
+            - Workflow: \`.github/workflows/wg-easy-weekly-test.yaml\`
+
+            ---
+            *This issue was automatically created by the weekly test workflow.*`;
+
+            // Check if there's already an open issue for this week
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated-test,wg-easy',
+              per_page: 10
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('[Weekly Test Failure]') &&
+              issue.title.includes(new Date().toISOString().split('T')[0])
+            );
+
+            if (existingIssue) {
+              // Add a comment to existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Another test failure occurred in the same day.\n\n**Latest Run:** ${runUrl}`
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['automated-test', 'wg-easy', 'bug']
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+  notify-on-success:
+    runs-on: ubuntu-24.04
+    needs: [validate-charts, build-and-package, create-resources, test-deployment]
+    if: success() && (github.event.inputs.notify_on_success == 'true' || github.event_name == 'schedule')
+    steps:
+      - name: Comment on latest open issue if exists
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Find the most recent open test failure issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated-test,wg-easy',
+              sort: 'created',
+              direction: 'desc',
+              per_page: 1
+            });
+
+            if (issues.data.length > 0) {
+              const issue = issues.data[0];
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ **Weekly test passed!**\n\nThe WG-Easy chart is now installing and working correctly.\n\n**Successful Run:** ${runUrl}\n\nConsider closing this issue if the problem is resolved.`
+              });
+              console.log(`Added success comment to issue #${issue.number}`);
+            } else {
+              console.log('No open test failure issues found - weekly test passed successfully!');
+            }
