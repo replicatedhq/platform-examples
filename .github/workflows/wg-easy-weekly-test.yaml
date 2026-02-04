@@ -327,10 +327,10 @@ jobs:
           kubectl get pods -A
 
           # Verify WG-Easy pod is running
-          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=wg-easy --timeout=300s -n default || {
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=wg-easy --timeout=300s -n wg-easy || {
             echo "WG-Easy pod failed to become ready"
-            kubectl describe pods -l app.kubernetes.io/name=wg-easy -n default
-            kubectl logs -l app.kubernetes.io/name=wg-easy -n default --tail=100
+            kubectl describe pods -l app.kubernetes.io/name=wg-easy -n wg-easy
+            kubectl logs -l app.kubernetes.io/name=wg-easy -n wg-easy --tail=100
             exit 1
           }
 
