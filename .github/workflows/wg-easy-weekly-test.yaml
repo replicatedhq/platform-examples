@@ -12,6 +12,11 @@ on:
         required: false
         default: 'false'
         type: boolean
+  pull_request:  # TEMPORARY: Remove after testing
+    branches: [main]
+    paths:
+      - 'applications/wg-easy/**'
+      - '.github/workflows/wg-easy-weekly-test.yaml'
 
 concurrency:
   group: wg-easy-weekly-test
