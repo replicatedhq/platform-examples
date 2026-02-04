@@ -2,6 +2,16 @@
 
 This repository demonstrates a structured approach to developing and deploying Helm charts with Replicated integration. It focuses on a progressive development workflow that builds complexity incrementally, allowing developers to get fast feedback at each stage.
 
+<!-- TEST_STATUS_START -->
+## Test Status
+
+| Component | Status | Last Tested | Kubernetes Version |
+|-----------|--------|-------------|-------------------|
+| Chart Installation | ⏳ Pending | Never | v1.35 |
+
+*Status automatically updated by weekly test workflow*
+<!-- TEST_STATUS_END -->
+
 ## Core Principles
 
 The WG-Easy Helm Chart pattern is built on five fundamental principles:
