@@ -4,6 +4,16 @@ This project demonstrates a **composable multi-chart workflow** for packaging an
 
 The target scenario: multiple teams, multiple product verticals, one Replicated release.
 
+<!-- TEST_STATUS_START -->
+## Test Status
+
+| Component | Status | Last Tested | Kubernetes Version |
+|-----------|--------|-------------|-------------------|
+| Chart Installation | ⏳ Pending | Never | v1.35 |
+
+*Status automatically updated by weekly test workflow*
+<!-- TEST_STATUS_END -->
+
 ## The Problem with Monolithic Releases
 
 In a monolithic Replicated application, all components share a single set of release artifacts:

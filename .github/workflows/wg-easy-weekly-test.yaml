@@ -452,3 +452,86 @@ jobs:
             } else {
               console.log('No open test failure issues found - weekly test passed successfully!');
             }
+
+  update-readme-status:
+    runs-on: ubuntu-24.04
+    needs: [validate-charts, build-and-package, create-resources, test-deployment]
+    if: always() && github.event_name == 'schedule'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README with test results
+        run: |
+          README_PATH="applications/wg-easy/README.md"
+
+          # Determine test status
+          if [ "${{ needs.test-deployment.result }}" == "success" ]; then
+            STATUS="✅ Passing"
+            EMOJI="✅"
+          else
+            STATUS="❌ Failed"
+            EMOJI="❌"
+          fi
+
+          # Get current date
+          TEST_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          # Get workflow run URL
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Create updated status table
+          cat > /tmp/status_section.md <<EOF
+          <!-- TEST_STATUS_START -->
+          ## Test Status
+
+          | Component | Status | Last Tested | Kubernetes Version | Details |
+          |-----------|--------|-------------|-------------------|---------|
+          | Chart Installation | ${STATUS} | ${TEST_DATE} | v1.35 | [View Run](${RUN_URL}) |
+
+          *Status automatically updated by [weekly test workflow](${RUN_URL})*
+          <!-- TEST_STATUS_END -->
+          EOF
+
+          # Replace the section in README
+          sed -i.bak '/<!-- TEST_STATUS_START -->/,/<!-- TEST_STATUS_END -->/d' "$README_PATH"
+
+          # Find the position after the header and insert new status
+          sed -i.bak '4r /tmp/status_section.md' "$README_PATH"
+
+          # Clean up backup file
+          rm -f "${README_PATH}.bak"
+
+          echo "Updated README with test status: ${STATUS}"
+          cat "$README_PATH" | head -20
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet applications/wg-easy/README.md; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes to commit"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add applications/wg-easy/README.md
+          git commit -m "chore(wg-easy): update test status in README [skip ci]
+
+          Automated test status update from weekly test workflow.
+
+          Status: ${{ needs.test-deployment.result }}
+          Run: ${{ github.run_id }}"
+
+          git push
