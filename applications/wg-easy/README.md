@@ -2,6 +2,16 @@
 
 This repository demonstrates a structured approach to developing and deploying Helm charts with Replicated integration. It focuses on a progressive development workflow that builds complexity incrementally, allowing developers to get fast feedback at each stage.
 
+<!-- TEST_STATUS_START -->
+## Test Status
+
+| Component | Status | Last Tested | Kubernetes Version |
+|-----------|--------|-------------|-------------------|
+| Chart Installation | ⏳ Pending | Never | v1.35 |
+
+*Status automatically updated by weekly test workflow*
+<!-- TEST_STATUS_END -->
+
 ## Core Principles
 
 The WG-Easy Helm Chart pattern is built on five fundamental principles:
@@ -114,6 +124,27 @@ Key components:
 - **Wrapped Charts**: Encapsulate upstream charts for consistency
 - **Shared Templates**: Provide reusable components across charts
 - **Replicated Integration**: Enables enterprise distribution
+
+## Automated Testing
+
+### Weekly Chart Validation
+
+The repository includes an automated weekly test workflow that runs every Monday at 9:00 AM UTC to ensure the chart remains installable and functional:
+
+**Workflow:** `.github/workflows/wg-easy-weekly-test.yaml`
+
+**What it tests:**
+- Chart validation and linting
+- Chart packaging and release creation
+- Deployment to a fresh Kubernetes cluster (latest stable version)
+- Application health checks and functionality tests
+
+**Notifications:**
+- Creates a GitHub Issue automatically when tests fail
+- Comments on existing issues when tests pass again
+- Can be triggered manually via workflow_dispatch
+
+This provides continuous validation that the chart is always ready to install, even during periods of low development activity.
 
 ## Learn More
 
