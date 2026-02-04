@@ -1,0 +1,212 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: flipt
+spec:
+  chart:
+    name: flipt
+    chartVersion: 1.0.0
+    releaseName: 'repl{{ ConfigOption "release_name" }}'
+
+  exclude: ""
+
+  helmVersion: v3
+
+  useHelmInstall: true
+
+  namespace: 'repl{{ ConfigOption "namespace" }}'
+
+  values:
+    global:
+      imageRegistry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "" }}'
+
+    flipt:
+      enabled: true
+
+      image:
+        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.flipt.io" }}'
+        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "flipt" }}/flipt'
+        pullPolicy: IfNotPresent
+
+      replicaCount: 'repl{{ ConfigOption "replica_count" }}'
+
+      resources:
+        requests:
+          cpu: 'repl{{ ConfigOption "flipt_cpu_request" }}'
+          memory: 'repl{{ ConfigOption "flipt_memory_request" }}'
+        limits:
+          cpu: 'repl{{ ConfigOption "flipt_cpu_limit" }}'
+          memory: 'repl{{ ConfigOption "flipt_memory_limit" }}'
+
+      config:
+        log:
+          level: 'repl{{ ConfigOption "log_level" }}'
+          encoding: 'repl{{ ConfigOption "log_encoding" }}'
+
+        server:
+          protocol: http
+          host: 0.0.0.0
+          httpPort: 8080
+          grpcPort: 9000
+
+        db:
+          maxIdleConn: 10
+          maxOpenConn: 50
+          connMaxLifetime: 1h
+
+        cache:
+          enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+          backend: 'repl{{ ConfigOptionEquals "redis_enabled" "1" | ternary "redis" "memory" }}'
+          ttl: 5m
+          redis:
+            mode: single
+            prefix: "flipt"
+
+        cors:
+          enabled: true
+          allowedOrigins:
+            - "*"
+
+      service:
+        type: ClusterIP
+        httpPort: 8080
+        grpcPort: 9000
+
+      autoscaling:
+        enabled: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
+        minReplicas: 'repl{{ ConfigOption "hpa_min_replicas" }}'
+        maxReplicas: 'repl{{ ConfigOption "hpa_max_replicas" }}'
+        targetCPUUtilizationPercentage: 'repl{{ ConfigOption "hpa_cpu_target" }}'
+
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 1
+
+      serviceMonitor:
+        enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+
+    postgresql:
+      type: 'repl{{ ConfigOption "postgres_type" }}'
+
+      database: flipt
+      username: flipt
+      password: 'repl{{ RandomString 32 }}'
+
+      embedded:
+        enabled: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+        cluster:
+          instances: 'repl{{ ConfigOption "postgres_instances" | ParseInt }}'
+          imageName: 'repl{{ HasLocalRegistry | ternary (printf "%s/%s/postgresql:16" LocalRegistryHost LocalRegistryNamespace) "ghcr.io/cloudnative-pg/postgresql:16" }}'
+          storage:
+            size: 'repl{{ ConfigOption "postgres_storage_size" }}'
+            storageClass: 'repl{{ ConfigOption "postgres_storage_class" }}'
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 'repl{{ ConfigOption "postgres_resources_cpu" }}'
+              memory: 'repl{{ ConfigOption "postgres_resources_memory" }}'
+          backup:
+            enabled: false
+          monitoring:
+            enabled: false
+
+    redis:
+      enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+
+      architecture: 'repl{{ ConfigOption "redis_architecture" }}'
+
+      auth:
+        enabled: true
+        password: 'repl{{ if ConfigOption "redis_password" }}repl{{ ConfigOption "redis_password" }}repl{{ else }}repl{{ RandomString 32 }}repl{{ end }}'
+
+      image:
+        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
+        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/redis'
+
+      master:
+        persistence:
+          enabled: true
+          size: 'repl{{ ConfigOption "redis_storage_size" }}'
+          storageClass: 'repl{{ ConfigOption "redis_storage_class" }}'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+      replica:
+        replicaCount: 'repl{{ ConfigOption "redis_replica_count" | ParseInt }}'
+        persistence:
+          enabled: true
+          size: 'repl{{ ConfigOption "redis_storage_size" }}'
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+      metrics:
+        enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+
+    replicated:
+      enabled: true
+      integration:
+        enabled: true
+
+  optionalValues:
+    - when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+      recursiveMerge: false
+      values:
+        flipt:
+          ingress:
+            enabled: true
+            className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
+            hosts:
+              - host: 'repl{{ ConfigOption "ingress_hostname" }}'
+                paths:
+                  - path: /
+                    pathType: Prefix
+
+    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "cert_manager") }}'
+      recursiveMerge: false
+      values:
+        flipt:
+          ingress:
+            annotations:
+              cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
+            tls:
+              - secretName: flipt-tls
+                hosts:
+                  - 'repl{{ ConfigOption "ingress_hostname" }}'
+
+    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
+      recursiveMerge: false
+      values:
+        flipt:
+          ingress:
+            tls:
+              - secretName: flipt-custom-tls
+                hosts:
+                  - 'repl{{ ConfigOption "ingress_hostname" }}'
+
+    - when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+      recursiveMerge: false
+      values:
+        postgresql:
+          external:
+            enabled: true
+            host: 'repl{{ ConfigOption "external_postgres_host" }}'
+            port: 'repl{{ ConfigOption "external_postgres_port" | ParseInt }}'
+            database: 'repl{{ ConfigOption "external_postgres_database" }}'
+            username: 'repl{{ ConfigOption "external_postgres_username" }}'
+            password: 'repl{{ ConfigOption "external_postgres_password" }}'
+            sslMode: 'repl{{ ConfigOption "external_postgres_sslmode" }}'
+
+  builder:
+    {}

@@ -1,0 +1,77 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+Flipt is a feature flag and experimentation platform that allows you to:
+  - Deploy features gradually with percentage rollouts
+  - Target specific users or segments with feature flags
+  - Run A/B tests and experiments
+  - Manage feature flags across multiple environments
+
+🚀 Getting Started:
+
+1. Wait for all pods to be ready:
+
+   kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=flipt -n {{ .Release.Namespace }} --timeout=300s
+
+2. Access the Flipt UI:
+
+{{- if .Values.flipt.ingress.enabled }}
+{{- range .Values.flipt.ingress.hosts }}
+   Open your browser to: {{ if $.Values.flipt.ingress.tls }}https{{else}}http{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+   Run the following command to port-forward:
+
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-flipt 8080:8080
+
+   Then open your browser to: http://localhost:8080
+
+{{- end }}
+
+📊 Component Status:
+
+   Database:  {{ if eq .Values.postgresql.type "embedded" }}Embedded PostgreSQL (CloudnativePG){{ else }}External PostgreSQL{{ end }}
+   Cache:     {{ if .Values.redis.enabled }}Redis (enabled for distributed caching){{ else }}In-memory (single instance only){{ end }}
+   Replicas:  {{ .Values.flipt.replicaCount }}
+
+{{- if .Values.replicated.enabled }}
+   Replicated SDK: Enabled
+{{- end }}
+
+📚 Next Steps:
+
+1. Create your first feature flag through the UI
+2. Integrate Flipt into your application using one of the SDKs:
+   - Go: https://docs.flipt.io/integration/server
+   - Node.js: https://docs.flipt.io/integration/server
+   - Python: https://docs.flipt.io/integration/server
+   - Java: https://docs.flipt.io/integration/server
+   - More: https://docs.flipt.io/integration
+
+3. Configure authentication (recommended for production):
+   https://docs.flipt.io/authentication/overview
+
+4. Set up GitOps integration (optional):
+   https://docs.flipt.io/guides/get-going-with-gitops
+
+🔧 Management Commands:
+
+   # View logs
+   kubectl logs -l app.kubernetes.io/name=flipt -n {{ .Release.Namespace }} --tail=100 -f
+
+   # Check database status
+   {{- if eq .Values.postgresql.type "embedded" }}
+   kubectl get cluster {{ include "flipt.postgresql.clustername" . }} -n {{ .Release.Namespace }}
+   {{- end }}
+
+   # Check Redis status
+   {{- if .Values.redis.enabled }}
+   kubectl get pods -l app.kubernetes.io/name=redis -n {{ .Release.Namespace }}
+   {{- end }}
+
+📖 Documentation: https://docs.flipt.io
+💬 Community: https://discord.gg/kRhEqG2T
+
+For more information about Flipt, visit: https://flipt.io

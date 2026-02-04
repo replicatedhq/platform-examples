@@ -1,0 +1,61 @@
+{{- if .Values.flipt.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flipt.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    log:
+      level: {{ .Values.flipt.config.log.level }}
+      encoding: {{ .Values.flipt.config.log.encoding }}
+
+    server:
+      protocol: {{ .Values.flipt.config.server.protocol }}
+      host: {{ .Values.flipt.config.server.host }}
+      http_port: {{ .Values.flipt.config.server.httpPort }}
+      grpc_port: {{ .Values.flipt.config.server.grpcPort }}
+
+    db:
+      url: {{ include "flipt.postgresql.url" . | quote }}
+      max_idle_conn: {{ .Values.flipt.config.db.maxIdleConn }}
+      max_open_conn: {{ .Values.flipt.config.db.maxOpenConn }}
+      conn_max_lifetime: {{ .Values.flipt.config.db.connMaxLifetime }}
+
+    {{- if .Values.redis.enabled }}
+    cache:
+      enabled: {{ .Values.flipt.config.cache.enabled }}
+      backend: {{ .Values.flipt.config.cache.backend }}
+      ttl: {{ .Values.flipt.config.cache.ttl }}
+      redis:
+        url: {{ include "flipt.redis.url" . | quote }}
+        mode: {{ .Values.flipt.config.cache.redis.mode }}
+        prefix: {{ .Values.flipt.config.cache.redis.prefix | quote }}
+    {{- else }}
+    cache:
+      enabled: true
+      backend: memory
+      ttl: {{ .Values.flipt.config.cache.ttl }}
+      memory:
+        eviction_interval: 2m
+    {{- end }}
+
+    {{- if .Values.flipt.config.cors.enabled }}
+    cors:
+      enabled: {{ .Values.flipt.config.cors.enabled }}
+      allowed_origins:
+        {{- range .Values.flipt.config.cors.allowedOrigins }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- end }}
+
+    {{- if .Values.flipt.config.authentication.methods.token.enabled }}
+    authentication:
+      methods:
+        token:
+          enabled: {{ .Values.flipt.config.authentication.methods.token.enabled }}
+    {{- end }}
+{{- end }}

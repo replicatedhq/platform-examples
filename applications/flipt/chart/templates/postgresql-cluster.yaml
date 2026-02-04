@@ -1,0 +1,73 @@
+{{- if and .Values.postgresql.embedded.enabled (eq .Values.postgresql.type "embedded") }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "flipt.fullname" . }}-postgresql-credentials
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.postgresql.username | quote }}
+  password: {{ .Values.postgresql.password | default (randAlphaNum 32) | quote }}
+  database: {{ .Values.postgresql.database | quote }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "flipt.postgresql.clustername" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgresql.embedded.cluster.instances }}
+
+  imageName: {{ .Values.postgresql.embedded.cluster.imageName }}
+
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresql.database }}
+      owner: {{ .Values.postgresql.username }}
+      secret:
+        name: {{ include "flipt.fullname" . }}-postgresql-credentials
+
+  storage:
+    size: {{ .Values.postgresql.embedded.cluster.storage.size }}
+    {{- if .Values.postgresql.embedded.cluster.storage.storageClass }}
+    storageClass: {{ .Values.postgresql.embedded.cluster.storage.storageClass }}
+    {{- end }}
+
+  resources:
+    {{- toYaml .Values.postgresql.embedded.cluster.resources | nindent 4 }}
+
+  {{- if .Values.postgresql.embedded.cluster.backup.enabled }}
+  backup:
+    {{- toYaml .Values.postgresql.embedded.cluster.backup | nindent 4 }}
+  {{- end }}
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      effective_cache_size: "1GB"
+      maintenance_work_mem: "64MB"
+      checkpoint_completion_target: "0.9"
+      wal_buffers: "16MB"
+      default_statistics_target: "100"
+      random_page_cost: "1.1"
+      effective_io_concurrency: "200"
+      work_mem: "2621kB"
+      min_wal_size: "1GB"
+      max_wal_size: "4GB"
+
+  monitoring:
+    enablePodMonitor: {{ .Values.postgresql.embedded.cluster.monitoring.enabled | default false }}
+
+  {{- if gt (int .Values.postgresql.embedded.cluster.instances) 1 }}
+  # Enable synchronous replication for HA
+  postgresql:
+    syncReplicaElectionConstraint:
+      enabled: true
+  {{- end }}
+{{- end }}

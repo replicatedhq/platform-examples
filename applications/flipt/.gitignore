@@ -1,0 +1,39 @@
+# Helm
+*.tgz
+chart/Chart.lock
+chart/charts/*.tgz
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Secrets
+*.pem
+*.key
+secrets.yaml
+*-secret.yaml
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+
+# Support bundles
+support-bundle-*.tar.gz
+
+# Replicated development licenses
+.replicated/

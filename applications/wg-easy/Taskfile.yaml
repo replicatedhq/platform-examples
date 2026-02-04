@@ -11,7 +11,7 @@ vars:
   # Release configuration
   RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
   RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
-  RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
+  RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.2"}}'
   RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
   REPLICATED_LICENSE_ID: '{{.REPLICATED_LICENSE_ID}}'
 
@@ -415,7 +415,7 @@ tasks:
     vars:
       RELEASE_CHANNEL: '{{.RELEASE_CHANNEL | default "Unstable"}}'
       RELEASE_CHANNEL_ID: '{{.RELEASE_CHANNEL_ID}}'
-      RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.1"}}'
+      RELEASE_VERSION: '{{.RELEASE_VERSION | default "0.0.2"}}'
       RELEASE_NOTES: '{{.RELEASE_NOTES | default "Release created via task release-create"}}'
       # Use channel ID if provided, otherwise fall back to channel name
       CHANNEL_TARGET: '{{if .RELEASE_CHANNEL_ID}}{{.RELEASE_CHANNEL_ID}}{{else}}{{.RELEASE_CHANNEL}}{{end}}'
