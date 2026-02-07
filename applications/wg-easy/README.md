@@ -147,6 +147,7 @@ Key components:
 
 ## Learn More
 
+- [Composable Multi-Chart Walkthrough](../../patterns/composable-multi-chart-walkthrough/README.md) -- end-to-end guided tour of the data flow from chart structure through release assembly
 - [Chart Structure Guide](docs/chart-structure.md) -- chart wrapping, shared templates, modular configuration
 - [Development Workflow](docs/development-workflow.md) -- progressive complexity from lint to embedded cluster
 - [Task Reference](docs/task-reference.md) -- complete task documentation
