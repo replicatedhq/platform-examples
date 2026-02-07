@@ -100,14 +100,26 @@ The `release-prepare` task:
 2. Merges all `config.yaml` files from different components
 3. Packages all Helm charts
 
+## Per-Chart Support Bundles and Preflights
+
+Beyond configuration, each chart can include its own support bundle and preflight specifications as Helm templates:
+
+- **`templates/_supportbundle.tpl`**: Defines collectors and analyzers specific to the chart's component. For example, the wg-easy chart collects pod logs and checks sysctl settings, while cert-manager's bundle collects its own namespace logs.
+- **`templates/_preflight.tpl`**: Defines preflight checks that run before installation. For example, the wg-easy chart verifies that IP forwarding is enabled on the host.
+
+These templates are rendered into Kubernetes secrets at deploy time. Replicated automatically discovers and aggregates all support bundle and preflight secrets across namespaces, so teams don't need to maintain a single monolithic diagnostic spec. Each team adds diagnostics for their component in their chart directory, and they're included automatically.
+
+This is a key difference from the monolithic approach (used by storagebox, gitea, powerdns), where a single `kots-support-bundle.yaml` and `kots-preflight.yaml` in the `kots/` directory must be updated by every team whenever a component changes.
+
 ## Modular Configuration Benefits
 
-This modular configuration approach provides several benefits:
+The composable configuration approach enables multi-team ownership of a single Replicated release:
 
-1. **Team Ownership**: Different teams can own their component's configuration
+1. **Team Ownership**: Different teams own their component's configuration, support bundles, and preflights
 2. **Isolation**: Changes to one component's configuration don't affect others
 3. **Simplified Development**: Focus on your component without worrying about the full configuration
 4. **Automatic Merging**: Configuration merging is automated at release time
+5. **Automatic Aggregation**: Support bundles and preflights are aggregated by Replicated at runtime
 
 ## Embedded Cluster Support
 

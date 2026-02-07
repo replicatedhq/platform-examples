@@ -1,6 +1,6 @@
 # Development Workflow
 
-This document outlines the progressive development workflow for the WG-Easy Helm chart pattern, guiding you through each stage from initial chart configuration to complete application deployment.
+This document outlines the progressive development workflow used alongside the [composable multi-chart architecture](../README.md). The workflow guides you through each stage from initial chart validation to complete application deployment, building complexity incrementally so issues are caught early.
 
 ## Progressive Complexity Approach
 
