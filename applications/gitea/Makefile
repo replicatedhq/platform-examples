@@ -42,7 +42,7 @@ package-and-update: clean
 	    version=$$(eval $(call get_helm_chart_version,$$chart)); \
 		chart_name=$$(basename $$chart); \
 	    echo "Updating version to $$version in $(KOTS_DIR)/*-chart.yaml"; \
-	    sed -i '' 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: '$$version'|g' $(KOTS_DIR)/$$chart_name-chart.yaml; \
+	    sed -i.bak 's|chartVersion: [0-9a-zA-Z.-]*|chartVersion: '$$version'|g' $(KOTS_DIR)/$$chart_name-chart.yaml && rm -f $(KOTS_DIR)/$$chart_name-chart.yaml.bak; \
 	done
 
 
