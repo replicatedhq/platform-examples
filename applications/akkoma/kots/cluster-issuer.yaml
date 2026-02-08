@@ -1,0 +1,16 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  annotations:
+    kots.io/when: '{{repl ConfigOptionEquals "ingress_tls_type" "tls_cert_manager" }}'
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: '{{repl ConfigOption "akkoma_admin_email" }}'
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx
