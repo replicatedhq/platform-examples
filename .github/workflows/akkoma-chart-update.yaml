@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       chart_version:
-        description: 'Force a specific chart version (tag name, e.g. v0.3.1). If empty, uses latest release.'
+        description: 'Force a specific chart version (tag name, e.g. chart-v0.3.1). If empty, uses latest release.'
         required: false
         default: ''
 
@@ -27,6 +27,7 @@ jobs:
     outputs:
       needs_update: ${{ steps.compare.outputs.needs_update }}
       new_version: ${{ steps.compare.outputs.new_version }}
+      tag: ${{ steps.upstream.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,10 +50,12 @@ jobs:
               exit 1
             fi
           fi
-          # Strip leading 'v' if present
-          version="${tag#v}"
+          # Extract semver: strip 'chart-v', 'chart-', 'v' prefixes
+          version="${tag#chart-}"
+          version="${version#v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Upstream version: ${version}"
+          echo "Upstream tag: ${tag}, version: ${version}"
 
       - name: Compare versions
         id: compare
@@ -88,8 +91,8 @@ jobs:
 
       - name: Clone upstream chart
         run: |
-          version="${{ needs.check-update.outputs.new_version }}"
-          git clone --branch "v${version}" --depth 1 \
+          tag="${{ needs.check-update.outputs.tag }}"
+          git clone --branch "${tag}" --depth 1 \
             https://github.com/${{ env.UPSTREAM_REPO }}.git charts/akkoma-helm
 
       - name: Build chart package
