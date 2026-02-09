@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: gitea
-    chartVersion: 10.6.0
+    chartVersion: 10.7.0
   values:
     gitea:
       config:
@@ -16,4 +16,48 @@ spec:
           USER: repl{{ ConfigOption "postgres_user" }}
           PASSWD: repl{{ ConfigOption "postgres_password" }}
     postgresql-ha:
-      enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
+      enabled: false
+    postgresql:
+      enabled: false
+    redis-cluster:
+      enabled: false
+    redis:
+      enabled: false
+    postgres:
+      auth:
+        username: repl{{ ConfigOption "postgres_user" }}
+        password: repl{{ ConfigOption "postgres_password" }}
+      embedded:
+        enabled: repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}
+        initdb:
+          database: repl{{ ConfigOption "postgres_db" }}
+          owner: repl{{ ConfigOption "postgres_user" }}
+    valkey:
+      enabled: repl{{ ConfigOptionEquals "internal_valkey_enabled" "1" }}
+      auth:
+        enabled: true
+        aclUsers:
+          default:
+            password: repl{{ ConfigOption "valkey_password" }}
+  optionalValues:
+    - when: 'repl{{ ConfigOptionEquals "internal_valkey_enabled" "1" }}'
+      recursiveMerge: true
+      values:
+        gitea:
+          config:
+            cache:
+              ADAPTER: redis
+              HOST: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+            session:
+              PROVIDER: redis
+              PROVIDER_CONFIG: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+            queue:
+              TYPE: redis
+              CONN_STR: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+    - when: 'repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}'
+      recursiveMerge: true
+      values:
+        gitea:
+          config:
+            database:
+              HOST: "gitea-postgres-rw:5432"

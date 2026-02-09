@@ -1,22 +1,10 @@
 apiVersion: v2
 appVersion: 1.22.3
 dependencies:
-- condition: postgresql.enabled
-  name: postgresql
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 15.5.20
-- condition: postgresql-ha.enabled
-  name: postgresql-ha
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 14.2.16
-- condition: redis-cluster.enabled
-  name: redis-cluster
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 10.3.0
-- condition: redis.enabled
-  name: redis
-  repository: oci://registry-1.docker.io/bitnamicharts
-  version: 19.6.4
+- name: valkey
+  version: "0.9.3"
+  repository: "https://valkey.io/valkey-helm/"
+  condition: valkey.enabled
 description: Gitea Helm chart for Kubernetes
 icon: https://gitea.com/assets/img/logo.svg
 keywords:
@@ -45,4 +33,4 @@ sources:
 - https://github.com/go-gitea/gitea
 - https://hub.docker.com/r/gitea/gitea/
 type: application
-version: 10.6.0
+version: 10.7.0

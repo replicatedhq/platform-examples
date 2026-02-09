@@ -1,0 +1,25 @@
+{{- if .Values.postgres.embedded.enabled -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: gitea-postgres
+  labels:
+    {{- include "gitea.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgres.embedded.instances }}
+  imageName: "{{ .Values.postgres.embedded.image.repository }}:{{ .Values.postgres.embedded.image.tag }}"
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgres.embedded.initdb.database | quote }}
+      owner: {{ .Values.postgres.embedded.initdb.owner | quote }}
+      secret:
+        name: gitea-postgres-initdb-secret
+  storage:
+    size: {{ .Values.postgres.embedded.storage.size }}
+    {{- with .Values.postgres.embedded.storage.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+  enableSuperuserAccess: true
+  primaryUpdateMethod: switchover
+  primaryUpdateStrategy: unsupervised
+{{- end -}}

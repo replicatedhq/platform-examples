@@ -434,8 +434,8 @@ actions:
     affinity: {}
 
     publish:
-      repository: bitnami/kubectl
-      tag: 1.29.0
+      repository: registry.k8s.io/kubectl
+      tag: 1.33.0
       pullPolicy: IfNotPresent
 
     ttlSecondsAfterFinished: 300
@@ -521,6 +521,17 @@ gitea:
     server:
       SSH_PORT: 22 # rootful image
       SSH_LISTEN_PORT: 2222 # rootless image
+    database:
+      DB_TYPE: postgres
+    cache:
+      ADAPTER: redis
+      HOST: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+    session:
+      PROVIDER: redis
+      PROVIDER_CONFIG: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+    queue:
+      TYPE: redis
+      CONN_STR: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
   #
   #  security:
   #    PASSWORD_COMPLEXITY: spec
@@ -602,95 +613,53 @@ gitea:
     successThreshold: 1
     failureThreshold: 10
 
-## @section redis-cluster
-## @param redis-cluster.enabled Enable redis cluster
-# ⚠️ The redis charts do not work well with special characters in the password (<https://gitea.com/gitea/helm-chart/issues/690>).
-# Consider omitting such or open an issue in the Bitnami repo and let us know once this got fixed.
-## @param redis-cluster.usePassword Whether to use password authentication
-## @param redis-cluster.cluster.nodes Number of redis cluster master nodes
-## @param redis-cluster.cluster.replicas Number of redis cluster master node replicas
-## @descriptionStart
-## Redis cluster and [Redis](#redis) cannot be enabled at the same time.
-## @descriptionEnd
+## @section Bitnami subcharts (disabled - replaced by CNPG and Valkey)
 redis-cluster:
-  enabled: true
-  usePassword: false
-  cluster:
-    nodes: 3 # default: 6
-    replicas: 0 # default: 1
+  enabled: false
 
-## @section redis
-## @param redis.enabled Enable redis standalone or replicated
-## @param redis.architecture Whether to use standalone or replication
-# ⚠️ The redis charts do not work well with special characters in the password (<https://gitea.com/gitea/helm-chart/issues/690>).
-# Consider omitting such or open an issue in the Bitnami repo and let us know once this got fixed.
-## @param redis.global.redis.password Required password
-## @param redis.master.count Number of Redis master instances to deploy
-## @descriptionStart
-## Redis and [Redis cluster](#redis-cluster) cannot be enabled at the same time.
-## @descriptionEnd
 redis:
   enabled: false
-  architecture: standalone
-  global:
-    redis:
-      password: changeme
-  master:
-    count: 1
 
-## @section PostgreSQL HA
-#
-## @param postgresql-ha.enabled Enable PostgreSQL HA
-## @param postgresql-ha.postgresql.password Password for the `gitea` user (overrides `auth.password`)
-## @param postgresql-ha.global.postgresql.database Name for a custom database to create (overrides `auth.database`)
-## @param postgresql-ha.global.postgresql.username Name for a custom user to create (overrides `auth.username`)
-## @param postgresql-ha.global.postgresql.password Name for a custom password to create (overrides `auth.password`)
-## @param postgresql-ha.postgresql.repmgrPassword Repmgr Password
-## @param postgresql-ha.postgresql.postgresPassword postgres Password
-## @param postgresql-ha.pgpool.adminPassword pgpool adminPassword
-## @param postgresql-ha.service.ports.postgresql PostgreSQL service port (overrides `service.ports.postgresql`)
-## @param postgresql-ha.persistence.size PVC Storage Request for PostgreSQL HA volume
 postgresql-ha:
-  global:
-    postgresql:
-      database: gitea
-      password: gitea
-      username: gitea
-  enabled: true
-  postgresql:
-    repmgrPassword: changeme2
-    postgresPassword: changeme1
-    password: changeme4
-  pgpool:
-    adminPassword: changeme3
-  service:
-    ports:
-      postgresql: 5432
-  persistence:
-    size: 10Gi
+  enabled: false
 
-## @section PostgreSQL
-#
-## @param postgresql.enabled Enable PostgreSQL
-## @param postgresql.global.postgresql.auth.password Password for the `gitea` user (overrides `auth.password`)
-## @param postgresql.global.postgresql.auth.database Name for a custom database to create (overrides `auth.database`)
-## @param postgresql.global.postgresql.auth.username Name for a custom user to create (overrides `auth.username`)
-## @param postgresql.global.postgresql.service.ports.postgresql PostgreSQL service port (overrides `service.ports.postgresql`)
-## @param postgresql.primary.persistence.size PVC Storage Request for PostgreSQL volume
 postgresql:
   enabled: false
-  global:
-    postgresql:
-      auth:
-        password: gitea
-        database: gitea
-        username: gitea
-      service:
-        ports:
-          postgresql: 5432
-  primary:
-    persistence:
+
+## @section Embedded PostgreSQL via CloudNativePG operator
+postgres:
+  auth:
+    username: gitea
+    password: gitea
+  embedded:
+    enabled: true
+    instances: 1
+    image:
+      repository: ghcr.io/cloudnative-pg/postgresql
+      tag: "15.2"
+    initdb:
+      database: gitea
+      owner: gitea
+    storage:
       size: 10Gi
+      storageClass: ""
+
+## @section Valkey cache (Redis-compatible)
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        password: "changeme"
+        permissions: "~* &* +@all"
+  replica:
+    enabled: false
+  dataStorage:
+    enabled: false
+  service:
+    type: ClusterIP
+    port: 6379
 
 # By default, removed or moved settings that still remain in a user defined values.yaml will cause Helm to fail running the install/update.
 # Set it to false to skip this basic validation check.
