@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: akkoma
-    chartVersion: 0.3.1
+    chartVersion: 0.4.0
   values:
     akkoma:
       domain: repl{{ ConfigOption "akkoma_domain" }}
