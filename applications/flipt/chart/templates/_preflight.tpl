@@ -1,3 +1,4 @@
+{{- define "flipt.preflight" -}}
 apiVersion: troubleshoot.sh/v1beta2
 kind: Preflight
 metadata:
@@ -167,7 +168,7 @@ spec:
     - logs:
         selector:
           - app=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Values.namespace | default "flipt" | quote }}
         limits:
           maxAge: 720h
           maxLines: 10000
@@ -175,7 +176,8 @@ spec:
         name: kubectl-version
         selector:
           - app=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Values.namespace | default "flipt" | quote }}
         command: ["kubectl"]
         args: ["version", "--short"]
         timeout: 30s
+{{- end -}}

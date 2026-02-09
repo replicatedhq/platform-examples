@@ -4,6 +4,8 @@ CHART_DIR := chart
 CHART_NAME := flipt
 NAMESPACE := flipt
 RELEASE_NAME := flipt
+RELEASE_DIR := release
+REPLICATED_DIR := replicated
 
 help: ## Display this help message
 	@echo "Flipt Helm Chart Management"
@@ -17,7 +19,8 @@ lint: ## Lint the Helm chart
 
 package: lint ## Package the Helm chart
 	@echo "Packaging Helm chart..."
-	helm package $(CHART_DIR)
+	@mkdir -p $(RELEASE_DIR)
+	helm package $(CHART_DIR) -d $(RELEASE_DIR)
 
 update-deps: ## Update Helm chart dependencies
 	@echo "Adding Helm repositories..."
@@ -29,47 +32,25 @@ update-deps: ## Update Helm chart dependencies
 	@echo "Updating chart dependencies..."
 	cd $(CHART_DIR) && helm dependency update
 
-install-operator: ## Install CloudNativePG operator (required, run once per cluster)
-	@echo "Installing CloudNativePG operator..."
-	helm repo add cnpg https://cloudnative-pg.github.io/charts || true
-	helm repo update
-	helm upgrade --install cnpg \
-		--namespace cnpg-system \
-		--create-namespace \
-		cnpg/cloudnative-pg
-	@echo "Waiting for operator to be ready..."
-	kubectl wait --for=condition=available --timeout=300s \
-		deployment/cnpg-cloudnative-pg \
-		-n cnpg-system || true
-	@echo "✓ Operator ready!"
-
-install: install-operator ## Install the chart (includes operator installation)
+install: ## Install the chart (operator included as dependency)
 	@echo "Installing $(CHART_NAME)..."
+	@echo "Note: This includes CloudNativePG operator installation, which may take a few minutes..."
 	helm install $(RELEASE_NAME) $(CHART_DIR) \
 		--namespace $(NAMESPACE) \
 		--create-namespace \
 		--wait \
+		--wait-for-jobs \
+		--timeout 15m
+
+install-no-operator: ## Install without CloudNativePG operator (use if already installed)
+	@echo "Installing $(CHART_NAME) without operator..."
+	helm install $(RELEASE_NAME) $(CHART_DIR) \
+		--namespace $(NAMESPACE) \
+		--create-namespace \
+		--set cloudnative-pg.enabled=false \
+		--wait \
+		--wait-for-jobs \
 		--timeout 10m
-
-setup-license: ## Set up Replicated development license
-	@./scripts/setup-dev-license.sh
-
-install-with-license: setup-license install-operator ## Set up license and install
-	@if [ -f ".replicated/license.env" ]; then \
-		. .replicated/license.env && \
-		$(MAKE) install; \
-	else \
-		echo "License setup failed"; \
-		exit 1; \
-	fi
-
-clean-license: ## Remove development license
-	@if [ -f ".replicated/license.env" ]; then \
-		. .replicated/license.env && \
-		replicated customer rm --customer "$$CUSTOMER_NAME" 2>/dev/null || true; \
-	fi
-	@rm -rf .replicated/
-	@echo "License configuration removed"
 
 uninstall: ## Uninstall the chart
 	@echo "Uninstalling $(CHART_NAME)..."
@@ -112,7 +93,7 @@ clean: ## Clean generated files
 	@echo "Cleaning generated files..."
 	rm -rf $(CHART_DIR)/charts/*.tgz
 	rm -rf $(CHART_DIR)/Chart.lock
-	rm -f *.tgz
+	rm -rf $(RELEASE_DIR)/*.tgz
 
 clean-install: clean update-deps install ## Clean rebuild and install
 
@@ -122,19 +103,19 @@ port-forward: ## Port forward to Flipt service
 
 replicated-lint: ## Lint Replicated KOTS configs
 	@echo "Linting KOTS configuration..."
-	replicated release lint --yaml-dir replicated/
+	replicated release lint --yaml-dir $(REPLICATED_DIR)/
 
-replicated-create: ## Create a new Replicated release
+replicated-create: package ## Create a new Replicated release (includes packaging)
 	@echo "Creating Replicated release..."
-	replicated release create --auto --yaml-dir replicated/
+	replicated release create --auto --yaml-dir $(REPLICATED_DIR)/
 
 preflight: ## Run preflight checks
 	@echo "Running preflight checks..."
-	kubectl preflight ./replicated/kots-preflight.yaml
+	kubectl preflight $(CHART_DIR)/templates/secret-preflights.yaml
 
 support-bundle: ## Generate support bundle
 	@echo "Generating support bundle..."
-	kubectl support-bundle ./replicated/kots-support-bundle.yaml
+	kubectl support-bundle $(CHART_DIR)/templates/secret-supportbundle.yaml
 
 check-deps: ## Verify all required tools are installed
 	@echo "Checking dependencies..."

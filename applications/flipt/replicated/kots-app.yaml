@@ -44,4 +44,5 @@ spec:
   additionalImages:
     - docker.flipt.io/flipt/flipt:v1.61.0
     - ghcr.io/cloudnative-pg/postgresql:16
-    - docker.io/bitnami/redis:7.2.4
+    - docker.io/bitnami/redis:latest
+    - proxy.replicated.com/library/replicated-sdk-image:1.15.0

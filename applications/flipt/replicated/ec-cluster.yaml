@@ -1,0 +1,13 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: "3.0.0-alpha-8+k8s-1.34"
+  unsupportedOverrides:
+    k0s: |-
+      config: 
+        spec:
+          workerProfiles:
+            - name: default
+              values:
+                allowedUnsafeSysctls:
+                  - net.ipv4.ip_forward

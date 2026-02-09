@@ -1,0 +1,275 @@
+## Flipt Feature Flag Platform Configuration
+## This values file provides sensible defaults for deploying Flipt with PostgreSQL and Redis
+
+global:
+  ## Global image registry override
+  ## Useful for air-gap deployments or custom registries
+  imageRegistry: ""
+
+## CloudNativePG Operator Configuration
+## Set to false if operator is already installed cluster-wide
+cloudnative-pg:
+  enabled: true
+
+## Flipt application configuration
+flipt:
+  enabled: true
+
+  image:
+    ## Use global registry if set, otherwise default
+    registry: docker.flipt.io
+    repository: flipt/flipt
+    tag: "" # Uses appVersion from Chart.yaml
+    pullPolicy: IfNotPresent
+
+  ## Number of Flipt replicas (2+ recommended for HA with Redis cache)
+  replicaCount: 2
+
+  ## Resource limits for Flipt pods
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  ## Flipt configuration
+  ## See https://docs.flipt.io/configuration/overview for all options
+  config:
+    ## Logging configuration
+    log:
+      level: info
+      encoding: json
+
+    ## Server configuration
+    server:
+      protocol: http
+      host: 0.0.0.0
+      httpPort: 8080
+      grpcPort: 9000
+
+    ## Database configuration (templated from values below)
+    db:
+      url: ""  # Will be set via template based on postgresql configuration
+      maxIdleConn: 10
+      maxOpenConn: 50
+      connMaxLifetime: 1h
+
+    ## Cache configuration (templated from redis configuration)
+    cache:
+      enabled: true
+      backend: redis  # or 'memory' for single instance
+      ttl: 5m
+      redis:
+        url: ""  # Will be set via template based on redis configuration
+        mode: single  # or 'cluster' for Redis cluster
+        prefix: "flipt"
+
+    ## CORS configuration for web UI
+    cors:
+      enabled: true
+      allowedOrigins:
+        - "*"
+
+    ## Authentication (optional, configure for production)
+    authentication:
+      methods:
+        token:
+          enabled: false
+
+  ## Service configuration
+  service:
+    type: ClusterIP
+    httpPort: 8080
+    grpcPort: 9000
+    annotations: {}
+
+  ## Ingress configuration
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+      # cert-manager.io/cluster-issuer: letsencrypt-prod
+      # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: flipt.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+      # - secretName: flipt-tls
+      #   hosts:
+      #     - flipt.example.com
+
+  ## Horizontal Pod Autoscaler
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  ## Pod Disruption Budget (recommended for HA)
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  ## ServiceMonitor for Prometheus metrics
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+
+## PostgreSQL Database Configuration
+postgresql:
+  ## Use embedded PostgreSQL (CloudnativePG) or external database
+  type: embedded  # 'embedded' or 'external'
+
+  ## Embedded PostgreSQL using CloudnativePG operator
+  embedded:
+    enabled: true
+    ## Database cluster configuration
+    cluster:
+      instances: 1  # 3 recommended for production HA
+      storage:
+        size: 10Gi
+        storageClass: ""  # Uses default storage class
+      ## PostgreSQL version
+      imageName: ghcr.io/cloudnative-pg/postgresql:16
+      ## Resource limits
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      ## Enable continuous backup (optional)
+      backup:
+        enabled: false
+        # Configure S3 or similar for WAL archiving
+        # See CloudnativePG docs for details
+      ## Enable monitoring (optional)
+      monitoring:
+        enabled: false
+
+  ## External PostgreSQL connection details
+  external:
+    enabled: false
+    host: postgresql.example.com
+    port: 5432
+    database: flipt
+    username: flipt
+    password: ""  # Set via secret or KOTS config
+    sslMode: require
+
+  ## Database initialization
+  database: flipt
+  username: flipt
+  password: ""  # Auto-generated if empty (for embedded)
+
+## Redis Cache Configuration
+redis:
+  enabled: true
+
+  ## Override image to use working Bitnami tag
+  image:
+    registry: docker.io
+    repository: bitnami/redis
+    tag: latest
+
+  ## Redis architecture: standalone or replication
+  architecture: standalone  # 'replication' for primary/replica setup
+
+  ## Redis authentication
+  auth:
+    enabled: true
+    password: ""  # Auto-generated if empty
+
+  ## Redis Master configuration
+  master:
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""  # Uses default storage class
+
+  ## Redis Replica configuration (if architecture: replication)
+  replica:
+    replicaCount: 1
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    persistence:
+      enabled: true
+      size: 5Gi
+
+  ## Redis metrics for monitoring
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+## Replicated SDK Integration
+replicated:
+  enabled: true
+
+  ## Integration configuration
+  integration:
+    enabled: true
+
+  ## Custom license fields (optional)
+  ## licenseFields: {}
+
+## Additional Kubernetes Resources
+
+## ConfigMap for additional Flipt configuration
+extraConfigMap: {}
+
+## Secrets for sensitive configuration
+extraSecrets: {}
+
+## Pod annotations
+podAnnotations: {}
+
+## Pod labels
+podLabels: {}
+
+## Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity rules
+affinity: {}
+  ## Example anti-affinity to spread pods across nodes
+  # podAntiAffinity:
+  #   preferredDuringSchedulingIgnoredDuringExecution:
+  #     - weight: 100
+  #       podAffinityTerm:
+  #         labelSelector:
+  #           matchExpressions:
+  #             - key: app.kubernetes.io/name
+  #               operator: In
+  #               values:
+  #                 - flipt
+  #         topologyKey: kubernetes.io/hostname

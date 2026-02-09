@@ -5,7 +5,7 @@ description: |
   This enterprise-ready deployment includes PostgreSQL for durable storage and Redis
   for distributed caching across multiple instances.
 type: application
-version: 1.0.0
+version: 1.0.3
 appVersion: "1.61.0"
 keywords:
   - feature-flags
@@ -22,20 +22,17 @@ maintainers:
     url: https://replicated.com
 
 dependencies:
-  # Flipt application (official chart)
-  - name: flipt
-    version: "0.87.0"
-    repository: https://helm.flipt.io
-    condition: flipt.enabled
-
-  # PostgreSQL database is managed via CloudnativePG operator
-  # Note: The CloudnativePG operator must be installed separately at the cluster level
-  # Install it with: helm install cnpg --namespace cnpg-system --create-namespace cnpg/cloudnative-pg
-  # This chart creates Cluster resources that the operator manages
+  # CloudNativePG operator for PostgreSQL management
+  # Note: If you already have the operator installed cluster-wide, disable with:
+  # --set cloudnative-pg.enabled=false
+  - name: cloudnative-pg
+    version: "0.23.0"
+    repository: https://cloudnative-pg.github.io/charts
+    condition: cloudnative-pg.enabled
 
   # Redis for distributed caching
   - name: redis
-    version: "20.5.0"
+    version: "19.6.4"
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
 

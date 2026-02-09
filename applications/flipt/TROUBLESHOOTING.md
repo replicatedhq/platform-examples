@@ -14,36 +14,35 @@ no matches for kind "Cluster" in version "postgresql.cnpg.io/v1"
 ensure CRDs are installed first
 ```
 
-**Cause:** The CloudNativePG operator is not installed in your cluster.
+**Cause:** The CloudNativePG operator chart dependency failed to install or CRDs are not present.
 
-**Solution:** Install the operator before installing Flipt:
+**Solution:** The operator is now included as a chart dependency and should install automatically. If you see this error:
 
-```bash
-# Quick install
-./scripts/install-cnpg-operator.sh
+1. **Check if operator is disabled:**
+   ```bash
+   # Ensure operator is enabled (default)
+   helm install flipt ./chart \
+     --namespace flipt \
+     --create-namespace \
+     --set cloudnative-pg.enabled=true
+   ```
 
-# Or manually
-helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm repo update
-helm upgrade --install cnpg \
-  --namespace cnpg-system \
-  --create-namespace \
-  cnpg/cloudnative-pg
+2. **Verify CRDs are installed:**
+   ```bash
+   kubectl get crd | grep postgresql.cnpg.io
 
-# Verify operator is running
-kubectl get pods -n cnpg-system
-```
+   # Should show:
+   # backups.postgresql.cnpg.io
+   # clusters.postgresql.cnpg.io
+   # poolers.postgresql.cnpg.io
+   # scheduledbackups.postgresql.cnpg.io
+   ```
 
-**Verify CRDs are installed:**
-```bash
-kubectl get crd | grep postgresql.cnpg.io
-
-# Should show:
-# backups.postgresql.cnpg.io
-# clusters.postgresql.cnpg.io
-# poolers.postgresql.cnpg.io
-# scheduledbackups.postgresql.cnpg.io
-```
+3. **Check operator pods:**
+   ```bash
+   kubectl get pods -n flipt
+   # Look for cloudnative-pg-* pods
+   ```
 
 ---
 
@@ -104,33 +103,22 @@ annotation validation error: key "meta.helm.sh/release-name" must equal "flipt":
 current value is "cnpg"
 ```
 
-**Cause:** Cached CloudNativePG dependency files from a previous configuration.
+**Cause:** The CloudNativePG operator was previously installed separately at cluster level, and now it's also included as a chart dependency.
 
-**Solution:** Clean and rebuild dependencies:
+**Solution:** If you already have the operator installed cluster-wide, disable it in the chart:
 
 ```bash
-cd chart
+# Install without operator dependency
+helm install flipt ./chart \
+  --namespace flipt \
+  --create-namespace \
+  --set cloudnative-pg.enabled=false
 
-# Remove cached operator dependency
-rm -f charts/cloudnative-pg-*.tgz
-rm -f Chart.lock
-
-# Rebuild dependencies
-helm dependency update
-cd ..
-
-# Now install
-helm install flipt ./chart --namespace flipt --create-namespace
+# Or use the Makefile
+make install-no-operator
 ```
 
-Or use the Makefile:
-```bash
-make clean
-make update-deps
-make install
-```
-
-**Note:** The CloudNativePG operator should be installed separately at the cluster level, not as a chart dependency.
+**Note:** The CloudNativePG operator is now included as a chart dependency by default. If you prefer to manage it separately at the cluster level, use `--set cloudnative-pg.enabled=false`.
 
 ---
 
@@ -148,14 +136,10 @@ Error: either license in the config file or integration license id must be speci
 ```bash
 # Quick setup
 export REPLICATED_API_TOKEN=your-token
-./scripts/setup-dev-license.sh
-source .replicated/license.env
-./scripts/install.sh
+export REPLICATED_LICENSE_ID=your-license-id
 ```
 
 **Detailed guide:** See [docs/DEVELOPMENT_LICENSE.md](docs/DEVELOPMENT_LICENSE.md)
-
-**For CI/CD:** Licenses can be created programmatically and cleaned up after tests.
 
 ---
 

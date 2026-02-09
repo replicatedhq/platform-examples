@@ -16,12 +16,6 @@ Before you begin, you need a **Replicated development license**:
 # 1. Set your Replicated API token
 export REPLICATED_API_TOKEN=your-token-here
 
-# 2. Set up development license
-./scripts/setup-dev-license.sh
-
-# 3. Load the license
-source .replicated/license.env
-```
 
 **Don't have a Replicated account?**
 - Sign up at [vendor.replicated.com](https://vendor.replicated.com)
@@ -52,27 +46,25 @@ This script will:
 If you prefer to run commands manually:
 
 ```bash
-# Step 1: Install CloudNativePG operator (cluster-wide, only needed once)
-./scripts/install-cnpg-operator.sh
-
-# Step 2: Clean and update dependencies
+# Step 1: Update chart dependencies (includes CloudNativePG operator)
 cd chart
-rm -f charts/cloudnative-pg-*.tgz Chart.lock  # Clean cached files
+rm -f Chart.lock  # Clean cached files
 helm repo add flipt https://helm.flipt.io
 helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add cnpg https://cloudnative-pg.github.io/charts
 helm repo add replicated https://charts.replicated.com
 helm repo update
 helm dependency update
 cd ..
 
-# Step 3: Install Flipt
+# Step 2: Install Flipt (operator included automatically)
 helm install flipt ./chart \
   --namespace flipt \
   --create-namespace \
   --wait \
   --timeout 10m
 
-# Step 4: Port forward to access
+# Step 3: Port forward to access
 kubectl port-forward -n flipt svc/flipt-flipt 8080:8080
 ```
 

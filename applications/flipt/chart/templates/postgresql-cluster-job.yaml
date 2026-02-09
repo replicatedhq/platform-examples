@@ -1,0 +1,199 @@
+{{- if and .Values.postgresql.embedded.enabled (eq .Values.postgresql.type "embedded") }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "flipt.fullname" . }}-create-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "flipt.fullname" . }}-create-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "create", "patch"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "flipt.fullname" . }}-create-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "flipt.fullname" . }}-create-db
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "flipt.fullname" . }}-create-db
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flipt.fullname" . }}-db-manifest
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+data:
+  cluster.yaml: |
+    apiVersion: postgresql.cnpg.io/v1
+    kind: Cluster
+    metadata:
+      name: {{ include "flipt.postgresql.clustername" . }}
+      namespace: {{ .Release.Namespace }}
+      labels:
+        {{- include "flipt.labels" . | nindent 8 }}
+    spec:
+      instances: {{ .Values.postgresql.embedded.cluster.instances }}
+
+      imageName: {{ .Values.postgresql.embedded.cluster.imageName }}
+
+      bootstrap:
+        initdb:
+          database: {{ .Values.postgresql.database }}
+          owner: {{ .Values.postgresql.username }}
+
+      storage:
+        size: {{ .Values.postgresql.embedded.cluster.storage.size }}
+        {{- if .Values.postgresql.embedded.cluster.storage.storageClass }}
+        storageClass: {{ .Values.postgresql.embedded.cluster.storage.storageClass }}
+        {{- end }}
+
+      resources:
+        {{- toYaml .Values.postgresql.embedded.cluster.resources | nindent 8 }}
+
+      {{- if .Values.postgresql.embedded.cluster.backup.enabled }}
+      backup:
+        {{- toYaml .Values.postgresql.embedded.cluster.backup | nindent 8 }}
+      {{- end }}
+
+      postgresql:
+        parameters:
+          max_connections: "200"
+          shared_buffers: "256MB"
+          effective_cache_size: "1GB"
+          maintenance_work_mem: "64MB"
+          checkpoint_completion_target: "0.9"
+          wal_buffers: "16MB"
+          default_statistics_target: "100"
+          random_page_cost: "1.1"
+          effective_io_concurrency: "200"
+          work_mem: "2621kB"
+          min_wal_size: "1GB"
+          max_wal_size: "4GB"
+
+      monitoring:
+        enablePodMonitor: {{ .Values.postgresql.embedded.cluster.monitoring.enabled | default false }}
+
+      {{- if gt (int .Values.postgresql.embedded.cluster.instances) 1 }}
+      # Enable synchronous replication for HA
+      postgresql:
+        syncReplicaElectionConstraint:
+          enabled: true
+      {{- end }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flipt.fullname" . }}-create-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "flipt.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "flipt.fullname" . }}-create-db
+      restartPolicy: OnFailure
+      containers:
+        - name: create-cluster
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              echo "Waiting for CloudNativePG operator webhook to be ready..."
+              for i in {1..60}; do
+                if kubectl get endpoints cnpg-webhook-service -n {{ .Release.Namespace }} &>/dev/null; then
+                  ENDPOINTS=$(kubectl get endpoints cnpg-webhook-service -n {{ .Release.Namespace }} -o jsonpath='{.subsets[*].addresses[*].ip}')
+                  if [ -n "$ENDPOINTS" ]; then
+                    echo "CloudNativePG webhook is ready!"
+                    break
+                  fi
+                fi
+                echo "Waiting for webhook endpoints... (attempt $i/60)"
+                sleep 5
+              done
+
+              echo "Creating PostgreSQL Cluster..."
+              if kubectl get cluster {{ include "flipt.postgresql.clustername" . }} -n {{ .Release.Namespace }} &>/dev/null; then
+                echo "Cluster already exists, patching..."
+                kubectl apply -f /manifests/cluster.yaml
+              else
+                echo "Creating new cluster..."
+                kubectl create -f /manifests/cluster.yaml
+              fi
+
+              echo "Waiting for PostgreSQL Cluster to be ready..."
+              for i in {1..60}; do
+                READY=$(kubectl get cluster {{ include "flipt.postgresql.clustername" . }} -n {{ .Release.Namespace }} -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+                if [ "$READY" = "Cluster in healthy state" ]; then
+                  echo "PostgreSQL Cluster is ready!"
+                  break
+                fi
+                echo "Waiting for cluster to be ready... (attempt $i/60, status: $READY)"
+                sleep 10
+              done
+
+              # Verify the cluster is truly ready
+              kubectl wait --for=condition=Ready pod -l cnpg.io/cluster={{ include "flipt.postgresql.clustername" . }} -n {{ .Release.Namespace }} --timeout=600s
+
+              echo "PostgreSQL Cluster created and ready!"
+          volumeMounts:
+            - name: manifests
+              mountPath: /manifests
+      volumes:
+        - name: manifests
+          configMap:
+            name: {{ include "flipt.fullname" . }}-db-manifest
+{{- end }}

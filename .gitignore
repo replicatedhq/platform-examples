@@ -13,9 +13,12 @@
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
 *.bak
 *.tmp
 *.temp
+.tmp/
 
 # System-specific ignores
 .DS_Store
@@ -55,5 +58,9 @@ applications/wg-easy/release/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 *.tar.gz
+
+# Flipt specific
+applications/flipt/release/
+applications/flipt/chart/Chart.lock
 
 **/.claude/settings.local.json

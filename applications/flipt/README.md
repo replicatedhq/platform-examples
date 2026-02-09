@@ -83,7 +83,7 @@ The admin console provides:
 
 ### Using Helm Directly
 
-**⚠️ Important:** The CloudNativePG operator must be installed before deploying Flipt (only needed once per cluster).
+**✨ Note:** The CloudNativePG operator is now included as a chart dependency and will be installed automatically.
 
 ### Important: Replicated License Required
 
@@ -97,31 +97,12 @@ Flipt requires a Replicated development license for local testing. This provides
 ```bash
 # 1. Set up development license
 export REPLICATED_API_TOKEN=your-token
-./scripts/setup-dev-license.sh
-
-# 2. Load license and install
-source .replicated/license.env
-./scripts/install.sh
+export REPLICATED_LICENSE_ID=your-license-id
 ```
 
 **Detailed instructions:** See [Development License Guide](docs/DEVELOPMENT_LICENSE.md)
 
-1. **Install CloudNativePG operator:**
-
-   ```bash
-   # Quick install using provided script
-   ./scripts/install-cnpg-operator.sh
-
-   # Or manually
-   helm repo add cnpg https://cloudnative-pg.github.io/charts
-   helm repo update
-   helm upgrade --install cnpg \
-     --namespace cnpg-system \
-     --create-namespace \
-     cnpg/cloudnative-pg
-   ```
-
-2. **Add the Helm repositories:**
+1. **Add the Helm repositories:**
 
    ```bash
    helm repo add flipt-repo https://helm.flipt.io

@@ -1,3 +1,4 @@
+{{- define "flipt.supportbundle" -}}
 apiVersion: troubleshoot.sh/v1beta2
 kind: SupportBundle
 metadata:
@@ -12,7 +13,7 @@ spec:
     - logs:
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         limits:
           maxAge: 720h
           maxLines: 10000
@@ -21,8 +22,8 @@ spec:
     # PostgreSQL logs (embedded)
     - logs:
         selector:
-          - cnpg.io/cluster={{ ConfigOption "release_name" }}-cluster
-        namespace: '{{repl ConfigOption "namespace"}}'
+          - cnpg.io/cluster={{ .Release.Name }}-cluster
+        namespace: {{ .Release.Namespace }}
         limits:
           maxAge: 168h
           maxLines: 10000
@@ -32,7 +33,7 @@ spec:
     - logs:
         selector:
           - app.kubernetes.io/name=redis
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         limits:
           maxAge: 168h
           maxLines: 10000
@@ -40,50 +41,50 @@ spec:
 
     # Pod status and events
     - pods:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         selector:
           - app.kubernetes.io/name=flipt
 
     - pods:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         selector:
-          - cnpg.io/cluster={{ ConfigOption "release_name" }}-cluster
+          - cnpg.io/cluster={{ .Release.Name }}-cluster
 
     - pods:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         selector:
           - app.kubernetes.io/name=redis
 
     # Service and endpoint information
     - services:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
 
     - endpoints:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
 
     # ConfigMaps and Secrets (redacted)
     - configMaps:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
 
     - secrets:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         includeKeys:
           - false
 
     # PVC and storage information
     - pvcs:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
 
     # Ingress configuration
     - ingress:
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
 
     # PostgreSQL specific diagnostics
     - exec:
         name: postgresql-version
         selector:
-          - cnpg.io/cluster={{ ConfigOption "release_name" }}-cluster
-        namespace: '{{repl ConfigOption "namespace"}}'
+          - cnpg.io/cluster={{ .Release.Name }}-cluster
+        namespace: {{ .Release.Namespace }}
         command: ["psql"]
         args: ["-c", "SELECT version();"]
         timeout: 30s
@@ -91,8 +92,8 @@ spec:
     - exec:
         name: postgresql-connections
         selector:
-          - cnpg.io/cluster={{ ConfigOption "release_name" }}-cluster
-        namespace: '{{repl ConfigOption "namespace"}}'
+          - cnpg.io/cluster={{ .Release.Name }}-cluster
+        namespace: {{ .Release.Namespace }}
         command: ["psql"]
         args: ["-c", "SELECT count(*) as connections FROM pg_stat_activity;"]
         timeout: 30s
@@ -100,8 +101,8 @@ spec:
     - exec:
         name: postgresql-database-size
         selector:
-          - cnpg.io/cluster={{ ConfigOption "release_name" }}-cluster
-        namespace: '{{repl ConfigOption "namespace"}}'
+          - cnpg.io/cluster={{ .Release.Name }}-cluster
+        namespace: {{ .Release.Namespace }}
         command: ["psql"]
         args: ["-c", "SELECT pg_size_pretty(pg_database_size('flipt')) as database_size;"]
         timeout: 30s
@@ -112,7 +113,7 @@ spec:
         selector:
           - app.kubernetes.io/name=redis
           - app.kubernetes.io/component=master
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["redis-cli"]
         args: ["INFO"]
         timeout: 30s
@@ -122,7 +123,7 @@ spec:
         selector:
           - app.kubernetes.io/name=redis
           - app.kubernetes.io/component=master
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["redis-cli"]
         args: ["INFO", "memory"]
         timeout: 30s
@@ -131,7 +132,7 @@ spec:
     - http:
         name: flipt-health
         get:
-          url: http://{{ ConfigOption "release_name" }}-flipt.{{ ConfigOption "namespace" }}.svc.cluster.local:8080/health
+          url: http://{{ .Release.Name }}-flipt.{{ .Release.Namespace }}.svc.cluster.local:8080/health
         timeout: 30s
 
     # Helm release information
@@ -139,18 +140,18 @@ spec:
         name: helm-values
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["sh"]
-        args: ["-c", "helm get values {{ ConfigOption 'release_name' }} -n {{ ConfigOption 'namespace' }}"]
+        args: ["-c", "helm get values {{ .Release.Name }} -n {{ .Release.Namespace }}"]
         timeout: 30s
 
     - exec:
         name: helm-manifest
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["sh"]
-        args: ["-c", "helm get manifest {{ ConfigOption 'release_name' }} -n {{ ConfigOption 'namespace' }}"]
+        args: ["-c", "helm get manifest {{ .Release.Name }} -n {{ .Release.Namespace }}"]
         timeout: 30s
 
     # Node information
@@ -164,31 +165,31 @@ spec:
         name: flipt-to-postgres-connectivity
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["sh"]
-        args: ["-c", "nc -zv {{ ConfigOption 'release_name' }}-cluster-rw 5432 || echo 'Cannot connect to PostgreSQL'"]
+        args: ["-c", "nc -zv {{ .Release.Name }}-cluster-rw 5432 || echo 'Cannot connect to PostgreSQL'"]
         timeout: 10s
 
     - exec:
         name: flipt-to-redis-connectivity
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         command: ["sh"]
-        args: ["-c", "nc -zv {{ ConfigOption 'release_name' }}-redis-master 6379 || echo 'Cannot connect to Redis'"]
+        args: ["-c", "nc -zv {{ .Release.Name }}-redis-master 6379 || echo 'Cannot connect to Redis'"]
         timeout: 10s
 
   analyzers:
     # Pod status analysis
     - deploymentStatus:
         name: flipt-deployment
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         outcomes:
           - fail:
               when: "< 1"
               message: Flipt deployment has no ready replicas
           - warn:
-              when: "< {{ ConfigOption 'replica_count' }}"
+              when: "< {{ .Values.replicaCount | default 1 }}"
               message: Flipt deployment has fewer replicas than configured
           - pass:
               message: Flipt deployment is healthy
@@ -196,7 +197,7 @@ spec:
     # PostgreSQL cluster health
     - clusterPodStatuses:
         name: postgresql-cluster-health
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         outcomes:
           - fail:
               when: "!= Healthy"
@@ -207,7 +208,7 @@ spec:
     # Redis health
     - statefulsetStatus:
         name: redis-health
-        namespace: '{{repl ConfigOption "namespace"}}'
+        namespace: {{ .Release.Namespace }}
         outcomes:
           - fail:
               when: "< 1"
@@ -296,3 +297,4 @@ spec:
           - pass:
               when: "true"
               message: Flipt API is healthy
+{{- end -}}
