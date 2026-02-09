@@ -18,20 +18,20 @@ spec:
     - name: postgres_user
       title: Postgres User
       type: text
-      default: postgres
+      default: gitea
       required: true
       description: The username for the Postgres user
     - name: postgres_password
       title: Postgres Password
       type: password
-      default: postgres
+      default: gitea
       required: true
       description: Postgres user password
       secret: true
     - name: postgres_db
       title: Postgres Database Name
       type: text
-      default: postgres
+      default: gitea
       required: true
       description: The name of the Postgres database
     - name: postgres_host

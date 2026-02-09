@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: gitea
-    chartVersion: 10.7.0
+    chartVersion: 11.0.0
   values:
     gitea:
       config:

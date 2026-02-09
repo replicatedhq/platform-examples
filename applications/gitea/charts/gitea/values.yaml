@@ -523,15 +523,6 @@ gitea:
       SSH_LISTEN_PORT: 2222 # rootless image
     database:
       DB_TYPE: postgres
-    cache:
-      ADAPTER: redis
-      HOST: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
-    session:
-      PROVIDER: redis
-      PROVIDER_CONFIG: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
-    queue:
-      TYPE: redis
-      CONN_STR: "redis://:changeme@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
   #
   #  security:
   #    PASSWORD_COMPLEXITY: spec
@@ -629,6 +620,7 @@ postgresql:
 ## @section Embedded PostgreSQL via CloudNativePG operator
 postgres:
   auth:
+    existingSecret: ""
     username: gitea
     password: gitea
   embedded:
@@ -636,13 +628,25 @@ postgres:
     instances: 1
     image:
       repository: ghcr.io/cloudnative-pg/postgresql
-      tag: "15.2"
+      tag: "15.10"
     initdb:
       database: gitea
       owner: gitea
     storage:
       size: 10Gi
       storageClass: ""
+    resources: {}
+    # Example:
+    #   requests:
+    #     cpu: 250m
+    #     memory: 512Mi
+    #   limits:
+    #     cpu: "1"
+    #     memory: 1Gi
+    backup:
+      enabled: false
+      retentionPolicy: "30d"
+      barmanObjectStore: {}
 
 ## @section Valkey cache (Redis-compatible)
 valkey:

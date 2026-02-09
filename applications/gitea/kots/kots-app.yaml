@@ -8,3 +8,4 @@ spec:
   statusInformers:
     - deployment/kotsadm
     - deployment/gitea
+    - deployment/gitea-valkey
