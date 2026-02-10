@@ -5,10 +5,7 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.4
-
-  # releaseName is a top-level field in v2 (not under chart)
-  releaseName: 'repl{{ ConfigOption "release_name" }}'
+    chartVersion: 1.0.6
 
   exclude: ""
 

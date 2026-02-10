@@ -1,4 +1,4 @@
-.PHONY: help lint package update-deps install uninstall upgrade test clean
+.PHONY: help lint package update-deps install uninstall upgrade test clean release
 
 CHART_DIR := chart
 CHART_NAME := flipt
@@ -6,6 +6,7 @@ NAMESPACE := flipt
 RELEASE_NAME := flipt
 RELEASE_DIR := release
 REPLICATED_DIR := replicated
+CHART_VERSION := $(shell grep '^version:' $(CHART_DIR)/Chart.yaml | awk '{print $$2}')
 
 help: ## Display this help message
 	@echo "Flipt Helm Chart Management"
@@ -122,6 +123,45 @@ check-deps: ## Verify all required tools are installed
 	@command -v helm >/dev/null 2>&1 || { echo "helm is not installed"; exit 1; }
 	@command -v kubectl >/dev/null 2>&1 || { echo "kubectl is not installed"; exit 1; }
 	@echo "All dependencies satisfied!"
+
+release: package ## Lint, package, update Replicated config, and create release
+	@# Clean previous chart archives from replicated dir
+	@rm -f $(REPLICATED_DIR)/$(CHART_NAME)-*.tgz
+	@# Copy packaged chart to replicated dir
+	@cp $(RELEASE_DIR)/$(CHART_NAME)-$(CHART_VERSION).tgz $(REPLICATED_DIR)/
+	@# Update chartVersion in HelmChart config
+	@sed -i '' 's/chartVersion:.*/chartVersion: $(CHART_VERSION)/' $(REPLICATED_DIR)/kots-helm-chart.yaml
+	@echo "Chart $(CHART_NAME)-$(CHART_VERSION) packaged and staged in $(REPLICATED_DIR)/"
+	@echo ""
+	@# Determine next version by bumping previous release patch version
+	@PREV_VERSION=$$(replicated release ls 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
+	if [ -n "$$PREV_VERSION" ]; then \
+		MAJOR=$$(echo $$PREV_VERSION | cut -d. -f1); \
+		MINOR=$$(echo $$PREV_VERSION | cut -d. -f2); \
+		PATCH=$$(echo $$PREV_VERSION | cut -d. -f3); \
+		NEXT_VERSION="$$MAJOR.$$MINOR.$$((PATCH + 1))"; \
+		echo "Previous release: $$PREV_VERSION"; \
+	else \
+		NEXT_VERSION="$(CHART_VERSION)"; \
+		echo "No previous release found, defaulting to chart version"; \
+	fi; \
+	echo "Suggested version: $$NEXT_VERSION"; \
+	echo ""; \
+	read -p "Release version [$$NEXT_VERSION]: " INPUT_VERSION; \
+	VERSION=$${INPUT_VERSION:-$$NEXT_VERSION}; \
+	echo ""; \
+	read -p "Release notes: " RELEASE_NOTES; \
+	if [ -z "$$RELEASE_NOTES" ]; then \
+		echo "Error: release notes are required"; \
+		exit 1; \
+	fi; \
+	echo ""; \
+	echo "Creating Replicated release v$$VERSION..."; \
+	replicated release create \
+		--promote Unstable \
+		--yaml-dir $(REPLICATED_DIR) \
+		--version "$$VERSION" \
+		--release-notes "$$RELEASE_NOTES"
 
 # Development helpers
 dev-install: update-deps install ## Update dependencies and install

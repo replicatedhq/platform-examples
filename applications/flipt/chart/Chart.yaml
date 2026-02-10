@@ -5,7 +5,7 @@ description: |
   This enterprise-ready deployment includes PostgreSQL for durable storage and Redis
   for distributed caching across multiple instances.
 type: application
-version: 1.0.4
+version: 1.0.6
 appVersion: "1.61.0"
 keywords:
   - feature-flags
