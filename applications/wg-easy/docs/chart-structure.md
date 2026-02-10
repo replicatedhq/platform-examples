@@ -1,10 +1,6 @@
 # Chart Structure Guide
 
-This document explains the modular chart approach used in the WG-Easy Helm chart pattern.
-
-## Modular Chart Architecture
-
-The WG-Easy pattern is built around a modular approach to Helm charts, where upstream charts are wrapped in local charts and enhanced with shared templates and customizations.
+This document explains the modular chart approach used in the WG-Easy Helm chart pattern. Chart wrapping is foundational to the [composable multi-chart workflow](../README.md): by wrapping each upstream chart in a local chart, each team gains a self-contained directory where they own not just values and templates, but also Replicated configuration, support bundle specs, and preflight checks.
 
 ### Directory Structure
 
@@ -106,25 +102,32 @@ This ensures that charts are installed in the correct order with proper dependen
 
 ## Modular Configuration
 
-Each chart can define its own configuration that is merged during release preparation:
+Each chart can define its own Replicated artifacts that are merged during release preparation:
 
 ```
 traefik/
 ├── values.yaml              # Default chart values
+├── templates/
+│   └── _supportbundle.tpl   # Traefik-specific support bundle collectors/analyzers
 └── replicated/
-    └── config.yaml          # Traefik-specific configuration
+    ├── config.yaml           # Traefik-specific configuration screen items
     └── helmChart-traefik.yaml  # Installation instructions
 
 wg-easy/
 ├── values.yaml              # Default chart values
+├── templates/
+│   ├── _supportbundle.tpl   # WG-Easy-specific support bundle collectors/analyzers
+│   └── _preflight.tpl       # WG-Easy-specific preflight checks
 └── replicated/
-    └── config.yaml          # WG-Easy-specific configuration
+    ├── config.yaml           # WG-Easy-specific configuration screen items
     └── helmChart-wg-easy.yaml  # Installation instructions
 ```
 
+Each chart carries the full set of Replicated artifacts it needs: configuration screen items (`config.yaml`), a HelmChart CR (`helmChart-*.yaml`), support bundle specs (`_supportbundle.tpl`), and preflight checks (`_preflight.tpl`). During release, `task release-prepare` merges per-chart configs into a single file. Support bundles and preflights are rendered into Kubernetes secrets at deploy time and aggregated automatically by Replicated.
+
 Benefits of this approach:
 
-1. **Team Ownership**: Different teams can own their component configurations
+1. **Team Ownership**: Different teams can own their component's configuration, diagnostics, and preflight checks
 2. **Clear Boundaries**: Separation of concerns between components
 3. **Simplified Maintenance**: Changes to one component don't affect others
 4. **Automatic Merging**: During release, all configs are combined into a single file
