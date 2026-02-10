@@ -1,0 +1,178 @@
+name: akkoma-chart-update
+
+on:
+  schedule:
+    - cron: '0 8 * * *' # Daily at 8am UTC
+  workflow_dispatch:
+    inputs:
+      chart_version:
+        description: 'Force a specific chart version (tag name, e.g. chart-v0.3.1). If empty, uses latest release.'
+        required: false
+        default: ''
+
+concurrency:
+  group: akkoma-chart-update
+  cancel-in-progress: true
+
+env:
+  APP_DIR: applications/akkoma
+  REPLICATED_API_TOKEN: ${{ secrets.AKKOMA_REPLICATED_API_TOKEN }}
+  REPLICATED_APP: ${{ vars.AKKOMA_REPLICATED_APP || 'akkoma' }}
+  UPSTREAM_REPO: adamancini/akkoma-helm
+  CHART_PATH: charts/akkoma
+
+jobs:
+  check-update:
+    runs-on: ubuntu-22.04
+    outputs:
+      needs_update: ${{ steps.compare.outputs.needs_update }}
+      new_version: ${{ steps.compare.outputs.new_version }}
+      tag: ${{ steps.upstream.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ inputs.chart_version }}" ]; then
+            tag="${{ inputs.chart_version }}"
+          else
+            response=$(gh api repos/${{ env.UPSTREAM_REPO }}/releases/latest 2>&1) || {
+              echo "ERROR: Failed to fetch latest release from ${{ env.UPSTREAM_REPO }}"
+              echo "Response: ${response}"
+              exit 1
+            }
+            tag=$(echo "${response}" | jq -r '.tag_name')
+            if [ -z "${tag}" ] || [ "${tag}" = "null" ]; then
+              echo "ERROR: No tag_name found in release response"
+              exit 1
+            fi
+          fi
+          # Extract semver: strip 'chart-v', 'chart-', 'v' prefixes
+          version="${tag#chart-}"
+          version="${version#v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "Upstream tag: ${tag}, version: ${version}"
+
+      - name: Compare versions
+        id: compare
+        run: |
+          current=$(grep 'chartVersion:' ${{ env.APP_DIR }}/kots/akkoma-chart.yaml | awk '{print $2}')
+          new_version="${{ steps.upstream.outputs.version }}"
+          echo "Current: ${current}"
+          echo "Upstream: ${new_version}"
+
+          if [ "${current}" = "${new_version}" ]; then
+            echo "needs_update=false" >> "$GITHUB_OUTPUT"
+            echo "Versions match — nothing to do."
+          else
+            echo "needs_update=true" >> "$GITHUB_OUTPUT"
+            echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+            echo "Update available: ${current} -> ${new_version}"
+          fi
+
+  build-and-release:
+    needs: check-update
+    if: needs.check-update.outputs.needs_update == 'true'
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ${{ env.APP_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          app-dir: ${{ env.APP_DIR }}
+
+      - name: Clone upstream chart
+        run: |
+          tag="${{ needs.check-update.outputs.tag }}"
+          git clone --branch "${tag}" --depth 1 \
+            https://github.com/${{ env.UPSTREAM_REPO }}.git charts/akkoma-helm
+
+      - name: Build chart package
+        run: |
+          helm dependency update charts/akkoma-helm/${{ env.CHART_PATH }}
+          helm package charts/akkoma-helm/${{ env.CHART_PATH }} -d kots/
+
+      - name: Update chartVersion in akkoma-chart.yaml
+        run: |
+          version="${{ needs.check-update.outputs.new_version }}"
+          yq -i '.spec.chart.chartVersion = "'"${version}"'"' kots/akkoma-chart.yaml
+
+      - name: Lint Helm chart
+        run: |
+          helm lint charts/akkoma-helm/${{ env.CHART_PATH }}
+
+      - name: Lint KOTS manifests
+        run: |
+          replicated release lint --yaml-dir kots/
+
+      - name: Create Replicated release
+        run: |
+          version="${{ needs.check-update.outputs.new_version }}"
+          replicated release create \
+            --yaml-dir kots/ \
+            --promote Unstable \
+            --version "${version}"
+
+      - name: Clean up chart tarball
+        if: always()
+        run: |
+          rm -f kots/*.tgz
+
+  open-pr:
+    needs:
+      - check-update
+      - build-and-release
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup tools
+        uses: ./.github/actions/setup-tools
+        with:
+          app-dir: ${{ env.APP_DIR }}
+
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ needs.check-update.outputs.new_version }}"
+          branch="akkoma/chart-update-${version}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${branch}"
+
+          yq -i '.spec.chart.chartVersion = "'"${version}"'"' \
+            ${{ env.APP_DIR }}/kots/akkoma-chart.yaml
+
+          git add ${{ env.APP_DIR }}/kots/akkoma-chart.yaml
+          git commit -m "chore(akkoma): update chart to ${version}"
+          git push origin "${branch}"
+
+          body=$(cat <<EOF
+          ## Summary
+          - Updates akkoma Helm chart to version ${version}
+          - Chart was built, linted, and released to the Unstable channel
+
+          ## Automated
+          This PR was created by the \`akkoma-chart-update\` workflow.
+          EOF
+          )
+
+          gh pr create \
+            --title "chore(akkoma): update chart to ${version}" \
+            --body "${body}" \
+            --base main \
+            --head "${branch}"

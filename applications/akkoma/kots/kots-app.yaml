@@ -1,0 +1,14 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: akkoma
+spec:
+  title: Akkoma
+  allowRollback: false
+  ports:
+    - serviceName: akkoma
+      servicePort: 4000
+      localPort: 4000
+      applicationUrl: "http://akkoma"
+  statusInformers:
+    - deployment/akkoma

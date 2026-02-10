@@ -1,0 +1,256 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  # Instance Settings
+  - name: instance_settings
+    title: Instance Settings
+    items:
+    - name: akkoma_domain
+      title: Instance Domain
+      type: text
+      required: true
+      description: The public domain name for your Akkoma instance (e.g. akkoma.example.com). Must match your DNS and ingress configuration.
+    - name: akkoma_admin_email
+      title: Admin Email
+      type: text
+      required: true
+      description: Administrator email address. Used for Let's Encrypt certificate registration and instance contact.
+    - name: akkoma_instance_name
+      title: Instance Name
+      type: text
+      description: Display name for the instance. Defaults to the domain if left blank.
+    - name: akkoma_description
+      title: Instance Description
+      type: text
+      description: A short description of the instance shown on the about page.
+    - name: akkoma_registrations_open
+      title: Open Registrations
+      type: bool
+      default: false
+      description: Allow new users to register on this instance.
+    - name: akkoma_character_limit
+      title: Character Limit
+      type: text
+      default: "5000"
+      description: Maximum number of characters per post.
+    - name: akkoma_upload_limit
+      title: Upload Limit (bytes)
+      type: text
+      default: "16000000"
+      description: Maximum upload file size in bytes (default 16MB).
+
+  # Ingress & TLS
+  - name: ingress_settings
+    title: Ingress & TLS
+    items:
+    - name: ingress_enabled
+      title: Enable Ingress
+      type: bool
+      default: true
+      description: Create an Ingress resource for external access.
+    - name: ingress_class_name
+      title: Ingress Class Name
+      type: text
+      default: nginx
+      description: The IngressClass to use (e.g. nginx, traefik).
+      when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+    - name: ingress_tls_type
+      title: TLS Configuration
+      type: select_one
+      items:
+      - name: tls_none
+        title: No TLS
+      - name: tls_cert_manager
+        title: cert-manager (Let's Encrypt)
+      - name: tls_existing_secret
+        title: Existing TLS Secret
+      default: tls_none
+      description: How to handle TLS for the ingress.
+      when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+    - name: ingress_tls_secret_name
+      title: TLS Secret Name
+      type: text
+      default: akkoma-tls
+      description: Name of the TLS secret to use or create.
+      when: 'repl{{ and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionNotEquals "ingress_tls_type" "tls_none") }}'
+
+  # PostgreSQL
+  - name: postgres_settings
+    title: PostgreSQL
+    items:
+    - name: postgres_type
+      title: PostgreSQL Type
+      type: select_one
+      items:
+      - name: postgres_internal
+        title: Internal (bundled)
+      - name: postgres_external
+        title: External (existing)
+      default: postgres_internal
+      required: true
+      description: Use the bundled PostgreSQL or connect to an external database.
+    - name: postgres_database
+      title: Database Name
+      type: text
+      default: akkoma
+      required: true
+      description: The PostgreSQL database name.
+    - name: postgres_username
+      title: Username
+      type: text
+      default: akkoma
+      required: true
+      description: The PostgreSQL username.
+    - name: postgres_storage_size
+      title: Storage Size
+      type: text
+      default: 10Gi
+      description: PVC size for the internal PostgreSQL instance.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_internal" }}'
+    - name: postgres_storage_class
+      title: Storage Class
+      type: text
+      description: Storage class for PostgreSQL PVC. Leave blank for cluster default.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_internal" }}'
+    - name: postgres_external_host
+      title: External Host
+      type: text
+      required: true
+      description: Hostname of the external PostgreSQL server.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_external" }}'
+    - name: postgres_external_port
+      title: External Port
+      type: text
+      default: "5432"
+      required: true
+      description: Port of the external PostgreSQL server.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_external" }}'
+    - name: postgres_external_password_secret
+      title: Password Secret Name
+      type: text
+      required: true
+      description: Name of the Kubernetes Secret containing the database password.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_external" }}'
+    - name: postgres_external_password_key
+      title: Password Secret Key
+      type: text
+      default: password
+      required: true
+      description: Key within the Secret that contains the database password.
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "postgres_external" }}'
+
+  # Storage
+  - name: storage_settings
+    title: Storage
+    items:
+    - name: storage_type
+      title: Upload Storage Backend
+      type: select_one
+      items:
+      - name: storage_local
+        title: Local (PVC)
+      - name: storage_s3
+        title: S3-compatible
+      default: storage_local
+      required: true
+      description: Where to store uploaded media files.
+    - name: storage_uploads_size
+      title: Uploads Volume Size
+      type: text
+      default: 50Gi
+      description: PVC size for uploaded media.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_local" }}'
+    - name: storage_uploads_class
+      title: Uploads Storage Class
+      type: text
+      description: Storage class for uploads PVC. Leave blank for cluster default.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_local" }}'
+    - name: s3_endpoint
+      title: S3 Endpoint
+      type: text
+      required: true
+      description: S3-compatible endpoint URL (e.g. s3.amazonaws.com).
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+    - name: s3_region
+      title: S3 Region
+      type: text
+      default: us-east-1
+      description: S3 region.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+    - name: s3_bucket
+      title: S3 Bucket
+      type: text
+      default: akkoma-uploads
+      required: true
+      description: S3 bucket name for uploads.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+    - name: s3_base_url
+      title: S3 Base URL
+      type: text
+      description: Public URL for media access. If blank, defaults to https://<domain>/media/.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+    - name: s3_access_key
+      title: S3 Access Key
+      type: password
+      required: true
+      description: S3 access key ID.
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+    - name: s3_secret_key
+      title: S3 Secret Key
+      type: password
+      required: true
+      description: S3 secret access key.
+      secret: true
+      when: 'repl{{ ConfigOptionEquals "storage_type" "storage_s3" }}'
+
+  # Garage
+  - name: garage_settings
+    title: Garage (S3-compatible Storage)
+    items:
+    - name: garage_enabled
+      title: Enable Garage
+      type: bool
+      default: false
+      description: Deploy Garage alongside Akkoma for self-hosted S3-compatible media storage.
+    - name: garage_meta_size
+      title: Metadata Volume Size
+      type: text
+      default: 1Gi
+      description: PVC size for Garage metadata.
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: garage_data_size
+      title: Data Volume Size
+      type: text
+      default: 50Gi
+      description: PVC size for Garage data.
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+
+  # Metrics
+  - name: metrics_settings
+    title: Metrics
+    items:
+    - name: metrics_enabled
+      title: Enable Metrics
+      type: bool
+      default: false
+      description: Enable Prometheus metrics endpoint on Akkoma.
+    - name: metrics_service_monitor_enabled
+      title: Enable ServiceMonitor
+      type: bool
+      default: false
+      description: Create a Prometheus ServiceMonitor resource.
+      when: 'repl{{ ConfigOptionEquals "metrics_enabled" "1" }}'
+
+  # Network Policies
+  - name: network_policy_settings
+    title: Network Policies
+    items:
+    - name: network_policy_enabled
+      title: Enable Network Policies
+      type: bool
+      default: false
+      description: Restrict pod network traffic to only necessary connections.
