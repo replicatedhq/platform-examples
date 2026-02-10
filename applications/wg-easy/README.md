@@ -78,7 +78,9 @@ The CI/CD pipeline validates every pull request through a complete cycle:
 4. **Compatibility matrix testing** -- deploy and test across multiple Kubernetes distributions and versions
 5. **Cleanup** -- remove test clusters, customers, and channels
 
-See [CI Workflow Documentation](docs/ci-workflow.md) for details.
+A separate image workflow builds and publishes the dev tools container to GHCR, Google Artifact Registry, and the Replicated Registry on every push to `main`.
+
+> See [CI/CD Workflows](docs/ci-workflow.md) for details on all three workflows, the compatibility matrix, reusable actions, and required secrets.
 
 ## Repository Structure
 
@@ -145,6 +147,8 @@ Key components:
 - **Shared Templates**: Provide reusable components across charts (Traefik routes, image pull secrets)
 - **Replicated Integration**: Enables enterprise distribution with modular configuration
 
+> **New to Task or Helmfile?** These tools are convenient wrappers around standard Helm and shell commands -- they are not the point of this example. See the [Tooling Guide](docs/tooling-guide.md) for what each tool does, why it was chosen over Make and plain Helm CLI, and how to translate the workflows to your own tooling.
+
 ## Learn More
 
 - [Composable Multi-Chart Walkthrough](../../patterns/composable-multi-chart-walkthrough/README.md) -- end-to-end guided tour of the data flow from chart structure through release assembly
@@ -153,4 +157,5 @@ Key components:
 - [Task Reference](docs/task-reference.md) -- complete task documentation
 - [Replicated Integration](docs/replicated-integration.md) -- per-chart config, support bundles, preflights
 - [CI Workflow](docs/ci-workflow.md) -- GitHub Actions pipeline and compatibility matrix
+- [Tooling Guide](docs/tooling-guide.md) -- what Task, Helmfile, and yq do, why they were chosen, and how to translate to your own tools
 - [Example Patterns](docs/examples.md) -- concrete usage examples
