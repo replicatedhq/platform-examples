@@ -170,9 +170,9 @@ spec:
     # Database creation Job image
     dbJob:
       image:
-        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
-        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/kubectl'
-        tag: latest
+        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "registry.k8s.io" }}'
+        repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/kubectl" LocalRegistryNamespace) "kubectl" }}'
+        tag: "1.33.0"
 
     # Replicated SDK
     replicated:
@@ -280,8 +280,9 @@ spec:
     # kubectl image used in database creation Job
     dbJob:
       image:
-        repository: bitnami/kubectl
-        tag: latest
+        registry: registry.k8s.io
+        repository: kubectl
+        tag: "1.33.0"
 
     # Redis cache
     redis:

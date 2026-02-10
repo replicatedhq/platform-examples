@@ -200,9 +200,9 @@ affinity: {}
 ## Database Job Configuration (for PostgreSQL cluster creation)
 dbJob:
   image:
-    registry: docker.io
-    repository: bitnami/kubectl
-    tag: latest
+    registry: registry.k8s.io
+    repository: kubectl
+    tag: "1.33.0"
     pullPolicy: IfNotPresent
 
 ## PostgreSQL Database Configuration

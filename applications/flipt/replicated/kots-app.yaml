@@ -46,7 +46,7 @@ spec:
     - ghcr.io/flipt-io/flipt:v1.61.0
     - ghcr.io/cloudnative-pg/cloudnative-pg:1.25.0
     - ghcr.io/cloudnative-pg/postgresql:16
-    - docker.io/bitnami/kubectl:latest
+    - registry.k8s.io/kubectl:1.33.0
     - docker.io/library/redis:latest
     - proxy.replicated.com/library/replicated-sdk-image:1.15.0
   allowRollback: true
