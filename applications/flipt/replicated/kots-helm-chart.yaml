@@ -5,92 +5,104 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.0
-    releaseName: 'repl{{ ConfigOption "release_name" }}'
+    chartVersion: 1.0.4
+
+  # releaseName is a top-level field in v2 (not under chart)
+  releaseName: 'repl{{ ConfigOption "release_name" }}'
 
   exclude: ""
 
-  helmVersion: v3
+  # Weight determines install order (lower = first)
+  weight: 1
 
-  useHelmInstall: true
+  # helmUpgradeFlags specifies additional flags for helm upgrade
+  helmUpgradeFlags:
+    - --timeout
+    - 15m
+    - --wait
+    - --wait-for-jobs
+    - --history-max=15
 
   namespace: 'repl{{ ConfigOption "namespace" }}'
 
+  # Values for customer environment (uses template functions)
   values:
     global:
       imageRegistry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "" }}'
 
-    flipt:
-      enabled: true
+    replicaCount: 'repl{{ ConfigOption "replica_count" | ParseInt }}'
 
-      image:
-        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.flipt.io" }}'
-        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "flipt" }}/flipt'
-        pullPolicy: IfNotPresent
+    image:
+      registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}'
+      repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "flipt-io" }}/flipt'
+      tag: "v1.61.0"
+      pullPolicy: IfNotPresent
 
-      replicaCount: 'repl{{ ConfigOption "replica_count" }}'
+    resources:
+      requests:
+        cpu: 'repl{{ ConfigOption "flipt_cpu_request" }}'
+        memory: 'repl{{ ConfigOption "flipt_memory_request" }}'
+      limits:
+        cpu: 'repl{{ ConfigOption "flipt_cpu_limit" }}'
+        memory: 'repl{{ ConfigOption "flipt_memory_limit" }}'
 
-      resources:
-        requests:
-          cpu: 'repl{{ ConfigOption "flipt_cpu_request" }}'
-          memory: 'repl{{ ConfigOption "flipt_memory_request" }}'
-        limits:
-          cpu: 'repl{{ ConfigOption "flipt_cpu_limit" }}'
-          memory: 'repl{{ ConfigOption "flipt_memory_limit" }}'
+    config:
+      log:
+        level: 'repl{{ ConfigOption "log_level" }}'
+        encoding: 'repl{{ ConfigOption "log_encoding" }}'
 
-      config:
-        log:
-          level: 'repl{{ ConfigOption "log_level" }}'
-          encoding: 'repl{{ ConfigOption "log_encoding" }}'
-
-        server:
-          protocol: http
-          host: 0.0.0.0
-          httpPort: 8080
-          grpcPort: 9000
-
-        db:
-          maxIdleConn: 10
-          maxOpenConn: 50
-          connMaxLifetime: 1h
-
-        cache:
-          enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-          backend: 'repl{{ ConfigOptionEquals "redis_enabled" "1" | ternary "redis" "memory" }}'
-          ttl: 5m
-          redis:
-            mode: single
-            prefix: "flipt"
-
-        cors:
-          enabled: true
-          allowedOrigins:
-            - "*"
-
-      service:
-        type: ClusterIP
+      server:
+        protocol: http
+        host: 0.0.0.0
         httpPort: 8080
         grpcPort: 9000
 
-      autoscaling:
-        enabled: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
-        minReplicas: 'repl{{ ConfigOption "hpa_min_replicas" }}'
-        maxReplicas: 'repl{{ ConfigOption "hpa_max_replicas" }}'
-        targetCPUUtilizationPercentage: 'repl{{ ConfigOption "hpa_cpu_target" }}'
+      db:
+        maxIdleConn: 10
+        maxOpenConn: 50
+        connMaxLifetime: 1h
 
-      podDisruptionBudget:
+      cache:
+        enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+        backend: 'repl{{ ConfigOptionEquals "redis_enabled" "1" | ternary "redis" "memory" }}'
+        ttl: 5m
+        redis:
+          mode: single
+          prefix: "flipt"
+
+      cors:
         enabled: true
-        minAvailable: 1
+        allowedOrigins:
+          - "*"
 
-      serviceMonitor:
-        enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+    service:
+      type: ClusterIP
+      httpPort: 8080
+      grpcPort: 9000
 
+    autoscaling:
+      enabled: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
+      minReplicas: 'repl{{ ConfigOption "hpa_min_replicas" | ParseInt }}'
+      maxReplicas: 'repl{{ ConfigOption "hpa_max_replicas" | ParseInt }}'
+      targetCPUUtilizationPercentage: 'repl{{ ConfigOption "hpa_cpu_target" | ParseInt }}'
+
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+
+    serviceMonitor:
+      enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+
+    # CloudNativePG operator (subchart)
+    cloudnative-pg:
+      enabled: true
+
+    # PostgreSQL configuration
     postgresql:
       type: 'repl{{ ConfigOption "postgres_type" }}'
 
       database: flipt
       username: flipt
-      password: 'repl{{ RandomString 32 }}'
 
       embedded:
         enabled: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
@@ -112,6 +124,7 @@ spec:
           monitoring:
             enabled: false
 
+    # Redis configuration
     redis:
       enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
 
@@ -119,11 +132,11 @@ spec:
 
       auth:
         enabled: true
-        password: 'repl{{ if ConfigOption "redis_password" }}repl{{ ConfigOption "redis_password" }}repl{{ else }}repl{{ RandomString 32 }}repl{{ end }}'
 
       image:
         registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
-        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/redis'
+        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/redis'
+        tag: latest
 
       master:
         persistence:
@@ -154,47 +167,66 @@ spec:
       metrics:
         enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
 
+    # Database creation Job image
+    dbJob:
+      image:
+        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
+        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "bitnami" }}/kubectl'
+        tag: latest
+
+    # Replicated SDK
     replicated:
       enabled: true
       integration:
         enabled: true
 
+  # Optional values applied conditionally
   optionalValues:
+    # Rewrite Replicated SDK image for local registry
+    - when: 'repl{{ HasLocalRegistry }}'
+      recursiveMerge: true
+      values:
+        replicated:
+          image:
+            registry: 'repl{{ LocalRegistryHost }}'
+            repository: 'repl{{ LocalRegistryNamespace }}/replicated-sdk-image'
+
+    # Ingress configuration
     - when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
       recursiveMerge: false
       values:
-        flipt:
-          ingress:
-            enabled: true
-            className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
-            hosts:
-              - host: 'repl{{ ConfigOption "ingress_hostname" }}'
-                paths:
-                  - path: /
-                    pathType: Prefix
+        ingress:
+          enabled: true
+          className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
+          hosts:
+            - host: 'repl{{ ConfigOption "ingress_hostname" }}'
+              paths:
+                - path: /
+                  pathType: Prefix
 
+    # TLS with cert-manager
     - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "cert_manager") }}'
       recursiveMerge: false
       values:
-        flipt:
-          ingress:
-            annotations:
-              cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
-            tls:
-              - secretName: flipt-tls
-                hosts:
-                  - 'repl{{ ConfigOption "ingress_hostname" }}'
+        ingress:
+          annotations:
+            cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
+          tls:
+            - secretName: flipt-tls
+              hosts:
+                - 'repl{{ ConfigOption "ingress_hostname" }}'
 
+    # TLS with custom certificate
     - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
       recursiveMerge: false
       values:
-        flipt:
-          ingress:
-            tls:
-              - secretName: flipt-custom-tls
-                hosts:
-                  - 'repl{{ ConfigOption "ingress_hostname" }}'
+        ingress:
+          tls:
+            - secretName: flipt-custom-tls
+              hosts:
+                - 'repl{{ ConfigOption "ingress_hostname" }}'
 
+    # External PostgreSQL
     - when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
       recursiveMerge: false
       values:
@@ -208,5 +240,61 @@ spec:
             password: 'repl{{ ConfigOption "external_postgres_password" }}'
             sslMode: 'repl{{ ConfigOption "external_postgres_sslmode" }}'
 
+    # Backup labels for KOTS snapshots
+    - when: "repl{{ LicenseFieldValue `isSnapshotSupported` }}"
+      recursiveMerge: true
+      values:
+        podLabels:
+          kots.io/backup: velero
+        podAnnotations:
+          kots.io/app-slug: repl{{ LicenseFieldValue "appSlug" }}
+
+  # Builder values for air gap support
+  # These must be static/hardcoded to ensure all images are included
   builder:
-    {}
+    replicaCount: 2
+
+    # Flipt application image
+    image:
+      registry: ghcr.io
+      repository: flipt-io/flipt
+      tag: "v1.61.0"
+
+    # CloudNativePG operator (subchart)
+    cloudnative-pg:
+      enabled: true
+      image:
+        repository: ghcr.io/cloudnative-pg/cloudnative-pg
+        tag: "1.25.0"
+
+    # PostgreSQL configuration
+    postgresql:
+      type: embedded
+      embedded:
+        enabled: true
+        cluster:
+          instances: 1
+          # PostgreSQL database image (managed by CNPG operator)
+          imageName: ghcr.io/cloudnative-pg/postgresql:16
+
+    # kubectl image used in database creation Job
+    dbJob:
+      image:
+        repository: bitnami/kubectl
+        tag: latest
+
+    # Redis cache
+    redis:
+      enabled: true
+      image:
+        registry: docker.io
+        repository: library/redis
+        tag: latest
+
+    # Replicated SDK
+    replicated:
+      enabled: true
+      image:
+        registry: proxy.replicated.com
+        repository: library/replicated-sdk-image
+        tag: "1.15.0"

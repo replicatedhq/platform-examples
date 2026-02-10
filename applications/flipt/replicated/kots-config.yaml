@@ -78,16 +78,14 @@ spec:
         - name: tls_cert_source
           title: TLS Certificate Source
           type: select_one
-          default: self_signed
+          default: cert_manager
           items:
-            - name: self_signed
-              title: Self-Signed (Auto-Generated)
             - name: cert_manager
-              title: Cert-Manager
+              title: Cert-Manager (Automatic)
             - name: custom
               title: Upload Custom Certificate
           when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
-          help_text: Source of TLS certificate
+          help_text: How TLS certificates are managed
 
         - name: tls_cert_manager_issuer
           title: Cert-Manager Issuer

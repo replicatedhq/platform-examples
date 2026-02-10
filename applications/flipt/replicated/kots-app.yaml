@@ -7,6 +7,7 @@ spec:
   icon: https://raw.githubusercontent.com/flipt-io/flipt/main/ui/public/logo.svg
   statusInformers:
     - deployment/flipt
+    - deployment/flipt-cloudnative-pg
     - statefulset/redis
   ports:
     - serviceName: flipt
@@ -42,7 +43,10 @@ spec:
 
     For more details, visit: https://github.com/flipt-io/flipt/releases
   additionalImages:
-    - docker.flipt.io/flipt/flipt:v1.61.0
+    - ghcr.io/flipt-io/flipt:v1.61.0
+    - ghcr.io/cloudnative-pg/cloudnative-pg:1.25.0
     - ghcr.io/cloudnative-pg/postgresql:16
-    - docker.io/bitnami/redis:latest
+    - docker.io/bitnami/kubectl:latest
+    - docker.io/library/redis:latest
     - proxy.replicated.com/library/replicated-sdk-image:1.15.0
+  allowRollback: true

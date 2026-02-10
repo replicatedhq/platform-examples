@@ -145,7 +145,8 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: create-cluster
-          image: bitnami/kubectl:latest
+          image: "{{ .Values.dbJob.image.registry }}/{{ .Values.dbJob.image.repository }}:{{ .Values.dbJob.image.tag }}"
+          imagePullPolicy: {{ .Values.dbJob.image.pullPolicy }}
           command:
             - /bin/bash
             - -c
