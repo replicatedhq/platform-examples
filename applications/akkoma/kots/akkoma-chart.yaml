@@ -5,23 +5,20 @@ metadata:
 spec:
   chart:
     name: akkoma
-    chartVersion: 0.4.0
+    chartVersion: 0.4.1
   values:
     akkoma:
       domain: repl{{ ConfigOption "akkoma_domain" }}
       adminEmail: repl{{ ConfigOption "akkoma_admin_email" }}
       instanceName: repl{{ ConfigOption "akkoma_instance_name" }}
-
     image:
       repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/adamancini/akkoma
-
     ingress:
       enabled: repl{{ ConfigOptionEquals "ingress_enabled" "1" }}
       className: repl{{ ConfigOption "ingress_class_name" }}
       tls:
         enabled: repl{{ ConfigOptionNotEquals "ingress_tls_type" "tls_none" }}
         secretName: repl{{ ConfigOption "ingress_tls_secret_name" }}
-
     postgresql:
       database: repl{{ ConfigOption "postgres_database" }}
       username: repl{{ ConfigOption "postgres_username" }}
@@ -35,7 +32,6 @@ spec:
         username: repl{{ ConfigOption "postgres_username" }}
         passwordSecret: repl{{ ConfigOption "postgres_external_password_secret" }}
         passwordKey: repl{{ ConfigOption "postgres_external_password_key" }}
-
     storage:
       type: repl{{ ConfigOptionEquals "storage_type" "storage_local" | ternary "local" "s3" }}
       uploads:
@@ -48,13 +44,11 @@ spec:
         baseUrl: repl{{ ConfigOption "s3_base_url" }}
         accessKeyId: repl{{ ConfigOption "s3_access_key" }}
         secretAccessKey: repl{{ ConfigOption "s3_secret_key" }}
-
     instance:
       characterLimit: repl{{ ConfigOption "akkoma_character_limit" }}
       registrationsOpen: repl{{ ConfigOptionEquals "akkoma_registrations_open" "1" }}
       uploadLimit: repl{{ ConfigOption "akkoma_upload_limit" }}
       description: repl{{ ConfigOption "akkoma_description" }}
-
     garage:
       enabled: repl{{ ConfigOptionEquals "garage_enabled" "1" }}
       persistence:
@@ -62,15 +56,12 @@ spec:
           size: repl{{ ConfigOption "garage_meta_size" }}
         data:
           size: repl{{ ConfigOption "garage_data_size" }}
-
     metrics:
       enabled: repl{{ ConfigOptionEquals "metrics_enabled" "1" }}
       serviceMonitor:
         enabled: repl{{ ConfigOptionEquals "metrics_service_monitor_enabled" "1" }}
-
     networkPolicy:
       enabled: repl{{ ConfigOptionEquals "network_policy_enabled" "1" }}
-
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "ingress_tls_type" "tls_cert_manager" }}'
       recursiveMerge: true
