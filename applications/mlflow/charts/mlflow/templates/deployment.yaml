@@ -102,6 +102,22 @@ spec:
         - secretRef:
             name: {{ printf "%s-waitfor-postgres" (include "mlflow.fullname" .)  | trunc 63 | trimAll "-" }}
       {{- end }}
+      {{- if .Values.mlflow.extraPipPackages }}
+      - name: install-pip-packages
+        image: {{ .Values.mlflow.image.registry | default "docker.io" }}/{{ .Values.mlflow.image.repository }}:{{ .Values.mlflow.image.tag | default (printf "v%s" .Chart.AppVersion) }}
+        imagePullPolicy: {{ .Values.mlflow.image.pullPolicy }}
+        command: ["pip"]
+        args:
+          - "install"
+          - "--no-cache-dir"
+          - "--target=/pip-packages"
+          {{- range .Values.mlflow.extraPipPackages }}
+          - {{ . | quote }}
+          {{- end }}
+        volumeMounts:
+        - name: pip-packages
+          mountPath: /pip-packages
+      {{- end }}
       {{- if .Values.mlflow.backendStore.databaseUpgrade }}
       - name: mlflow-database-upgrade
         image: {{ .Values.mlflow.image.registry | default "docker.io" }}/{{ .Values.mlflow.image.repository }}:{{ .Values.mlflow.image.tag | default (printf "v%s" .Chart.AppVersion) }}
@@ -112,19 +128,28 @@ spec:
         - db
         - upgrade
         - $(MLFLOW_BACKEND_STORE_URI)
-        {{- with .Values.mlflow.env.container }}
         env:
-        {{- toYaml . | nindent 8 }}
+        {{- if .Values.mlflow.extraPipPackages }}
+        - name: PYTHONPATH
+          value: /pip-packages
+        {{- end }}
+        {{- with .Values.mlflow.env.container }}
+          {{- toYaml . | nindent 8 }}
         {{- end }}
         envFrom:
         {{- if .Values.mlflow.backendStore.existingSecret }}
         - secretRef:
-            name: {{ .Values.mlflow.backendStore.existingSecret }} 
+            name: {{ .Values.mlflow.backendStore.existingSecret }}
         {{- end }}
         - configMapRef:
             name: {{ include "mlflow.fullname" . }}
         - secretRef:
             name: {{ include "mlflow.fullname" . }}
+        {{- if .Values.mlflow.extraPipPackages }}
+        volumeMounts:
+        - name: pip-packages
+          mountPath: /pip-packages
+        {{- end }}
       {{- end }}
       {{- with .Values.mlflow.extraInitContainers }}
       {{ toYaml . | nindent 6 }}
@@ -161,8 +186,12 @@ spec:
         ports:
         - containerPort: {{ .Values.mlflow.trackingServer.port }}
           name: http
-        {{- with .Values.mlflow.env.container }}
         env:
+        {{- if .Values.mlflow.extraPipPackages }}
+        - name: PYTHONPATH
+          value: /pip-packages
+        {{- end }}
+        {{- with .Values.mlflow.env.container }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
         envFrom:
@@ -185,6 +214,10 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+        {{- if .Values.mlflow.extraPipPackages }}
+        - name: pip-packages
+          mountPath: /pip-packages
+        {{- end }}
         {{- if .Values.mlflow.trackingServer.basicAuth.enabled }}
         - name: basic-auth-volume
           mountPath: /etc/mlflow
@@ -223,6 +256,10 @@ spec:
         {{ toYaml . | nindent 6 }}
       {{- end }}
       volumes:
+      {{- if .Values.mlflow.extraPipPackages }}
+      - name: pip-packages
+        emptyDir: {}
+      {{- end }}
       {{- if .Values.mlflow.trackingServer.basicAuth.enabled }}
       - name: basic-auth-volume
         secret:
