@@ -63,6 +63,10 @@ By trigger the github actions, you can integrate the compatibility testing into 
 
 - [Multiple Chart Orchestration](multi-chart-orchestration/README.md)
 
+### Composable Multi-Chart Walkthrough
+
+- [Composable Multi-Chart Walkthrough](composable-multi-chart-walkthrough/README.md)
+
 ### Validating Images Signatures in a Preflight Check
 
 - [Validating Images Signatures in a Preflight Check](images-signature-preflight/README.md)

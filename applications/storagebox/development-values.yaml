@@ -1,0 +1,118 @@
+---
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  name: storagebox
+spec:
+  values:
+    # Cassandra Settings
+    cassandra_enabled:
+      default: "0"
+      value: "0"
+    cassandra_user:
+      default: "cassandra"
+      value: "cassandra"
+    cassandra_password:
+      default: "cassandra"
+      value: "cassandra"
+    cassandra_truststore_password:
+      default: "cassandra"
+      value: "cassandra"
+    cassandra_keystore_password:
+      default: "cassandra"
+      value: "cassandra"
+
+    # Cassandra Ingress Settings
+    cassandra_tls_type:
+      default: "cassandra_no_ssl"
+      value: "cassandra_no_ssl"
+    cassandra_ingress_host:
+      default: "cassandra.example.com"
+      value: "cassandra.example.com"
+    cassandra_tls_cert:
+      default: ""
+      value: ""
+    cassandra_tls_key:
+      default: ""
+      value: ""
+    cassandra_tls_ca:
+      default: ""
+      value: ""
+
+    # Postgres Settings
+    postgres_enabled:
+      default: "0"
+      value: "0"
+    postgres_user:
+      default: "postgres"
+      value: "postgres"
+    postgres_password:
+      default: "postgres"
+      value: "postgres"
+    postgres_db:
+      default: "postgres"
+      value: "postgres"
+    postgres_db_owner:
+      default: "postgres"
+      value: "postgres"
+
+    # NFS Server Settings
+    nfs_enabled:
+      default: "0"
+      value: "0"
+    nfs_share:
+      default: "/shared"
+      value: "/shared"
+    nfs_share_options:
+      default: "*(rw,insecure,no_subtree_check,all_squash)"
+      value: "*(rw,insecure,no_subtree_check,all_squash)"
+
+    # MinIO Tenant Settings
+    minio_tenant_enabled:
+      default: "0"
+      value: "0"
+    minio_tenant_name:
+      default: "minio"
+      value: "minio"
+    minio_tenant_configuration_name:
+      default: "minio-env-configuration"
+      value: "minio-env-configuration"
+    minio_tenant_configuration_access_key:
+      default: "minio"
+      value: "minio"
+    minio_tenant_configuration_secret_key:
+      default: "minio123"
+      value: "minio123"
+    minio_tenant_pool_name:
+      default: "pool-0"
+      value: "pool-0"
+    minio_tenant_pool_servers:
+      default: "1"
+      value: "1"
+    minio_tenant_pool_volumes_per_server:
+      default: "1"
+      value: "1"
+    minio_tenant_pool_size:
+      default: "10Gi"
+      value: "10Gi"
+    minio_tenant_pool_storage_class_name:
+      default: ""
+      value: ""
+    minio_tenant_metrics_enabled:
+      default: "1"
+      value: "1"
+    minio_tenant_metrics_port:
+      default: "9000"
+      value: "9000"
+    minio_tenant_metrics_protocol:
+      default: "http"
+      value: "http"
+    minio_tenant_bucket_name:
+      default: "minio"
+      value: "minio"
+    minio_tenant_bucket_object_lock:
+      default: "0"
+      value: "0"
+    minio_tenant_bucket_region:
+      default: "us-east-1"
+      value: "us-east-1"

@@ -5,12 +5,17 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.16.0
+    chartVersion: 0.19.0
   values:
+    global:
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
     replicated:
       enabled: true
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
       persistence:
         shared:
           enabled: true
@@ -21,6 +26,9 @@ spec:
         NFS_LOG_LEVEL: debug
     cassandra:
       enabled: repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}
+      global:
+        imagePullSecrets:
+          - name: repl{{ ImagePullSecretName }}
       truststore_password : repl{{ ConfigOption "cassandra_truststore_password" }}
       keystore_password : repl{{ ConfigOption "cassandra_keystore_password" }}
       dbUser:
@@ -42,6 +50,8 @@ spec:
         username: repl{{ ConfigOption "postgres_user" }}
         password: repl{{ ConfigOption "postgres_password" }}
       embedded:
+        imagePullSecrets:
+          - name: repl{{ ImagePullSecretName }}
         enabled: true
         initdb:
           database: repl{{ ConfigOption "postgres_db" }}
@@ -56,7 +66,8 @@ spec:
           repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "quay.io" }}/minio/minio
           tag: RELEASE.2024-08-17T01-24-54Z
           pullPolicy: IfNotPresent
-        imagePullSecret: { }
+        imagePullSecret:
+          name: repl{{ ImagePullSecretName }}
         scheduler: { }
         # configuration:
         #   name: repl{{ ConfigOption "minio_tenant_configuration_name" }}
@@ -140,6 +151,18 @@ spec:
         #   name: repl{{ ConfigOption "minio_tenant_user_name" }}
         #   accessKey: repl{{ ConfigOption "minio_tenant_user_access_key" }}
         #   secretKey: repl{{ ConfigOption "minio_tenant_user_secret_key" }}
+    rqlite:
+      enabled: repl{{ ConfigOptionEquals "rqlite_enabled" "1" }}
+      replicas: repl{{ ConfigOption "rqlite_replicas" }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}/rqlite/rqlite
+        # When undefined, the Chart defaults the pod spec tag to "appVersion" defined in Chart.yaml
+        tag: repl{{ ConfigOption "rqlite_image_tag" }}
+        # When undefined, the Chart omits this field from pod specs, so k8s default image pull policy is used
+        # See https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+        pullPolicy: repl{{ ConfigOption "rqlite_image_pull_policy" }}
+        pullSecrets:
+          - name: repl{{ ImagePullSecretName }}
 
   optionalValues:
     - when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_no_ssl" }}'

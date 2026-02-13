@@ -1,6 +1,6 @@
 # Development Workflow
 
-This document outlines the progressive development workflow for the WG-Easy Helm chart pattern, guiding you through each stage from initial chart configuration to complete application deployment.
+This document outlines the progressive development workflow used alongside the [composable multi-chart architecture](../README.md). The workflow guides you through each stage from initial chart validation to complete application deployment, building complexity incrementally so issues are caught early.
 
 ## Progressive Complexity Approach
 
@@ -15,7 +15,7 @@ The core philosophy of this workflow is to start simple and add complexity incre
 
 Before starting the development workflow, ensure you have the following tools installed:
 
-- **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/))
+- **Task:** The task runner used in this project. ([Installation Guide](https://taskfile.dev/installation/)) If you are unfamiliar with Task, see the [Tooling Guide](tooling-guide.md) for context on why it is used instead of Make and what commands it runs under the hood.
 - **Container runtime tool** Either [Podman](https://podman.io/docs/installation) (default) or [Docker](https://docs.docker.com/get-docker/) for local development. Export `CONTAINER_RUNTIME=docker` in your shell if you use docker.
 - **Replicated API Token:** Export `REPLICATED_API_TOKEN` in your shell. This can be obtained from the [Replicated Vendor Portal](https://vendor.replicated.com) under Account Settings → API Tokens.
 

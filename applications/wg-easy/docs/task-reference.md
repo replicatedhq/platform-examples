@@ -1,5 +1,7 @@
 # Task Reference
 
+> This page is a command reference for the Task-based workflow. For an introduction to why Task and Helmfile were chosen over Make and plain Helm CLI, and how to translate these commands to your own tooling, see the [Tooling Guide](tooling-guide.md).
+
 This document provides a concise reference for the tasks available in the WG-Easy Helm chart development pattern, organized by their purpose in the development workflow.
 
 ## Task Control Options
@@ -69,9 +71,6 @@ These tasks help manage the development and testing environments.
 | `cluster-create` | Creates a test Kubernetes cluster using Replicated's Compatibility Matrix | Stage 4: Single Chart Install |
 | `setup-kubeconfig` | Retrieves and sets up the kubeconfig for the test cluster | Stage 4: Single Chart Install |
 | `delete-cluster` | Deletes the test cluster and cleans up resources | Stage 4-5: Cleanup |
-| `create-gcp-vm` | Creates a GCP VM instance for embedded cluster testing | Stage 7: Embedded Testing |
-| `delete-gcp-vm` | Deletes the GCP VM instance after testing | Stage 7: Cleanup |
-| `setup-embedded-cluster` | Sets up a Replicated embedded cluster on the GCP VM | Stage 7: Embedded Testing |
 | `list-cluster` | List the test cluster with the cluster id, name, and expiration date | Stage 4: Single Chart Install |
 | `verify-kubeconfig` | Verifies the kubeconfig for the test cluster and removes the cluster if it is expired | Stage 4: Single Chart Install |
 | `cluster-delete` | Deletes the test cluster and cleans up resources | Stage 4-5: Cleanup |
