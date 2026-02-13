@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flipt.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-1"
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+data:
+  default.yml: |
+    log:
+      level: {{ .Values.config.log.level }}
+      encoding: {{ .Values.config.log.encoding }}
+
+    server:
+      protocol: {{ .Values.config.server.protocol }}
+      host: {{ .Values.config.server.host }}
+      http_port: {{ .Values.config.server.httpPort }}
+      grpc_port: {{ .Values.config.server.grpcPort }}
+
+    db:
+      # URL is set via FLIPT_DB_URL environment variable
+      max_idle_conn: {{ .Values.config.db.maxIdleConn }}
+      max_open_conn: {{ .Values.config.db.maxOpenConn }}
+      conn_max_lifetime: {{ .Values.config.db.connMaxLifetime }}
+
+    {{- if .Values.redis.enabled }}
+    cache:
+      enabled: {{ .Values.config.cache.enabled }}
+      backend: {{ .Values.config.cache.backend }}
+      ttl: {{ .Values.config.cache.ttl }}
+      redis:
+        host: {{ .Release.Name }}-redis-master.{{ .Release.Namespace }}.svc.cluster.local
+        port: 6379
+        # password is set via FLIPT_CACHE_REDIS_PASSWORD environment variable
+        mode: {{ .Values.config.cache.redis.mode }}
+        prefix: {{ .Values.config.cache.redis.prefix | quote }}
+    {{- else }}
+    cache:
+      enabled: true
+      backend: memory
+      ttl: {{ .Values.config.cache.ttl }}
+      memory:
+        eviction_interval: 2m
+    {{- end }}
+
+    {{- if .Values.config.cors.enabled }}
+    cors:
+      enabled: {{ .Values.config.cors.enabled }}
+      allowed_origins:
+        {{- range .Values.config.cors.allowedOrigins }}
+        - {{ . | quote }}
+        {{- end }}
+    {{- end }}
+
+    {{- if .Values.config.authentication.methods.token.enabled }}
+    authentication:
+      methods:
+        token:
+          enabled: {{ .Values.config.authentication.methods.token.enabled }}
+    {{- end }}

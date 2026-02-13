@@ -1,0 +1,314 @@
+## Flipt Feature Flag Platform Configuration
+## Standalone chart with PostgreSQL and Redis support
+
+global:
+  ## Global image registry override
+  ## Useful for air-gap deployments or custom registries
+  imageRegistry: ""
+
+## CloudNativePG Operator Configuration
+## Set to false if operator is already installed cluster-wide
+cloudnative-pg:
+  enabled: true
+
+## Flipt Application Configuration
+
+replicaCount: 2
+minReadySeconds: 0
+
+image:
+  registry: ghcr.io
+  repository: flipt-io/flipt
+  pullPolicy: IfNotPresent
+  tag: "v1.61.0"  # Note: Flipt versions require 'v' prefix
+  command: ["/flipt"]
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+deploymentAnnotations: {}
+deploymentLabels: {}
+
+podSecurityContext:
+  runAsUser: 100
+  runAsGroup: 1000
+  fsGroup: 1000
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  privileged: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 100
+  seccompProfile:
+    type: "RuntimeDefault"
+
+## Flipt Configuration
+## See https://docs.flipt.io/configuration/overview for all options
+config:
+  ## Logging configuration
+  log:
+    level: info
+    encoding: json
+
+  ## Server configuration
+  server:
+    protocol: http
+    host: 0.0.0.0
+    httpPort: 8080
+    grpcPort: 9000
+
+  ## Database configuration (templated from PostgreSQL values)
+  db:
+    url: ""  # Will be set via template
+    maxIdleConn: 10
+    maxOpenConn: 50
+    connMaxLifetime: 1h
+
+  ## Cache configuration (templated from Redis values)
+  cache:
+    enabled: true
+    backend: redis  # or 'memory' for single instance
+    ttl: 5m
+    redis:
+      url: ""  # Will be set via template
+      mode: single  # or 'cluster' for Redis cluster
+      prefix: "flipt"
+
+  ## CORS configuration for web UI
+  cors:
+    enabled: true
+    allowedOrigins:
+      - "*"
+
+  ## Authentication (optional, configure for production)
+  authentication:
+    methods:
+      token:
+        enabled: false
+
+## Health check probes
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 3
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 3
+
+## Resource limits for Flipt pods
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+## Service configuration
+service:
+  enabled: true
+  type: ClusterIP
+  httpPort: 8080
+  httpsPort: 443
+  grpcPort: 9000
+  annotations: {}
+  labels: {}
+
+## Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: flipt.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+          backend:
+            servicePort: http
+            serviceName: ""
+  tls: []
+    # - secretName: flipt-tls
+    #   hosts:
+    #     - flipt.local
+
+## Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+## Pod Disruption Budget (recommended for HA)
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+## ServiceMonitor for Prometheus metrics
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}
+
+## Persistence (optional)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 8Gi
+
+## Extra environment variables
+extraEnvVars: []
+
+## Extra volumes
+extraVolumes: []
+
+## Extra volume mounts
+extraVolumeMounts: []
+
+## Node selector
+nodeSelector: {}
+
+## Tolerations
+tolerations: []
+
+## Affinity rules
+affinity: {}
+
+## Database Job Configuration (for PostgreSQL cluster creation)
+dbJob:
+  image:
+    registry: registry.k8s.io
+    repository: kubectl
+    tag: "1.33.0"
+    pullPolicy: IfNotPresent
+
+## PostgreSQL Database Configuration
+postgresql:
+  ## Use embedded PostgreSQL (CloudnativePG) or external database
+  type: embedded  # 'embedded' or 'external'
+
+  ## Embedded PostgreSQL using CloudnativePG operator
+  embedded:
+    enabled: true
+    ## Database cluster configuration
+    cluster:
+      instances: 1  # 3 recommended for production HA
+      storage:
+        size: 10Gi
+        storageClass: ""  # Uses default storage class
+      ## PostgreSQL version
+      imageName: ghcr.io/cloudnative-pg/postgresql:16
+      ## Resource limits
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      ## Enable continuous backup (optional)
+      backup:
+        enabled: false
+      ## Enable monitoring (optional)
+      monitoring:
+        enabled: false
+
+  ## External PostgreSQL connection details
+  external:
+    enabled: false
+    host: postgresql.example.com
+    port: 5432
+    database: flipt
+    username: flipt
+    password: ""  # Set via secret or KOTS config
+    sslMode: require
+
+  ## Database initialization
+  database: flipt
+  username: flipt
+  password: ""  # Auto-generated if empty (for embedded)
+
+## Redis Cache Configuration
+redis:
+  enabled: true
+
+  ## Redis image configuration
+  image:
+    registry: docker.io
+    repository: redis
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  ## Redis architecture
+  architecture: standalone  # or 'replication' for HA
+
+  ## Authentication
+  auth:
+    enabled: true
+    password: ""  # Auto-generated if empty
+
+  ## Master configuration
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  ## Replica configuration (if architecture: replication)
+  replica:
+    replicaCount: 1
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  ## Redis Sentinel (for HA)
+  sentinel:
+    enabled: false
+
+  ## Metrics exporter
+  metrics:
+    enabled: false
+
+## Replicated SDK Integration
+replicated:
+  enabled: true
+  integration:
+    enabled: true
+    licenseID: ""

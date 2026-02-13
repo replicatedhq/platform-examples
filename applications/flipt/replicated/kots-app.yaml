@@ -1,0 +1,52 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: flipt
+spec:
+  title: Flipt Feature Flags
+  icon: https://raw.githubusercontent.com/flipt-io/flipt/main/ui/public/logo.svg
+  statusInformers:
+    - deployment/flipt
+    - deployment/flipt-cloudnative-pg
+    - statefulset/redis
+  ports:
+    - serviceName: flipt
+      servicePort: 8080
+      localPort: 8080
+      applicationUrl: "http://flipt.{{repl Namespace}}.svc.cluster.local:8080"
+  graphs:
+    - title: Flipt Pods
+      query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~"flipt-.*", phase="Running"})'
+      legend: Running Pods
+      queries:
+        - query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~"flipt-.*", phase="Running"})'
+          legend: Running
+        - query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~"flipt-.*", phase="Pending"})'
+          legend: Pending
+    - title: Database Status
+      query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~"{{repl ConfigOption "release_name"}}-cluster-.*", phase="Running"})'
+      legend: PostgreSQL Pods
+      when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+    - title: Redis Status
+      query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~".*-redis-.*", phase="Running"})'
+      legend: Redis Pods
+      when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+  releaseNotes: |
+    ## Flipt v1.61.0
+
+    This release includes:
+    - Latest Flipt v1.61.0 with enhanced performance
+    - PostgreSQL 16 support via CloudnativePG
+    - Redis distributed caching for multi-instance deployments
+    - Horizontal pod autoscaling support
+    - Comprehensive monitoring and metrics
+
+    For more details, visit: https://github.com/flipt-io/flipt/releases
+  additionalImages:
+    - ghcr.io/flipt-io/flipt:v1.61.0
+    - ghcr.io/cloudnative-pg/cloudnative-pg:1.25.0
+    - ghcr.io/cloudnative-pg/postgresql:16
+    - registry.k8s.io/kubectl:1.33.0
+    - docker.io/library/redis:latest
+    - proxy.replicated.com/library/replicated-sdk-image:1.15.0
+  allowRollback: true

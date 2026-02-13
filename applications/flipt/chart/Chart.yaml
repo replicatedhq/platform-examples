@@ -1,0 +1,43 @@
+apiVersion: v2
+name: flipt
+description: |
+  Flipt is an open-source, self-hosted feature flag and experimentation platform.
+  This enterprise-ready deployment includes PostgreSQL for durable storage and Redis
+  for distributed caching across multiple instances.
+type: application
+version: 1.0.6
+appVersion: "1.61.0"
+keywords:
+  - feature-flags
+  - feature-toggles
+  - experimentation
+  - a-b-testing
+  - flipt
+home: https://flipt.io
+sources:
+  - https://github.com/flipt-io/flipt
+  - https://github.com/flipt-io/helm-charts
+maintainers:
+  - name: Replicated
+    url: https://replicated.com
+
+dependencies:
+  # CloudNativePG operator for PostgreSQL management
+  # Note: If you already have the operator installed cluster-wide, disable with:
+  # --set cloudnative-pg.enabled=false
+  - name: cloudnative-pg
+    version: "0.23.0"
+    repository: https://cloudnative-pg.github.io/charts
+    condition: cloudnative-pg.enabled
+
+  # Redis for distributed caching
+  - name: redis
+    version: "19.6.4"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+
+  # Replicated SDK for admin console integration
+  - name: replicated
+    version: "^1.12.0"
+    repository: oci://registry.replicated.com/library
+    condition: replicated.enabled

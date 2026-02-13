@@ -1,0 +1,361 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: flipt-config
+spec:
+  groups:
+    - name: basic
+      title: Basic Configuration
+      description: Essential configuration for Flipt deployment
+      items:
+        - name: release_name
+          title: Release Name
+          type: text
+          default: flipt
+          required: true
+          help_text: Name for this Flipt deployment (used as Helm release name)
+
+        - name: namespace
+          title: Namespace
+          type: text
+          default: flipt
+          required: true
+          help_text: Kubernetes namespace where Flipt will be deployed
+
+        - name: replica_count
+          title: Number of Flipt Replicas
+          type: text
+          default: "2"
+          required: true
+          help_text: Number of Flipt pod replicas (2+ recommended for HA with Redis)
+
+    - name: ingress
+      title: Ingress Configuration
+      description: Configure how Flipt is accessed from outside the cluster
+      items:
+        - name: ingress_enabled
+          title: Enable Ingress
+          type: bool
+          default: "1"
+          help_text: Enable ingress for external access to Flipt
+
+        - name: ingress_hostname
+          title: Hostname
+          type: text
+          default: flipt.example.com
+          required: false
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+          help_text: Hostname for accessing Flipt UI
+
+        - name: ingress_class
+          title: Ingress Class
+          type: select_one
+          default: nginx
+          items:
+            - name: nginx
+              title: NGINX
+            - name: traefik
+              title: Traefik
+            - name: custom
+              title: Custom
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+          help_text: Ingress controller class to use
+
+        - name: ingress_class_custom
+          title: Custom Ingress Class
+          type: text
+          default: ""
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "ingress_class" "custom") }}'
+          help_text: Custom ingress class name
+
+        - name: tls_enabled
+          title: Enable TLS
+          type: bool
+          default: "1"
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+          help_text: Enable TLS/HTTPS for ingress
+
+        - name: tls_cert_source
+          title: TLS Certificate Source
+          type: select_one
+          default: cert_manager
+          items:
+            - name: cert_manager
+              title: Cert-Manager (Automatic)
+            - name: custom
+              title: Upload Custom Certificate
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
+          help_text: How TLS certificates are managed
+
+        - name: tls_cert_manager_issuer
+          title: Cert-Manager Issuer
+          type: text
+          default: letsencrypt-prod
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "cert_manager") }}'
+          help_text: Name of the cert-manager ClusterIssuer
+
+        - name: tls_cert
+          title: TLS Certificate
+          type: file
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
+          help_text: Upload your TLS certificate file (PEM format)
+
+        - name: tls_key
+          title: TLS Private Key
+          type: file
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
+          help_text: Upload your TLS private key file (PEM format)
+
+    - name: database
+      title: Database Configuration
+      description: PostgreSQL database settings for storing feature flags
+      items:
+        - name: postgres_type
+          title: PostgreSQL Type
+          type: select_one
+          default: embedded
+          items:
+            - name: embedded
+              title: Embedded PostgreSQL (CloudnativePG)
+            - name: external
+              title: External PostgreSQL Database
+          required: true
+          help_text: Use embedded PostgreSQL or connect to external database
+
+        - name: postgres_instances
+          title: Number of PostgreSQL Instances
+          type: select_one
+          default: "1"
+          items:
+            - name: "1"
+              title: "1 (Development)"
+            - name: "3"
+              title: "3 (High Availability)"
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+          help_text: Number of PostgreSQL cluster instances (3 recommended for production)
+
+        - name: postgres_storage_size
+          title: PostgreSQL Storage Size
+          type: text
+          default: 10Gi
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+          required: true
+          help_text: Storage size for PostgreSQL data (e.g., 10Gi, 50Gi, 100Gi)
+
+        - name: postgres_storage_class
+          title: PostgreSQL Storage Class
+          type: text
+          default: ""
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+          help_text: Storage class for PostgreSQL PVCs (leave empty for default)
+
+        - name: postgres_resources_cpu
+          title: PostgreSQL CPU Limit
+          type: text
+          default: 1000m
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+          help_text: CPU limit for PostgreSQL pods (e.g., 500m, 1000m, 2000m)
+
+        - name: postgres_resources_memory
+          title: PostgreSQL Memory Limit
+          type: text
+          default: 1Gi
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+          help_text: Memory limit for PostgreSQL pods (e.g., 512Mi, 1Gi, 2Gi)
+
+        - name: external_postgres_host
+          title: External PostgreSQL Host
+          type: text
+          default: postgresql.example.com
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+          help_text: Hostname or IP address of external PostgreSQL server
+
+        - name: external_postgres_port
+          title: External PostgreSQL Port
+          type: text
+          default: "5432"
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+          help_text: Port number of external PostgreSQL server
+
+        - name: external_postgres_database
+          title: Database Name
+          type: text
+          default: flipt
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+          help_text: Name of the database to use
+
+        - name: external_postgres_username
+          title: Database Username
+          type: text
+          default: flipt
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+          help_text: Username for database authentication
+
+        - name: external_postgres_password
+          title: Database Password
+          type: password
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+          help_text: Password for database authentication
+
+        - name: external_postgres_sslmode
+          title: SSL Mode
+          type: select_one
+          default: require
+          items:
+            - name: disable
+              title: Disable
+            - name: require
+              title: Require
+            - name: verify-ca
+              title: Verify CA
+            - name: verify-full
+              title: Verify Full
+          when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
+          help_text: SSL mode for PostgreSQL connection
+
+    - name: redis
+      title: Redis Configuration
+      description: Redis cache settings for high-performance multi-instance deployments
+      items:
+        - name: redis_enabled
+          title: Enable Redis Cache
+          type: bool
+          default: "1"
+          help_text: Enable Redis for distributed caching (required for multiple Flipt replicas)
+          recommended: true
+
+        - name: redis_architecture
+          title: Redis Architecture
+          type: select_one
+          default: standalone
+          items:
+            - name: standalone
+              title: Standalone (Single Instance)
+            - name: replication
+              title: Primary-Replica (High Availability)
+          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+          help_text: Redis deployment architecture
+
+        - name: redis_storage_size
+          title: Redis Storage Size
+          type: text
+          default: 5Gi
+          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+          required: true
+          help_text: Storage size for Redis persistence (e.g., 5Gi, 10Gi)
+
+        - name: redis_storage_class
+          title: Redis Storage Class
+          type: text
+          default: ""
+          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+          help_text: Storage class for Redis PVCs (leave empty for default)
+
+        - name: redis_password
+          title: Redis Password
+          type: password
+          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+          help_text: Password for Redis authentication (auto-generated if empty)
+
+        - name: redis_replica_count
+          title: Number of Redis Replicas
+          type: text
+          default: "1"
+          when: '{{repl and (ConfigOptionEquals "redis_enabled" "1") (ConfigOptionEquals "redis_architecture" "replication") }}'
+          help_text: Number of Redis replica instances
+
+    - name: resources
+      title: Resource Configuration
+      description: Configure CPU and memory resources for Flipt
+      items:
+        - name: flipt_cpu_request
+          title: Flipt CPU Request
+          type: text
+          default: 100m
+          help_text: CPU request for Flipt pods (e.g., 100m, 250m, 500m)
+
+        - name: flipt_cpu_limit
+          title: Flipt CPU Limit
+          type: text
+          default: 500m
+          help_text: CPU limit for Flipt pods (e.g., 500m, 1000m, 2000m)
+
+        - name: flipt_memory_request
+          title: Flipt Memory Request
+          type: text
+          default: 128Mi
+          help_text: Memory request for Flipt pods (e.g., 128Mi, 256Mi, 512Mi)
+
+        - name: flipt_memory_limit
+          title: Flipt Memory Limit
+          type: text
+          default: 512Mi
+          help_text: Memory limit for Flipt pods (e.g., 512Mi, 1Gi, 2Gi)
+
+    - name: advanced
+      title: Advanced Configuration
+      description: Advanced settings for production deployments
+      items:
+        - name: enable_autoscaling
+          title: Enable Horizontal Pod Autoscaling
+          type: bool
+          default: "0"
+          help_text: Enable HPA to automatically scale Flipt pods based on CPU/memory usage
+
+        - name: hpa_min_replicas
+          title: HPA Minimum Replicas
+          type: text
+          default: "2"
+          when: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
+          help_text: Minimum number of replicas for autoscaling
+
+        - name: hpa_max_replicas
+          title: HPA Maximum Replicas
+          type: text
+          default: "10"
+          when: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
+          help_text: Maximum number of replicas for autoscaling
+
+        - name: hpa_cpu_target
+          title: HPA CPU Target Percentage
+          type: text
+          default: "80"
+          when: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
+          help_text: Target CPU utilization percentage for autoscaling
+
+        - name: enable_metrics
+          title: Enable Prometheus Metrics
+          type: bool
+          default: "0"
+          help_text: Enable ServiceMonitor for Prometheus metrics collection
+
+        - name: log_level
+          title: Log Level
+          type: select_one
+          default: info
+          items:
+            - name: debug
+              title: Debug
+            - name: info
+              title: Info
+            - name: warn
+              title: Warning
+            - name: error
+              title: Error
+          help_text: Logging verbosity level
+
+        - name: log_encoding
+          title: Log Encoding
+          type: select_one
+          default: json
+          items:
+            - name: console
+              title: Console
+            - name: json
+              title: JSON
+          help_text: Log output format
