@@ -6,7 +6,7 @@ metadata:
 spec:
   collectors:
     - logs:
-        namespace: {{ .Release.Namespace }}
+        namespaces: {{ .Release.Namespace }}
         selector:
         - app.kubernetes.io/instance=cert-manager
-{{- end -}} 
+{{- end -}}
