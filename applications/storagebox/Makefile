@@ -6,7 +6,7 @@ ARGS = $(filter-out $@,$(MAKECMDGOALS))
 	@:
 
 SHELL := /bin/bash
-.SHELLFLAGS = -x +u
+.SHELLFLAGS = -x +u -c
 
 # Define the base path to your Helm charts directory
 HELM_CHARTS_DIR = ./charts
@@ -583,3 +583,68 @@ help:
 	@echo "  make vm-expose-ports CLUSTER_PREFIX=my-test"
 	@echo "  make vm-ec-install-headless CLUSTER_PREFIX=my-test"
 	@echo "  make vm-cleanup CLUSTER_PREFIX=my-test"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test-lint                - Helm lint the chart"
+	@echo "  make test-install-operators   - Install all required operators"
+	@echo "  make test-install             - Helm install storagebox with test values"
+	@echo "  make test-smoke               - Run smoke tests"
+	@echo "  make test-all                 - Full test sequence (lint -> operators -> install -> smoke)"
+
+
+# ============================================================================
+# Test Targets
+# ============================================================================
+
+TEST_NAMESPACE ?= storagebox
+
+.PHONY: test-lint
+test-lint:
+	@echo "Linting storagebox chart..."
+	helm lint ./charts/storagebox
+	@echo "Template rendering with test values..."
+	helm template storagebox ./charts/storagebox -f tests/helm/all-components.yaml > /dev/null
+	@echo "Lint and template passed"
+
+.PHONY: test-install-operators
+test-install-operators:
+	@echo "Installing operators matching kots/ec.yaml versions..."
+	helm install cert-manager jetstack/cert-manager \
+		--namespace cert-manager --create-namespace \
+		--version v1.19.1 \
+		--set crds.enabled=true \
+		--set prometheus.enabled=false \
+		--wait --timeout 5m
+	helm install cloudnative-pg cnpg/cloudnative-pg \
+		--namespace cnpg --create-namespace \
+		--version 0.27.0 \
+		--wait --timeout 5m
+	helm install minio-operator minio-operator/operator \
+		--namespace minio --create-namespace \
+		--version 7.1.1 \
+		--wait --timeout 5m
+	helm install k8ssandra-operator k8ssandra/k8ssandra-operator \
+		--namespace k8ssandra-operator --create-namespace \
+		--version 1.22.0 \
+		--set global.clusterScoped=true \
+		--wait --timeout 5m
+	@echo "All operators installed"
+
+.PHONY: test-install
+test-install:
+	@echo "Installing storagebox with test values..."
+	helm install storagebox ./charts/storagebox \
+		--namespace $(TEST_NAMESPACE) --create-namespace \
+		-f tests/helm/all-components.yaml \
+		--wait --timeout 10m
+	@echo "Storagebox installed"
+
+.PHONY: test-smoke
+test-smoke:
+	@echo "Running smoke tests..."
+	pip install -q -r tests/requirements.txt
+	python tests/smoke_test.py $(TEST_NAMESPACE)
+
+.PHONY: test-all
+test-all: test-lint test-install-operators test-install test-smoke
+	@echo "All tests passed"

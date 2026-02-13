@@ -1,0 +1,290 @@
+name: Storagebox CI
+
+on:
+  pull_request:
+    paths:
+      - 'applications/storagebox/charts/**'
+      - 'applications/storagebox/kots/**'
+      - 'applications/storagebox/tests/**'
+      - 'applications/storagebox/Makefile'
+      - '.github/workflows/storagebox-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'applications/storagebox/charts/**'
+      - 'applications/storagebox/kots/**'
+      - 'applications/storagebox/tests/**'
+      - 'applications/storagebox/Makefile'
+      - '.github/workflows/storagebox-ci.yml'
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Add Helm repositories
+        working-directory: applications/storagebox
+        run: make add-helm-repositories
+
+      - name: Update chart dependencies
+        working-directory: applications/storagebox
+        run: make update-dependencies
+
+      - name: Helm lint
+        working-directory: applications/storagebox
+        run: helm lint ./charts/storagebox
+
+      - name: Helm template (default values)
+        working-directory: applications/storagebox
+        run: helm template storagebox ./charts/storagebox --debug
+
+      - name: Helm template (all-components test values)
+        working-directory: applications/storagebox
+        run: |
+          helm template storagebox ./charts/storagebox \
+            -f tests/helm/all-components.yaml \
+            --debug
+
+      - name: Validate config contract
+        working-directory: applications/storagebox
+        run: make validate-config
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template]
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - distribution: k3s
+            version: "1.32"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Create Cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          kubernetes-distribution: ${{ matrix.cluster.distribution }}
+          kubernetes-version: ${{ matrix.cluster.version }}
+          cluster-name: storagebox-ci-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          disk: 100
+          nodes: 1
+          instance-type: r1.medium
+          ttl: 2h
+          export-kubeconfig: true
+
+      - name: Save kubeconfig
+        run: |
+          mkdir -p /tmp/storagebox-ci
+          echo "$KUBECONFIG_DATA" > /tmp/storagebox-ci/kubeconfig
+          echo "KUBECONFIG=/tmp/storagebox-ci/kubeconfig" >> $GITHUB_ENV
+        env:
+          KUBECONFIG_DATA: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Add Helm repositories
+        working-directory: applications/storagebox
+        run: |
+          make add-helm-repositories
+          # Operator repos (from ec.yaml) not in Chart.yaml dependencies
+          helm repo add jetstack https://charts.jetstack.io || true
+          helm repo add cnpg https://cloudnative-pg.github.io/charts || true
+          helm repo add minio-operator https://operator.min.io || true
+          helm repo add k8ssandra https://helm.k8ssandra.io/stable || true
+          helm repo update
+
+      - name: Update chart dependencies
+        working-directory: applications/storagebox
+        run: make update-dependencies
+
+      # Install cert-manager first (k8ssandra cass-operator webhooks depend on it)
+      - name: Install cert-manager v1.19.1
+        run: |
+          helm install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --version v1.19.1 \
+            --set crds.enabled=true \
+            --set prometheus.enabled=false
+
+      - name: Wait for cert-manager
+        run: |
+          TIMEOUT=180; ELAPSED=0; INTERVAL=10
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            echo "=== cert-manager pods at ${ELAPSED}s ==="
+            kubectl get pods -n cert-manager 2>/dev/null || true
+            if kubectl wait --for=condition=Available deployment --all -n cert-manager --timeout=5s 2>/dev/null; then
+              echo "cert-manager is ready!"
+              break
+            fi
+            sleep $INTERVAL; ELAPSED=$((ELAPSED + INTERVAL))
+          done
+          kubectl wait --for=condition=Available deployment --all -n cert-manager --timeout=10s
+
+      # Install remaining operators in parallel
+      - name: Install operators
+        run: |
+          helm install cloudnative-pg cnpg/cloudnative-pg \
+            --namespace cnpg --create-namespace \
+            --version 0.27.0 &
+
+          helm install minio-operator minio-operator/operator \
+            --namespace minio --create-namespace \
+            --version 7.1.1 &
+
+          helm install k8ssandra-operator k8ssandra/k8ssandra-operator \
+            --namespace k8ssandra-operator --create-namespace \
+            --version 1.22.0 \
+            --set global.clusterScoped=true &
+
+          wait
+
+      - name: Wait for operators
+        run: |
+          NAMESPACES="cnpg minio k8ssandra-operator"
+          TIMEOUT=300; ELAPSED=0; INTERVAL=15
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            echo ""
+            echo "=== Operator pods at ${ELAPSED}s ==="
+            for ns in $NAMESPACES; do
+              echo "--- $ns ---"
+              kubectl get pods -n $ns 2>/dev/null || true
+            done
+            ALL_READY=true
+            for ns in $NAMESPACES; do
+              if ! kubectl wait --for=condition=Available deployment --all -n $ns --timeout=5s 2>/dev/null; then
+                ALL_READY=false
+              fi
+            done
+            if $ALL_READY; then
+              echo ""
+              echo "All operators are ready!"
+              break
+            fi
+            sleep $INTERVAL; ELAPSED=$((ELAPSED + INTERVAL))
+          done
+          for ns in $NAMESPACES; do
+            kubectl wait --for=condition=Available deployment --all -n $ns --timeout=10s
+          done
+
+      - name: Install Storagebox
+        working-directory: applications/storagebox
+        run: |
+          helm install storagebox ./charts/storagebox \
+            --namespace storagebox --create-namespace \
+            -f tests/helm/all-components.yaml \
+            --timeout 10m
+
+      - name: Wait for component pods
+        run: |
+          NS=storagebox
+          TIMEOUT=300
+          INTERVAL=15
+          ELAPSED=0
+
+          echo "Waiting up to ${TIMEOUT}s for all components to become ready..."
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            echo ""
+            echo "=== Pod status at ${ELAPSED}s ==="
+            kubectl get pods -n $NS -o wide 2>/dev/null || true
+
+            # Check if all containers in all pods are ready
+            # A pod is fully ready when READY column shows equal numbers (e.g. 2/2, 1/1)
+            NOT_READY=$(kubectl get pods -n $NS --no-headers 2>/dev/null | awk '{split($2,a,"/"); if ($3 != "Running" && $3 != "Completed" || a[1] != a[2]) print}' || true)
+            TOTAL=$(kubectl get pods -n $NS --no-headers 2>/dev/null | grep -cv "Completed" || true)
+            READY_COUNT=$(kubectl get pods -n $NS --no-headers 2>/dev/null | awk '{split($2,a,"/"); if ($3 == "Running" && a[1] == a[2]) count++} END{print count+0}' || true)
+
+            echo ""
+            echo "Fully ready: ${READY_COUNT}/${TOTAL}"
+
+            # We need at least postgres, minio, rqlite, cassandra (4 pods minimum)
+            if [ "$READY_COUNT" -ge 4 ] && [ -z "$NOT_READY" ]; then
+              echo ""
+              echo "All pods are ready!"
+              break
+            fi
+
+            sleep $INTERVAL
+            ELAPSED=$((ELAPSED + INTERVAL))
+          done
+
+          echo ""
+          echo "=== Final pod status ==="
+          kubectl get pods -n $NS -o wide
+
+          # Fail if key components aren't ready
+          kubectl wait --for=condition=Ready pods -l cnpg.io/cluster=postgres -n $NS --timeout=30s
+          kubectl wait --for=condition=Ready pods -l v1.min.io/tenant=minio -n $NS --timeout=30s
+          # Cassandra has a sidecar that takes longer to become ready
+          kubectl wait --for=condition=Ready pods -l app.kubernetes.io/managed-by=cass-operator -n $NS --timeout=180s
+
+      - name: Run smoke tests
+        working-directory: applications/storagebox
+        run: |
+          pip install -r tests/requirements.txt
+          python tests/smoke_test.py storagebox --timeout 120 \
+            --components postgres minio rqlite cassandra
+
+      - name: Debug output on failure
+        if: failure()
+        run: |
+          NS=storagebox
+          echo "=== Pods ==="
+          kubectl get pods -n $NS -o wide
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc -n $NS
+          echo ""
+          echo "=== Events (last 50) ==="
+          kubectl get events -n $NS --sort-by='.lastTimestamp' | tail -50
+          echo ""
+          echo "=== Operator pods ==="
+          kubectl get pods -n cert-manager
+          kubectl get pods -n cnpg
+          kubectl get pods -n minio
+          kubectl get pods -n k8ssandra-operator
+          echo ""
+          echo "=== PostgreSQL Cluster status ==="
+          kubectl get clusters.postgresql.cnpg.io -n $NS -o yaml || true
+          echo ""
+          echo "=== K8ssandraCluster status ==="
+          kubectl get k8ssandraclusters -n $NS -o yaml || true
+          echo ""
+          echo "=== MinIO Tenant status ==="
+          kubectl get tenants.minio.min.io -n $NS -o yaml || true
+          echo ""
+          echo "=== Pod logs (last 30 lines each) ==="
+          for pod in $(kubectl get pods -n $NS -o name 2>/dev/null); do
+            echo "--- $pod ---"
+            kubectl logs $pod -n $NS --tail=30 2>/dev/null || true
+          done
+
+      - name: Remove Cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.17.0
+        if: ${{ always() && steps.create-cluster.outputs.cluster-id != '' }}
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
