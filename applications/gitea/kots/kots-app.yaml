@@ -7,3 +7,5 @@ spec:
   allowRollback: false
   statusInformers:
     - deployment/kotsadm
+    - deployment/gitea
+    - deployment/gitea-valkey

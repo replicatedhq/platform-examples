@@ -311,7 +311,7 @@ https
   {{- if not (hasKey .Values.gitea.config.metrics "ENABLED") -}}
     {{- $_ := set .Values.gitea.config.metrics "ENABLED" .Values.gitea.metrics.enabled -}}
   {{- end -}}
-  {{- /* redis queue */ -}}
+  {{- /* redis/valkey queue */ -}}
   {{- if or ((index .Values "redis-cluster").enabled) ((index .Values "redis").enabled) -}}
     {{- $_ := set .Values.gitea.config.queue "TYPE" "redis" -}}
     {{- $_ := set .Values.gitea.config.queue "CONN_STR" (include "redis.dns" .) -}}
@@ -319,6 +319,16 @@ https
     {{- $_ := set .Values.gitea.config.session "PROVIDER_CONFIG" (include "redis.dns" .) -}}
     {{- $_ := set .Values.gitea.config.cache "ADAPTER" "redis" -}}
     {{- $_ := set .Values.gitea.config.cache "HOST" (include "redis.dns" .) -}}
+  {{- else if .Values.valkey.enabled -}}
+    {{- $defaultUser := index .Values.valkey.auth.aclUsers "default" -}}
+    {{- $valkeyHost := printf "%s-valkey" (include "gitea.fullname" .) -}}
+    {{- $valkeyConnStr := printf "redis://:%s@%s:%v/0?pool_size=100&idle_timeout=180s&" $defaultUser.password $valkeyHost (int .Values.valkey.service.port) -}}
+    {{- $_ := set .Values.gitea.config.queue "TYPE" "redis" -}}
+    {{- $_ := set .Values.gitea.config.queue "CONN_STR" $valkeyConnStr -}}
+    {{- $_ := set .Values.gitea.config.session "PROVIDER" "redis" -}}
+    {{- $_ := set .Values.gitea.config.session "PROVIDER_CONFIG" $valkeyConnStr -}}
+    {{- $_ := set .Values.gitea.config.cache "ADAPTER" "redis" -}}
+    {{- $_ := set .Values.gitea.config.cache "HOST" $valkeyConnStr -}}
   {{- else -}}
     {{- if not (get .Values.gitea.config.session "PROVIDER") -}}
       {{- $_ := set .Values.gitea.config.session "PROVIDER" "memory" -}}
@@ -411,6 +421,21 @@ https
     {{- $_ := set .Values.gitea.config.database "NAME"      .Values.postgresql.global.postgresql.auth.database -}}
     {{- $_ := set .Values.gitea.config.database "USER"      .Values.postgresql.global.postgresql.auth.username -}}
     {{- $_ := set .Values.gitea.config.database "PASSWD"    .Values.postgresql.global.postgresql.auth.password -}}
+  {{- end -}}
+  {{- if .Values.postgres.embedded.enabled -}}
+    {{- $_ := set .Values.gitea.config.database "DB_TYPE"   "postgres" -}}
+    {{- if not (.Values.gitea.config.database.HOST) -}}
+      {{- $_ := set .Values.gitea.config.database "HOST" (printf "%s-postgres-rw:5432" (include "gitea.fullname" .)) -}}
+    {{- end -}}
+    {{- if not (.Values.gitea.config.database.NAME) -}}
+      {{- $_ := set .Values.gitea.config.database "NAME" .Values.postgres.embedded.initdb.database -}}
+    {{- end -}}
+    {{- if not (.Values.gitea.config.database.USER) -}}
+      {{- $_ := set .Values.gitea.config.database "USER" .Values.postgres.auth.username -}}
+    {{- end -}}
+    {{- if not (.Values.gitea.config.database.PASSWD) -}}
+      {{- $_ := set .Values.gitea.config.database "PASSWD" .Values.postgres.auth.password -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 

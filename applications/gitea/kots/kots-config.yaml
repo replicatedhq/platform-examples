@@ -18,25 +18,43 @@ spec:
     - name: postgres_user
       title: Postgres User
       type: text
-      default: postgres
+      default: gitea
       required: true
       description: The username for the Postgres user
     - name: postgres_password
       title: Postgres Password
       type: password
-      default: postgres
+      default: gitea
       required: true
       description: Postgres user password
       secret: true
     - name: postgres_db
       title: Postgres Database Name
       type: text
-      default: postgres
+      default: gitea
       required: true
       description: The name of the Postgres database
     - name: postgres_host
       title: Postgres Database Host
       type: text
-      default: postgresql
+      default: gitea-postgres-rw:5432
       required: true
       description: The host of the Postgres database
+  # Cache settings
+  - name: cache_settings
+    title: Cache Settings
+    items:
+    - name: internal_valkey_enabled
+      title: Enable Internal Valkey Cache
+      type: bool
+      default: true
+      required: true
+      description: Deploy Valkey (Redis-compatible) for cache, session, and queue
+    - name: valkey_password
+      title: Valkey Password
+      type: password
+      default: changeme
+      required: true
+      description: Password for Valkey authentication
+      secret: true
+      when: 'repl{{ ConfigOptionEquals "internal_valkey_enabled" "1" }}'
