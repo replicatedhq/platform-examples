@@ -666,14 +666,20 @@ extraTemplateManifests: []
 #    stringData:
 #      image_name: {{ .Values.image.repository }}
 
-# Bitnami Valkey configuration
-# https://artifacthub.io/packages/helm/bitnami/valkey
+# Official Valkey configuration
+# https://valkey.io/valkey-helm/
 valkey:
   enabled: false
-  # architecture: standalone
-  #
-  # primary:
-  #   persistence:
-  #     enabled: false
-  #     existingClaim: ""
-  #     size: 2Gi
+  # auth:
+  #   enabled: true
+  #   aclUsers:
+  #     default:
+  #       password: "changeme"
+  #       permissions: "~* &* +@all"
+  # replica:
+  #   enabled: false
+  # dataStorage:
+  #   enabled: false
+  # service:
+  #   type: ClusterIP
+  #   port: 6379
