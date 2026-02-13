@@ -8,7 +8,7 @@ spec:
     - clusterResources: {}
     - logs:
         selector:
-          - app.kubernetes.io/name=cassandra
+          - app.kubernetes.io/managed-by=cassandra-operator
         limits:
           maxLines: 10000
   analyzers:

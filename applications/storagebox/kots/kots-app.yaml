@@ -8,5 +8,5 @@ spec:
   statusInformers:
     - statefulset/kotsadm-rqlite
     - deployment/kotsadm
-    - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}statefulset/storagebox-cassandra{{repl end}}'
+    - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}cassandradatacenter/dc1{{repl end}}'
     - '{{repl if ConfigOptionEquals "rqlite_enabled" "1"}}statefulset/storagebox-rqlite{{repl end}}'

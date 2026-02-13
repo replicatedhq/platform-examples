@@ -1,7 +1,7 @@
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 2.13.3+k8s-1.33
+  version: 2.13.4+k8s-1.33
   domains:
     replicatedAppDomain: app.xyyzx.net
     proxyRegistryDomain: proxy.xyyzx.net
@@ -16,7 +16,20 @@ spec:
           url: https://charts.jetstack.io
         - name: ingress-nginx
           url: https://kubernetes.github.io/ingress-nginx
+        - name: k8ssandra
+          url: https://helm.k8ssandra.io/stable
+      # NOTE: cert-manager MUST be first - k8ssandra cass-operator
+      # webhooks require cert-manager CRDs to exist at install time.
       charts:
+        - name: cert-manager
+          chartname: jetstack/cert-manager
+          namespace: cert-manager
+          version: "v1.19.1"
+          values: |
+            crds:
+              enabled: true
+            prometheus:
+              enabled: false
         - name: cloudnative-pg
           chartname: cnpg/cloudnative-pg
           namespace: cnpg
@@ -28,15 +41,6 @@ spec:
           chartname: minio-operator/operator
           namespace: minio
           version: "7.1.1"
-        - name: cert-manager
-          chartname: jetstack/cert-manager
-          namespace: cert-manager
-          version: "v1.19.1"
-          values: |
-            crds:
-              enabled: true
-            prometheus:
-              enabled: false
         - name: ingress-nginx
           chartname: ingress-nginx/ingress-nginx
           namespace: ingress-nginx
@@ -48,3 +52,10 @@ spec:
                 nodePorts:
                   http: 80
                   https: 443
+        - name: k8ssandra-operator
+          chartname: k8ssandra/k8ssandra-operator
+          namespace: k8ssandra-operator
+          version: "1.22.0"
+          values: |
+            global:
+              clusterScoped: true

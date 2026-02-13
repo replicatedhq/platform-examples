@@ -5,39 +5,22 @@ metadata:
   name: storagebox
 spec:
   values:
-    # Cassandra Settings
+    # Cassandra Settings (K8ssandra operator)
     cassandra_enabled:
       default: "0"
       value: "0"
+    cassandra_mode:
+      default: "simple"
+      value: "simple"
     cassandra_user:
       default: "cassandra"
       value: "cassandra"
     cassandra_password:
       default: "cassandra"
       value: "cassandra"
-    cassandra_truststore_password:
-      default: "cassandra"
-      value: "cassandra"
-    cassandra_keystore_password:
-      default: "cassandra"
-      value: "cassandra"
-
-    # Cassandra Ingress Settings
-    cassandra_tls_type:
-      default: "cassandra_no_ssl"
-      value: "cassandra_no_ssl"
-    cassandra_ingress_host:
-      default: "cassandra.example.com"
-      value: "cassandra.example.com"
-    cassandra_tls_cert:
-      default: ""
-      value: ""
-    cassandra_tls_key:
-      default: ""
-      value: ""
-    cassandra_tls_ca:
-      default: ""
-      value: ""
+    cassandra_tls_enabled:
+      default: "0"
+      value: "0"
 
     # Postgres Settings
     postgres_enabled:
@@ -116,3 +99,17 @@ spec:
     minio_tenant_bucket_region:
       default: "us-east-1"
       value: "us-east-1"
+
+    # rqlite Settings
+    rqlite_enabled:
+      default: "0"
+      value: "0"
+    rqlite_replicas:
+      default: "1"
+      value: "1"
+    rqlite_image_tag:
+      default: "null"
+      value: "null"
+    rqlite_image_pull_policy:
+      default: "null"
+      value: "null"

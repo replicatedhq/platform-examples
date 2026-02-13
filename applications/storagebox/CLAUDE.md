@@ -14,12 +14,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Storagebox is a Replicated Embedded Cluster (EC) application that bundles multiple storage backends into a single deployable unit. It provides:
 
-- **Apache Cassandra** - NoSQL database via Bitnami Helm chart
+- **Apache Cassandra** - NoSQL database via K8ssandra operator
 - **PostgreSQL** - Relational database via CloudnativePG Operator
 - **MinIO** - S3-compatible object storage via MinIO Operator
 - **NFS Server** - Network file system via Obéone Helm chart
 
-This is designed for EC deployments where cluster-scope operators (MinIO, CloudnativePG) are installed during the EC lifecycle, not by the Storagebox chart itself.
+This is designed for EC deployments where cluster-scope operators (MinIO, CloudnativePG, K8ssandra) are installed during the EC lifecycle, not by the Storagebox chart itself.
 
 ## Build and Release Commands
 
@@ -115,12 +115,12 @@ All commands support these environment variables:
 
 ```
 charts/storagebox/          # Main Helm chart
-├── Chart.yaml              # Dependencies: cassandra, nfs-server, tenant (MinIO), replicated
-├── values.yaml             # Default values for all components (65K+ lines)
+├── Chart.yaml              # Dependencies: nfs-server, tenant (MinIO), replicated, rqlite
+├── values.yaml             # Default values for all components
 ├── templates/              # Custom templates for Storagebox-specific resources
 │   ├── postgres-db.yaml    # CloudnativePG Cluster CR
 │   ├── postgres-*.yaml     # Postgres secrets and services
-│   ├── cassandra-*.yaml    # Cassandra TLS and credentials
+│   ├── cassandra-*.yaml    # K8ssandraCluster CR and superuser secret
 │   └── replicated-*.yaml   # Preflight checks and support bundles
 
 kots/                       # KOTS/Replicated deployment manifests
@@ -133,9 +133,10 @@ kots/                       # KOTS/Replicated deployment manifests
 
 ### Key Architecture Patterns
 
-**Operator Dependencies**: The EC config (`kots/ec.yaml`) installs four Helm charts as cluster extensions:
+**Operator Dependencies**: The EC config (`kots/ec.yaml`) installs five Helm charts as cluster extensions:
 - CloudnativePG operator (namespace: cnpg)
 - MinIO operator (namespace: minio)
+- K8ssandra operator (namespace: k8ssandra-operator)
 - cert-manager (namespace: cert-manager)
 - ingress-nginx (namespace: ingress-nginx)
 
@@ -143,18 +144,21 @@ kots/                       # KOTS/Replicated deployment manifests
 - Helm values: `cassandra.enabled`, `nfs-server.enabled`, `tenant.enabled`, `postgres.embedded.enabled`
 - KOTS config: Maps admin console settings to Helm values using `repl{{ ConfigOption "..." }}` template functions
 
-**TLS Configuration**: Cassandra supports three TLS modes configured via KOTS:
-- No TLS
-- Auto-generated self-signed certificates
-- External CA with user-provided certificates
+**TLS Configuration**: Cassandra TLS is managed by cert-manager via the K8ssandra operator, toggled by a single boolean in KOTS config.
+
+**Cassandra Deployment Modes**: Two modes selectable via KOTS config:
+- Simple: Cassandra only
+- Full: Cassandra + Reaper (automated repairs)
 
 ### Helm Chart Dependencies
 
 The storagebox chart pulls these subcharts (see `charts/storagebox/charts/`):
-- `cassandra` (Bitnami) - version ~12.3.11
 - `nfs-server` (Obéone) - version ~1.1.2
 - `tenant` (MinIO) - version 7.1.1
 - `replicated` (Replicated SDK) - version ~1.12.2
+- `rqlite` - version 2.0.0
+
+Cassandra is no longer a subchart dependency. It is deployed via a K8ssandraCluster CR template, with the k8ssandra-operator installed as an EC extension.
 
 ### KOTS Template Functions
 
@@ -298,7 +302,9 @@ cassandra:
 **Dependency alignment**:
 - MinIO operator (in `kots/ec.yaml`) MUST match MinIO tenant chart version (in `Chart.yaml`)
 - CloudnativePG operator provides the CRD for PostgreSQL clusters defined in chart templates
-- cert-manager and ingress-nginx are cluster-wide infrastructure components
+- K8ssandra operator provides the CRD for Cassandra clusters defined in chart templates
+- cert-manager is required by both K8ssandra (for TLS) and as a cluster-wide infrastructure component
+- ingress-nginx is a cluster-wide infrastructure component
 
 **Testing before release**:
 - Run `helm lint ./charts/storagebox` to catch chart issues
@@ -423,9 +429,10 @@ Set your KUBECONFIG and test each component:
 ```bash
 export KUBECONFIG=~/.kube/my-test-cluster-config
 
-# Test Cassandra
-kubectl get pods -l app.kubernetes.io/name=cassandra
-kubectl logs cassandra-0
+# Test Cassandra (K8ssandra)
+kubectl get k8ssandraclusters
+kubectl get cassandradatacenters
+kubectl get pods -l app.kubernetes.io/managed-by=cassandra-operator
 
 # Test PostgreSQL
 kubectl get clusters.postgresql.cnpg.io
@@ -528,10 +535,11 @@ helm repo update
 
 ## Current Version Status
 
-- **Chart Version**: 0.19.0
+- **Chart Version**: 0.20.0
 - **Embedded Cluster**: 2.13.3+k8s-1.33
 - **Kubernetes Version**: 1.33 (k0s distribution)
-- **Last Updated**: 2026-01-30
+- **K8ssandra Operator**: 1.22.0
+- **Last Updated**: 2026-02-09
 
 ## Application CRD
 

@@ -1,0 +1,172 @@
+# Test values for Storagebox CI pipeline
+# Enables all 5 storage components with minimal resources for single-node testing.
+# No Replicated license or cert-manager ClusterIssuer needed
+# (cert-manager is installed as an operator, not via the chart).
+#
+# NOTE: This file is for CI/Helm testing only and is NOT part of the Four-Way Contract.
+# It does not replace development-values.yaml (KOTS ConfigValues).
+# For KOTS deployments, see: development-values.yaml
+
+replicated:
+  enabled: false
+
+certmanager:
+  selfSignedClusterIssuer:
+    enabled: false
+
+# --- Cassandra via K8ssandra operator ---
+cassandra:
+  enabled: true
+  mode: simple
+  clusterName: storagebox-cassandra
+  serverVersion: "4.1.6"
+  auth:
+    username: cassandra
+    password: cassandra
+  datacenters:
+    - name: dc1
+      size: 1
+      storageConfig:
+        storageClassName: ""
+        size: 2Gi
+      resources: {}
+      config:
+        cassandraYaml:
+          num_tokens: 256
+          authenticator: PasswordAuthenticator
+          authorizer: CassandraAuthorizer
+        jvmOptions:
+          heapSize: 256M
+  tls:
+    enabled: false
+  telemetry:
+    prometheus:
+      enabled: false
+
+# --- PostgreSQL via CloudnativePG operator ---
+postgres:
+  auth:
+    username: postgres
+    password: postgres
+  embedded:
+    enabled: true
+    instances: 1
+    image:
+      repository: ghcr.io/cloudnative-pg/postgresql
+      tag: '15.2'
+    imagePullPolicy: IfNotPresent
+    initdb:
+      database: postgres
+      owner: postgres
+      secret:
+        name: 'postgres-initdb-secret'
+    postgresUID: 26
+    postgresGID: 26
+    service:
+      enabled: true
+      type: ClusterIP
+    storage:
+      size: 2Gi
+      storageClass: ''
+    resources: {}
+    # Empty affinity to work on single-node clusters
+    affinity: {}
+    primaryUpdateMethod: switchover
+    primaryUpdateStrategy: unsupervised
+    logLevel: 'info'
+    enableSuperuserAccess: true
+  external:
+    enabled: false
+
+# --- MinIO via MinIO operator ---
+tenant:
+  enabled: true
+  tenant:
+    name: minio
+    image:
+      repository: quay.io/minio/minio
+      tag: RELEASE.2024-08-17T01-24-54Z
+      pullPolicy: IfNotPresent
+    imagePullSecret: {}
+    scheduler: {}
+    configuration:
+      name: minio-env-configuration
+    configSecret:
+      name: minio-env-configuration
+      accessKey: minio
+      secretKey: minio123
+    pools:
+      - servers: 1
+        name: pool-0
+        volumesPerServer: 1
+        size: 2Gi
+        storageAnnotations: {}
+        annotations: {}
+        labels: {}
+        tolerations: []
+        nodeSelector: {}
+        # Empty affinity for single-node clusters and to avoid
+        # null affinity CRD validation issues
+        affinity: {}
+        resources: {}
+        securityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          fsGroupChangePolicy: "OnRootMismatch"
+          runAsNonRoot: true
+        containerSecurityContext:
+          runAsUser: 1000
+          runAsGroup: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        topologySpreadConstraints: []
+    mountPath: /export
+    subPath: /data
+    metrics:
+      enabled: false
+    certificate:
+      externalCaCertSecret: []
+      externalCertSecret: []
+      requestAutoCert: true
+      certConfig: {}
+    features:
+      bucketDNS: false
+      domains: {}
+      enableSFTP: false
+    buckets: []
+    users: []
+    podManagementPolicy: Parallel
+    liveness: {}
+    readiness: {}
+    startup: {}
+    lifecycle: {}
+    exposeServices: {}
+    serviceAccountName: ""
+    prometheusOperator: false
+    logging: {}
+    serviceMetadata: {}
+    env: []
+    priorityClassName: ""
+    additionalVolumes: []
+    additionalVolumeMounts: []
+    ingress:
+      api:
+        enabled: false
+      console:
+        enabled: false
+
+# --- NFS Server ---
+# Disabled in CI: requires host kernel nfs/nfsd modules (modprobe nfs)
+# which are not available on CMX VMs or standard CI runners.
+nfs-server:
+  enabled: false
+
+# --- rqlite ---
+rqlite:
+  enabled: true

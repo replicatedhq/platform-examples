@@ -5,7 +5,7 @@ metadata:
   name: config
 spec:
   groups:
-  # cassandra settings
+  # cassandra settings (K8ssandra operator)
   - name: cassandra_settings
     title: Cassandra Settings
     items:
@@ -14,75 +14,36 @@ spec:
       type: bool
       default: false
       required: true
-      description: Enable Cassandra
+      description: Enable Cassandra via K8ssandra operator
+    - name: cassandra_mode
+      title: Cassandra Deployment Mode
+      type: select_one
+      items:
+      - name: simple
+        title: Simple (Cassandra only)
+      - name: full
+        title: Full (Cassandra + Reaper repairs)
+      default: simple
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
     - name: cassandra_user
-      title: Cassandra User
+      title: Cassandra Superuser
       type: text
       default: cassandra
       required: true
-      description: The username to use for the Cassandra user
+      description: The superuser username for Cassandra
     - name: cassandra_password
       title: Cassandra Password
       type: password
       default: cassandra
       required: true
-      description: The password to use for the Cassandra user
+      description: The superuser password for Cassandra
       secret: true
-    - name: cassandra_truststore_password
-      title: Cassandra Truststore Password
-      type: password
-      default: cassandra
-      required: true
-      description: The password to use for the Cassandra truststore
-      secret: true
-    - name: cassandra_keystore_password
-      title: Cassandra Keystore Password
-      type: password
-      default: cassandra
-      required: true
-      description: The password to use for the Cassandra keystore
-      secret: true
-  - name: cassandra_ingress_settings
-    title: Cassandra Ingress Settings
-    items:
-    - name: cassandra_tls_type
-      title: Cassandra TLS Type
-      type: select_one
-      items:
-      - name: cassandra_no_ssl
-        title: TLS client encryption disabled
-      - name: "cassandra_self_signed_ca"
-        title: Autogenerate self-signed CA and certificates
-      - name: "cassandra_external_ca"
-        title: Use external CA and certificates
-      default: "cassandra_no_ssl"
-      required: true
-    - name: cassandra_ingress_host
-      title: Cassandra TLS Hostname
-      type: text
-      default: cassandra.example.com
-      required: true
-      description: The hostname to use for the Cassandra ingress
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_self_signed_ca" }}'
-    - name: cassandra_tls_cert
-      title: Cassandra TLS Certificate
-      type: file
-      description: The TLS certificate to use for the Cassandra client encryption
-      required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-    - name: cassandra_tls_key
-      title: Cassandra TLS Key
-      type: file
-      description: The TLS key to use for the Cassandra client encryption
-      secret: true
-      required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-    - name: cassandra_tls_ca
-      title: Cassandra TLS CA
-      type: file
-      description: The root CA to use for the Cassandra client encryption
-      required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+    - name: cassandra_tls_enabled
+      title: Enable TLS
+      type: bool
+      default: false
+      description: Enable TLS encryption via cert-manager
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
   # Postgres settings
   - name: postgres_settings
     title: Postgres database settings
