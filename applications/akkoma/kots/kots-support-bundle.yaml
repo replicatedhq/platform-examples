@@ -1,0 +1,54 @@
+kind: SupportBundle
+apiVersion: troubleshoot.sh/v1beta2
+metadata:
+  name: akkoma
+spec:
+  collectors:
+    - clusterInfo: {}
+    - clusterResources: {}
+    - logs:
+        selector:
+          - app.kubernetes.io/name=akkoma
+        limits:
+          maxLines: 10000
+    - logs:
+        selector:
+          - app.kubernetes.io/name=postgresql
+        limits:
+          maxLines: 10000
+  analyzers:
+    - clusterVersion:
+        outcomes:
+          - fail:
+              when: "< 1.26.0"
+              message: Akkoma requires Kubernetes 1.26.0 or later, and recommends 1.30.0.
+              uri: https://www.kubernetes.io
+          - warn:
+              when: "< 1.30.0"
+              message: Your cluster meets the minimum version of Kubernetes, but we recommend you update to 1.30.0 or later.
+              uri: https://kubernetes.io
+          - pass:
+              message: Your cluster meets the recommended and required versions of Kubernetes.
+    - nodeResources:
+        checkName: Total CPU Cores in the cluster is 2 or greater
+        outcomes:
+          - fail:
+              when: "sum(cpuCapacity) < 2"
+              message: The cluster must contain at least 2 cores
+          - pass:
+              message: There are at least 2 cores in the cluster
+    - nodeResources:
+        checkName: Total memory in the cluster is 4Gi or greater
+        outcomes:
+          - fail:
+              when: "sum(memoryCapacity) < 4Gi"
+              message: The cluster must have at least 4Gi of memory
+          - pass:
+              message: There is at least 4Gi of memory in the cluster
+    - storageClass:
+        checkName: Check for default storage class
+        outcomes:
+          - fail:
+              message: No default storage class found
+          - pass:
+              message: Default storage class found

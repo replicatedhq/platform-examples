@@ -2,32 +2,14 @@ apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
   version: 2.13.3+k8s-1.33
-  domains:
-    replicatedAppDomain: app.xyyzx.net
-    proxyRegistryDomain: proxy.xyyzx.net
   extensions:
     helm:
       repositories:
-        - name: cnpg
-          url: https://cloudnative-pg.github.io/charts
-        - name: minio-operator
-          url: https://operator.min.io
         - name: jetstack
           url: https://charts.jetstack.io
         - name: ingress-nginx
           url: https://kubernetes.github.io/ingress-nginx
       charts:
-        - name: cloudnative-pg
-          chartname: cnpg/cloudnative-pg
-          namespace: cnpg
-          version: "0.27.0"
-          values: |
-            cloudnative-pg:
-              enabled: true
-        - name: minio-operator
-          chartname: minio-operator/operator
-          namespace: minio
-          version: "7.1.1"
         - name: cert-manager
           chartname: jetstack/cert-manager
           namespace: cert-manager

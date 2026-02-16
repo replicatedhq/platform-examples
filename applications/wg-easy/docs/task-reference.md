@@ -1,5 +1,7 @@
 # Task Reference
 
+> This page is a command reference for the Task-based workflow. For an introduction to why Task and Helmfile were chosen over Make and plain Helm CLI, and how to translate these commands to your own tooling, see the [Tooling Guide](tooling-guide.md).
+
 This document provides a concise reference for the tasks available in the WG-Easy Helm chart development pattern, organized by their purpose in the development workflow.
 
 ## Task Control Options

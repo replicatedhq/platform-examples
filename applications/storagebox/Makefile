@@ -22,7 +22,7 @@ CLUSTER_NAME ?= storagebox-test-$(shell date +%s)
 CLUSTER_PREFIX ?= storagebox
 CHANNEL ?= test-v018-k8s131
 DISTRIBUTION ?= k3s
-K8S_VERSION ?= 1.31
+K8S_VERSION ?= 1.33
 INSTANCE_TYPE ?= r1.medium
 NODE_COUNT ?= 1
 DISK_SIZE ?= 50
@@ -557,7 +557,7 @@ help:
 	@echo "  CLUSTER_PREFIX                - Cluster name prefix (default: storagebox)"
 	@echo "  CHANNEL                       - Release channel (default: test-v018-k8s131)"
 	@echo "  DISTRIBUTION                  - K8s distribution (default: k3s)"
-	@echo "  K8S_VERSION                   - Kubernetes version (default: 1.31)"
+	@echo "  K8S_VERSION                   - Kubernetes version (default: 1.33)"
 	@echo "  INSTANCE_TYPE                 - Instance type (default: r1.medium)"
 	@echo "  NODE_COUNT                    - Number of nodes (default: 1)"
 	@echo "  DISK_SIZE                     - Disk size in GB (default: 50)"
