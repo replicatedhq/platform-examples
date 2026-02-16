@@ -1,0 +1,35 @@
+{{- if .Values.postgres.embedded.enabled -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "gitea.fullname" . }}-postgres
+  labels:
+    {{- include "gitea.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgres.embedded.instances }}
+  imageName: "{{ .Values.postgres.embedded.image.repository }}:{{ .Values.postgres.embedded.image.tag }}"
+  {{- with .Values.postgres.embedded.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgres.embedded.initdb.database | quote }}
+      owner: {{ .Values.postgres.embedded.initdb.owner | quote }}
+      secret:
+        name: {{ .Values.postgres.auth.existingSecret | default (printf "%s-postgres-initdb-secret" (include "gitea.fullname" .)) }}
+  storage:
+    size: {{ .Values.postgres.embedded.storage.size }}
+    {{- with .Values.postgres.embedded.storage.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+  enableSuperuserAccess: true
+  primaryUpdateMethod: switchover
+  primaryUpdateStrategy: unsupervised
+  {{- if .Values.postgres.embedded.backup.enabled }}
+  backup:
+    retentionPolicy: {{ .Values.postgres.embedded.backup.retentionPolicy | quote }}
+    barmanObjectStore:
+      {{- toYaml .Values.postgres.embedded.backup.barmanObjectStore | nindent 6 }}
+  {{- end }}
+{{- end -}}

@@ -1,0 +1,185 @@
+name: Gitea CI
+
+on:
+  pull_request:
+    paths:
+      - 'applications/gitea/charts/**'
+      - 'applications/gitea/tests/**'
+      - 'applications/gitea/Makefile'
+      - '.github/workflows/gitea-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'applications/gitea/charts/**'
+      - 'applications/gitea/tests/**'
+      - 'applications/gitea/Makefile'
+      - '.github/workflows/gitea-ci.yml'
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: applications/gitea
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Add Helm repositories
+        run: make add-helm-repositories
+
+      - name: Update dependencies
+        run: make update-dependencies
+
+      - name: Helm lint
+        run: helm lint ./charts/gitea
+
+      - name: Helm template (default values)
+        run: helm template gitea ./charts/gitea > /dev/null
+
+      - name: Helm template (CI test values)
+        run: helm template gitea ./charts/gitea -f tests/helm/ci-values.yaml > /dev/null
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template]
+    defaults:
+      run:
+        working-directory: applications/gitea
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          kubernetes-distribution: k3s
+          kubernetes-version: "1.32"
+          cluster-name: gitea-ci-${{ github.run_id }}
+          disk: 50
+          nodes: 1
+          ttl: 1h
+          export-kubeconfig: true
+
+      - name: Install cert-manager
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update jetstack
+          helm install cert-manager jetstack/cert-manager \
+            --namespace cert-manager --create-namespace \
+            --set crds.enabled=true \
+            --wait --timeout 5m
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Install CloudNativePG operator
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo update cnpg
+          helm install cnpg cnpg/cloudnative-pg \
+            --namespace cnpg-system --create-namespace \
+            --wait --timeout 5m
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Install Gitea chart
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          make add-helm-repositories
+          make update-dependencies
+          helm install gitea ./charts/gitea \
+            -f tests/helm/ci-values.yaml \
+            --wait --timeout 10m
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Wait for pods
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          echo "Waiting for Gitea deployment..."
+          kubectl wait --for=condition=Available deployment -l app.kubernetes.io/name=gitea \
+            --timeout=300s
+
+          echo "Waiting for CNPG postgres cluster..."
+          kubectl wait --for=condition=Ready pod -l cnpg.io/cluster=gitea-postgres \
+            --timeout=300s
+
+          echo "Waiting for Valkey..."
+          kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=valkey \
+            --timeout=120s
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Run smoke tests
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          python -m venv ./venv
+          source ./venv/bin/activate
+          pip install -r tests/requirements.txt
+          python tests/smoke_test.py --release gitea --namespace default
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Debug output
+        if: failure()
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          echo "=== Pods ==="
+          kubectl get pods -A
+          echo "=== Services ==="
+          kubectl get svc
+          echo "=== Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -40
+          echo "=== Gitea pod logs ==="
+          kubectl logs -l app.kubernetes.io/name=gitea --tail=50 || true
+          echo "=== CNPG cluster status ==="
+          kubectl get clusters.postgresql.cnpg.io -o yaml || true
+          echo "=== Postgres pod logs ==="
+          kubectl logs -l cnpg.io/cluster=gitea-postgres --tail=30 || true
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Remove cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.17.0
+        if: ${{ always() && steps.create-cluster.outputs.cluster-id != '' }}
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}

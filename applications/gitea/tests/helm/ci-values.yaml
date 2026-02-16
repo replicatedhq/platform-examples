@@ -1,0 +1,56 @@
+# CI test values for Gitea chart
+# Minimal overrides for single-node CI testing
+---
+replicaCount: 1
+
+ingress:
+  enabled: false
+
+persistence:
+  size: 2Gi
+  annotations:
+    helm.sh/resource-policy: ""
+
+gitea:
+  admin:
+    username: test-admin
+    password: test-password-ci
+    email: "test@ci.local"
+  config:
+    server:
+      SSH_PORT: 22
+      SSH_LISTEN_PORT: 2222
+    database:
+      DB_TYPE: postgres
+
+actions:
+  enabled: false
+
+# Embedded PostgreSQL via CloudNativePG
+postgres:
+  auth:
+    username: gitea
+    password: gitea
+  embedded:
+    enabled: true
+    instances: 1
+    storage:
+      size: 2Gi
+    resources: {}
+
+# Valkey cache
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    aclUsers:
+      default:
+        password: "ci-test-valkey"
+        permissions: "~* &* +@all"
+  replica:
+    enabled: false
+  dataStorage:
+    enabled: false
+
+# Reduce resource pressure for CI
+resources: {}
