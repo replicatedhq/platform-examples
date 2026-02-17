@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.6
+    chartVersion: 1.0.25
 
   exclude: ""
 
@@ -20,14 +20,12 @@ spec:
     - --wait-for-jobs
     - --history-max=15
 
-  namespace: 'repl{{ ConfigOption "namespace" }}'
-
   # Values for customer environment (uses template functions)
   values:
     global:
       imageRegistry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "" }}'
 
-    replicaCount: 'repl{{ ConfigOption "replica_count" | ParseInt }}'
+    replicaCount: repl{{ ConfigOption "replica_count" | ParseInt }}
 
     image:
       registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}'
@@ -60,8 +58,8 @@ spec:
         connMaxLifetime: 1h
 
       cache:
-        enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-        backend: 'repl{{ ConfigOptionEquals "redis_enabled" "1" | ternary "redis" "memory" }}'
+        enabled: repl{{ ConfigOptionEquals "valkey_enabled" "1" }}
+        backend: 'repl{{ ConfigOptionEquals "valkey_enabled" "1" | ternary "redis" "memory" }}'
         ttl: 5m
         redis:
           mode: single
@@ -78,17 +76,17 @@ spec:
       grpcPort: 9000
 
     autoscaling:
-      enabled: 'repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}'
-      minReplicas: 'repl{{ ConfigOption "hpa_min_replicas" | ParseInt }}'
-      maxReplicas: 'repl{{ ConfigOption "hpa_max_replicas" | ParseInt }}'
-      targetCPUUtilizationPercentage: 'repl{{ ConfigOption "hpa_cpu_target" | ParseInt }}'
+      enabled: repl{{ ConfigOptionEquals "enable_autoscaling" "1" }}
+      minReplicas: repl{{ ConfigOption "hpa_min_replicas" | ParseInt }}
+      maxReplicas: repl{{ ConfigOption "hpa_max_replicas" | ParseInt }}
+      targetCPUUtilizationPercentage: repl{{ ConfigOption "hpa_cpu_target" | ParseInt }}
 
     podDisruptionBudget:
       enabled: true
       minAvailable: 1
 
     serviceMonitor:
-      enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+      enabled: repl{{ ConfigOptionEquals "enable_metrics" "1" }}
 
     # CloudNativePG operator (subchart)
     cloudnative-pg:
@@ -102,9 +100,9 @@ spec:
       username: flipt
 
       embedded:
-        enabled: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
+        enabled: repl{{ ConfigOptionEquals "postgres_type" "embedded" }}
         cluster:
-          instances: 'repl{{ ConfigOption "postgres_instances" | ParseInt }}'
+          instances: repl{{ ConfigOption "postgres_instances" | ParseInt }}
           imageName: 'repl{{ HasLocalRegistry | ternary (printf "%s/%s/postgresql:16" LocalRegistryHost LocalRegistryNamespace) "ghcr.io/cloudnative-pg/postgresql:16" }}'
           storage:
             size: 'repl{{ ConfigOption "postgres_storage_size" }}'
@@ -121,55 +119,37 @@ spec:
           monitoring:
             enabled: false
 
-    # Redis configuration
-    redis:
-      enabled: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-
-      architecture: 'repl{{ ConfigOption "redis_architecture" }}'
-
-      auth:
-        enabled: true
+    # Valkey configuration (Redis-compatible)
+    valkey:
+      enabled: repl{{ ConfigOptionEquals "valkey_enabled" "1" }}
 
       image:
-        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
-        repository: 'repl{{ HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/redis'
-        tag: latest
+        repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/%s/valkey" LocalRegistryHost LocalRegistryNamespace) "ghcr.io/valkey-io/valkey" }}'
+        tag: "8.0"
 
-      master:
-        persistence:
-          enabled: true
-          size: 'repl{{ ConfigOption "redis_storage_size" }}'
-          storageClass: 'repl{{ ConfigOption "redis_storage_class" }}'
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+      auth:
+        enable: false
 
-      replica:
-        replicaCount: 'repl{{ ConfigOption "redis_replica_count" | ParseInt }}'
-        persistence:
-          enabled: true
-          size: 'repl{{ ConfigOption "redis_storage_size" }}'
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
+      # Note: Official Valkey chart v0.2.0 has a bug with PVC creation
+      # Using emptyDir for cache (data is ephemeral anyway)
+      storage:
+        requestedSize: null
+        className: null
 
-      metrics:
-        enabled: 'repl{{ ConfigOptionEquals "enable_metrics" "1" }}'
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
 
     # Database creation Job image
     dbJob:
       image:
-        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "registry.k8s.io" }}'
-        repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/kubectl" LocalRegistryNamespace) "kubectl" }}'
-        tag: "1.33.0"
+        registry: 'repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}'
+        repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/k8s" LocalRegistryNamespace) "alpine/k8s" }}'
+        tag: "1.33.7"
 
     # Replicated SDK
     replicated:
@@ -202,7 +182,7 @@ spec:
                   pathType: Prefix
 
     # TLS with cert-manager
-    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "cert_manager") }}'
+    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
       recursiveMerge: false
       values:
         ingress:
@@ -210,16 +190,6 @@ spec:
             cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
           tls:
             - secretName: flipt-tls
-              hosts:
-                - 'repl{{ ConfigOption "ingress_hostname" }}'
-
-    # TLS with custom certificate
-    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
-      recursiveMerge: false
-      values:
-        ingress:
-          tls:
-            - secretName: flipt-custom-tls
               hosts:
                 - 'repl{{ ConfigOption "ingress_hostname" }}'
 
@@ -231,7 +201,7 @@ spec:
           external:
             enabled: true
             host: 'repl{{ ConfigOption "external_postgres_host" }}'
-            port: 'repl{{ ConfigOption "external_postgres_port" | ParseInt }}'
+            port: repl{{ ConfigOption "external_postgres_port" | ParseInt }}
             database: 'repl{{ ConfigOption "external_postgres_database" }}'
             username: 'repl{{ ConfigOption "external_postgres_username" }}'
             password: 'repl{{ ConfigOption "external_postgres_password" }}'
@@ -277,17 +247,16 @@ spec:
     # kubectl image used in database creation Job
     dbJob:
       image:
-        registry: registry.k8s.io
-        repository: kubectl
-        tag: "1.33.0"
+        registry: docker.io
+        repository: alpine/k8s
+        tag: "1.33.7"
 
-    # Redis cache
-    redis:
+    # Valkey cache (Redis-compatible)
+    valkey:
       enabled: true
       image:
-        registry: docker.io
-        repository: library/redis
-        tag: latest
+        repository: ghcr.io/valkey-io/valkey
+        tag: "8.0"
 
     # Replicated SDK
     replicated:

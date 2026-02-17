@@ -2,10 +2,10 @@ apiVersion: v2
 name: flipt
 description: |
   Flipt is an open-source, self-hosted feature flag and experimentation platform.
-  This enterprise-ready deployment includes PostgreSQL for durable storage and Redis
+  This enterprise-ready deployment includes PostgreSQL for durable storage and Valkey
   for distributed caching across multiple instances.
 type: application
-version: 1.0.6
+version: 1.0.25
 appVersion: "1.61.0"
 keywords:
   - feature-flags
@@ -30,11 +30,11 @@ dependencies:
     repository: https://cloudnative-pg.github.io/charts
     condition: cloudnative-pg.enabled
 
-  # Redis for distributed caching
-  - name: redis
-    version: "19.6.4"
-    repository: https://charts.bitnami.com/bitnami
-    condition: redis.enabled
+  # Valkey for distributed caching (Redis-compatible)
+  - name: valkey
+    version: "0.2.0"
+    repository: https://valkey.io/valkey-helm/
+    condition: valkey.enabled
 
   # Replicated SDK for admin console integration
   - name: replicated

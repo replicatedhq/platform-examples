@@ -15,7 +15,7 @@ Flipt enables teams to:
 This Helm chart provides a production-ready deployment with:
 
 - ✅ PostgreSQL database (embedded via CloudnativePG or external)
-- ✅ Redis distributed caching for high performance
+- ✅ Valkey distributed caching for high performance
 - ✅ Horizontal pod autoscaling support
 - ✅ TLS/ingress configuration
 - ✅ Replicated SDK integration for enterprise management
@@ -37,7 +37,7 @@ This Helm chart provides a production-ready deployment with:
         └──────┬────────┬───┘
                │        │
      ┌─────────▼──┐  ┌─▼──────────┐
-     │ PostgreSQL │  │   Redis    │
+     │ PostgreSQL │  │   Valkey    │
      │  (CNPG)    │  │  (Cache)   │
      └────────────┘  └────────────┘
 ```
@@ -46,7 +46,7 @@ This Helm chart provides a production-ready deployment with:
 
 1. **Flipt Server**: Core application handling feature flag evaluation and management
 2. **PostgreSQL**: Durable storage for feature flag definitions and metadata (CloudnativePG operator)
-3. **Redis**: Distributed cache for high-performance flag evaluation (required for multiple replicas)
+3. **Valkey**: Distributed cache for high-performance flag evaluation (required for multiple replicas)
 4. **Ingress**: External access with TLS support
 
 ## Prerequisites
@@ -70,7 +70,7 @@ This Helm chart provides a production-ready deployment with:
 2. **Configure settings** in the admin console UI:
    - Ingress and TLS settings
    - Database configuration (embedded or external)
-   - Redis cache settings
+   - Valkey cache settings
    - Resource limits
 3. **Deploy** and monitor via the admin console
 
@@ -106,7 +106,6 @@ export REPLICATED_LICENSE_ID=your-license-id
 
    ```bash
    helm repo add flipt-repo https://helm.flipt.io
-   helm repo add bitnami https://charts.bitnami.com/bitnami
    helm repo add replicated https://charts.replicated.com
    helm repo update
    ```
@@ -144,7 +143,7 @@ The chart can be configured via `values.yaml` or the Replicated admin console:
 
 ```yaml
 flipt:
-  replicaCount: 2  # Number of Flipt pods (2+ recommended with Redis)
+  replicaCount: 2  # Number of Flipt pods (2+ recommended with Valkey)
   resources:
     limits:
       cpu: 500m
@@ -170,19 +169,15 @@ postgresql:
         storageClass: ""
 ```
 
-#### Redis Cache
+#### Valkey Cache
 
 ```yaml
-redis:
+valkey:
   enabled: true  # Required for multiple Flipt replicas
-  architecture: standalone  # or 'replication' for HA
-  auth:
-    enabled: true
-    password: ""  # Auto-generated if empty
-  master:
-    persistence:
-      enabled: true
-      size: 5Gi
+  image:
+    repository: ghcr.io/valkey-io/valkey
+    tag: "8.0"
+  # Uses emptyDir by default (cache data is ephemeral)
 ```
 
 #### Ingress
@@ -381,17 +376,6 @@ postgresql:
       instances: 3
 ```
 
-### Redis HA
-
-Enable primary-replica architecture:
-
-```yaml
-redis:
-  architecture: replication
-  replica:
-    replicaCount: 2
-```
-
 ## Monitoring
 
 ### Prometheus Metrics
@@ -402,12 +386,6 @@ Enable metrics collection:
 flipt:
   serviceMonitor:
     enabled: true
-
-redis:
-  metrics:
-    enabled: true
-    serviceMonitor:
-      enabled: true
 ```
 
 ### Available Metrics
@@ -451,23 +429,23 @@ kubectl get cluster -n flipt
 kubectl logs -l cnpg.io/cluster=flipt-cluster -n flipt
 ```
 
-#### Redis Connection Issues
+#### Valkey Connection Issues
 
-Check Redis status:
+Check Valkey status:
 
 ```bash
-kubectl get pods -l app.kubernetes.io/name=redis -n flipt
-kubectl logs -l app.kubernetes.io/name=redis -n flipt
+kubectl get pods -l app.kubernetes.io/name=valkey -n flipt
+kubectl logs -l app.kubernetes.io/name=valkey -n flipt
 ```
 
 #### Cache Not Working
 
-Verify Redis is enabled and Flipt can connect:
+Verify Valkey is enabled and Flipt can connect:
 
 ```bash
 kubectl exec -it deploy/flipt-flipt -n flipt -- sh
 # Inside the pod:
-nc -zv flipt-redis-master 6379
+nc -zv flipt-valkey 6379
 ```
 
 ### Debug Logs
@@ -562,17 +540,13 @@ postgresql:
           shared_buffers: "1GB"
 ```
 
-### Redis Optimization
+### Valkey Optimization
 
 ```yaml
-redis:
-  master:
-    resources:
-      limits:
-        memory: 2Gi
-    persistence:
-      enabled: true
-      size: 20Gi
+valkey:
+  resources:
+    limits:
+      memory: 2Gi
 ```
 
 ### Flipt Optimization
@@ -626,7 +600,7 @@ Contributions are welcome! Please:
 - Initial release
 - Flipt v1.61.0
 - PostgreSQL 16 via CloudnativePG
-- Redis 7.2 for distributed caching
+- Valkey 8.0 for distributed caching
 - Replicated SDK integration
 - Comprehensive KOTS configuration
 - Preflight checks and support bundles

@@ -74,7 +74,7 @@ postgresql:
 
 **Error:**
 ```
-Error: found in Chart.yaml, but missing in charts/ directory: flipt, redis, replicated
+Error: found in Chart.yaml, but missing in charts/ directory: flipt, valkey, replicated
 ```
 
 **Solution:** Update Helm dependencies:
@@ -212,31 +212,31 @@ kubectl get pods -n cnpg-system
 
 ---
 
-### Redis Connection Issues
+### Valkey Connection Issues
 
-**Check Redis status:**
+**Check Valkey status:**
 ```bash
-kubectl get pods -l app.kubernetes.io/name=redis -n flipt
+kubectl get pods -l app.kubernetes.io/name=valkey -n flipt
 
 # Should show master (and replica if configured) running
 ```
 
-**Test Redis connectivity from Flipt pod:**
+**Test Valkey connectivity from Flipt pod:**
 ```bash
 kubectl exec -it deploy/flipt-flipt -n flipt -- sh
 
 # Inside pod:
-nc -zv flipt-redis-master 6379
-# Should show: Connection to flipt-redis-master 6379 port [tcp/*] succeeded!
+nc -zv flipt-valkey 6379
+# Should show: Connection to flipt-valkey 6379 port [tcp/*] succeeded!
 
-# Test with redis-cli (if available):
-redis-cli -h flipt-redis-master -p 6379 -a <password> ping
+# Test with valkey-cli (if available):
+valkey-cli -h flipt-valkey -p 6379 -a <password> ping
 # Should return: PONG
 ```
 
-**Check Redis password:**
+**Check Valkey password:**
 ```bash
-kubectl get secret flipt-redis -n flipt -o jsonpath='{.data.redis-password}' | base64 -d
+kubectl get secret flipt-valkey -n flipt -o jsonpath='{.data.valkey-password}' | base64 -d
 ```
 
 ---
@@ -337,23 +337,23 @@ postgresql:
 
 ---
 
-## Alternative: Use External Redis
+## Alternative: Use External Valkey
 
-If you don't want embedded Redis:
+If you don't want embedded Valkey:
 
 **values.yaml:**
 ```yaml
-redis:
+valkey:
   enabled: false
 
 flipt:
   config:
     cache:
       enabled: false  # Disable caching
-      # Or configure external Redis:
-      # backend: redis
-      # redis:
-      #   url: redis://external-redis:6379
+      # Or configure external Valkey:
+      # backend: valkey
+      # valkey:
+      #   url: valkey://external-valkey:6379
 ```
 
 ---
@@ -378,8 +378,8 @@ kubectl logs -l app.kubernetes.io/name=flipt -n flipt --tail=100 -f
 # PostgreSQL logs
 kubectl logs -l cnpg.io/cluster=flipt-cluster -n flipt --tail=100 -f
 
-# Redis logs
-kubectl logs -l app.kubernetes.io/name=redis -n flipt --tail=100 -f
+# Valkey logs
+kubectl logs -l app.kubernetes.io/name=valkey -n flipt --tail=100 -f
 ```
 
 ### Check configuration
@@ -409,18 +409,18 @@ kubectl top nodes
 
 ### Slow flag evaluations
 
-**Enable Redis caching:**
-Ensure Redis is enabled and Flipt is configured to use it:
+**Enable Valkey caching:**
+Ensure Valkey is enabled and Flipt is configured to use it:
 
 ```yaml
-redis:
+valkey:
   enabled: true
 
 flipt:
   config:
     cache:
       enabled: true
-      backend: redis
+      backend: valkey
       ttl: 5m
 ```
 

@@ -8,7 +8,7 @@ spec:
   statusInformers:
     - deployment/flipt
     - deployment/flipt-cloudnative-pg
-    - statefulset/redis
+    - deployment/flipt-valkey
   ports:
     - serviceName: flipt
       servicePort: 8080
@@ -27,17 +27,17 @@ spec:
       query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~"{{repl ConfigOption "release_name"}}-cluster-.*", phase="Running"})'
       legend: PostgreSQL Pods
       when: 'repl{{ ConfigOptionEquals "postgres_type" "embedded" }}'
-    - title: Redis Status
-      query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~".*-redis-.*", phase="Running"})'
-      legend: Redis Pods
-      when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
+    - title: Valkey Status
+      query: 'count(kube_pod_status_phase{namespace="{{repl Namespace}}", pod=~".*-valkey-.*", phase="Running"})'
+      legend: Valkey Pods
+      when: 'repl{{ ConfigOptionEquals "valkey_enabled" "1" }}'
   releaseNotes: |
     ## Flipt v1.61.0
 
     This release includes:
     - Latest Flipt v1.61.0 with enhanced performance
     - PostgreSQL 16 support via CloudnativePG
-    - Redis distributed caching for multi-instance deployments
+    - Valkey distributed caching for multi-instance deployments
     - Horizontal pod autoscaling support
     - Comprehensive monitoring and metrics
 
@@ -46,7 +46,7 @@ spec:
     - ghcr.io/flipt-io/flipt:v1.61.0
     - ghcr.io/cloudnative-pg/cloudnative-pg:1.25.0
     - ghcr.io/cloudnative-pg/postgresql:16
-    - registry.k8s.io/kubectl:1.33.0
-    - docker.io/library/redis:latest
+    - docker.io/alpine/k8s:1.33.7
+    - ghcr.io/valkey-io/valkey:8.0
     - proxy.replicated.com/library/replicated-sdk-image:1.15.0
   allowRollback: true

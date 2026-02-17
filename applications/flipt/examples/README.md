@@ -32,7 +32,7 @@ helm install flipt ../chart \
 Features:
 - Single Flipt replica
 - Embedded PostgreSQL (1 instance)
-- Redis standalone
+- Valkey standalone
 - No ingress (use port-forward)
 
 Access:
@@ -54,7 +54,7 @@ helm install flipt ../chart \
 Features:
 - 3 Flipt replicas with autoscaling
 - PostgreSQL cluster (3 instances)
-- Redis primary-replica architecture
+- Valkey primary-replica architecture
 - Ingress with TLS
 - Prometheus metrics
 - Pod disruption budgets

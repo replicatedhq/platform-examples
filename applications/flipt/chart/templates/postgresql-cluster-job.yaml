@@ -112,16 +112,15 @@ data:
           work_mem: "2621kB"
           min_wal_size: "1GB"
           max_wal_size: "4GB"
+        {{- if gt (int .Values.postgresql.embedded.cluster.instances) 1 }}
+        syncReplicaElectionConstraint:
+          enabled: true
+          nodeLabelsAntiAffinity:
+            - kubernetes.io/hostname
+        {{- end }}
 
       monitoring:
         enablePodMonitor: {{ .Values.postgresql.embedded.cluster.monitoring.enabled | default false }}
-
-      {{- if gt (int .Values.postgresql.embedded.cluster.instances) 1 }}
-      # Enable synchronous replication for HA
-      postgresql:
-        syncReplicaElectionConstraint:
-          enabled: true
-      {{- end }}
 ---
 apiVersion: batch/v1
 kind: Job
@@ -197,4 +196,97 @@ spec:
         - name: manifests
           configMap:
             name: {{ include "flipt.fullname" . }}-db-manifest
+---
+# Pre-delete hook to clean up the CNPG PostgreSQL Cluster CR
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "flipt.fullname" . }}-delete-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "flipt.fullname" . }}-delete-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "flipt.fullname" . }}-delete-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "flipt.fullname" . }}-delete-db
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "flipt.fullname" . }}-delete-db
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "flipt.fullname" . }}-delete-db
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "flipt.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "flipt.fullname" . }}-delete-db
+      restartPolicy: OnFailure
+      containers:
+        - name: delete-cluster
+          image: "{{ .Values.dbJob.image.registry }}/{{ .Values.dbJob.image.repository }}:{{ .Values.dbJob.image.tag }}"
+          imagePullPolicy: {{ .Values.dbJob.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -e
+
+              CLUSTER_NAME="{{ include "flipt.postgresql.clustername" . }}"
+              NAMESPACE="{{ .Release.Namespace }}"
+
+              if kubectl get cluster "$CLUSTER_NAME" -n "$NAMESPACE" &>/dev/null; then
+                echo "Deleting PostgreSQL Cluster $CLUSTER_NAME..."
+                kubectl delete cluster "$CLUSTER_NAME" -n "$NAMESPACE" --wait=true --timeout=120s
+                echo "PostgreSQL Cluster deleted."
+              else
+                echo "PostgreSQL Cluster $CLUSTER_NAME not found, skipping."
+              fi
 {{- end }}

@@ -80,17 +80,11 @@ PostgreSQL connection URL
 {{- end }}
 
 {{/*
-Redis connection URL
+Valkey connection URL (Redis-compatible)
 */}}
-{{- define "flipt.redis.url" -}}
-{{- if .Values.redis.enabled }}
-{{- if .Values.redis.auth.enabled }}
-{{- printf "redis://:%s@%s-redis-master.%s.svc.cluster.local:6379" .Values.redis.auth.password .Release.Name .Release.Namespace }}
-{{- else }}
-{{- printf "redis://%s-redis-master.%s.svc.cluster.local:6379" .Release.Name .Release.Namespace }}
-{{- end }}
-{{- else }}
-{{- "" }}
+{{- define "flipt.valkey.url" -}}
+{{- if .Values.valkey.enabled }}
+{{- printf "redis://%s-valkey-svc.%s.svc.cluster.local:6379" .Release.Name .Release.Namespace }}
 {{- end }}
 {{- end }}
 
@@ -113,10 +107,10 @@ Database secret name
 {{- end }}
 
 {{/*
-Redis secret name
+Valkey secret name
 */}}
-{{- define "flipt.redis.secret" -}}
-{{- printf "%s-redis" .Release.Name }}
+{{- define "flipt.valkey.secret" -}}
+{{- printf "%s-valkey" .Release.Name }}
 {{- end }}
 
 {{/*

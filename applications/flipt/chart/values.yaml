@@ -1,5 +1,5 @@
 ## Flipt Feature Flag Platform Configuration
-## Standalone chart with PostgreSQL and Redis support
+## Standalone chart with PostgreSQL and Valkey support
 
 global:
   ## Global image registry override
@@ -78,14 +78,14 @@ config:
     maxOpenConn: 50
     connMaxLifetime: 1h
 
-  ## Cache configuration (templated from Redis values)
+  ## Cache configuration (templated from Valkey values)
   cache:
     enabled: true
-    backend: redis  # or 'memory' for single instance
+    backend: redis  # Valkey is Redis-compatible, use 'redis' backend
     ttl: 5m
     redis:
       url: ""  # Will be set via template
-      mode: single  # or 'cluster' for Redis cluster
+      mode: single  # or 'cluster' for cluster mode
       prefix: "flipt"
 
   ## CORS configuration for web UI
@@ -98,7 +98,7 @@ config:
   authentication:
     methods:
       token:
-        enabled: false
+        enabled: true
 
 ## Health check probes
 readinessProbe:
@@ -200,9 +200,9 @@ affinity: {}
 ## Database Job Configuration (for PostgreSQL cluster creation)
 dbJob:
   image:
-    registry: registry.k8s.io
-    repository: kubectl
-    tag: "1.33.0"
+    registry: docker.io
+    repository: alpine/k8s
+    tag: "1.33.7"
     pullPolicy: IfNotPresent
 
 ## PostgreSQL Database Configuration
@@ -251,60 +251,36 @@ postgresql:
   username: flipt
   password: ""  # Auto-generated if empty (for embedded)
 
-## Redis Cache Configuration
-redis:
+## Valkey Cache Configuration (Redis-compatible)
+valkey:
   enabled: true
 
-  ## Redis image configuration
+  ## Valkey image configuration
   image:
-    registry: docker.io
-    repository: redis
-    tag: latest
+    repository: ghcr.io/valkey-io/valkey
+    tag: "8.0"
     pullPolicy: IfNotPresent
 
-  ## Redis architecture
-  architecture: standalone  # or 'replication' for HA
-
-  ## Authentication
+  ## Authentication (ACL-based)
+  ## Note: Flipt connects without auth since Valkey chart doesn't create secrets
   auth:
-    enabled: true
-    password: ""  # Auto-generated if empty
+    enable: false
 
-  ## Master configuration
-  master:
-    persistence:
-      enabled: true
-      size: 5Gi
-      storageClass: ""
-    resources:
-      limits:
-        cpu: 500m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
+  ## Persistence (emptyDir - cache data is ephemeral)
+  ## Note: Official Valkey chart v0.2.0 has a bug with PVC creation
+  ## For persistent storage, create PVC manually and set storage.persistentVolumeClaimName
+  storage:
+    requestedSize: null
+    className: null
 
-  ## Replica configuration (if architecture: replication)
-  replica:
-    replicaCount: 1
-    persistence:
-      enabled: true
-      size: 5Gi
-    resources:
-      limits:
-        cpu: 500m
-        memory: 512Mi
-      requests:
-        cpu: 100m
-        memory: 128Mi
-
-  ## Redis Sentinel (for HA)
-  sentinel:
-    enabled: false
-
-  ## Metrics exporter
-  metrics:
-    enabled: false
+  ## Resources
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 ## Replicated SDK Integration
 replicated:

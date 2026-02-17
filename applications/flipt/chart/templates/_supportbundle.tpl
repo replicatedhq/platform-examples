@@ -13,7 +13,7 @@ spec:
     - logs:
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         limits:
           maxAge: 720h
           maxLines: 10000
@@ -23,68 +23,68 @@ spec:
     - logs:
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         limits:
           maxAge: 168h
           maxLines: 10000
         name: postgresql/logs
 
-    # Redis logs
+    # Valkey logs
     - logs:
         selector:
-          - app.kubernetes.io/name=redis
-        namespace: {{ .Release.Namespace }}
+          - app.kubernetes.io/name=valkey
+        namespace: "{{ .Release.Namespace }}"
         limits:
           maxAge: 168h
           maxLines: 10000
-        name: redis/logs
+        name: valkey/logs
 
     # Pod status and events
     - pods:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         selector:
           - app.kubernetes.io/name=flipt
 
     - pods:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
 
     - pods:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         selector:
-          - app.kubernetes.io/name=redis
+          - app.kubernetes.io/name=valkey
 
     # Service and endpoint information
     - services:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
 
     - endpoints:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
 
     # ConfigMaps and Secrets (redacted)
     - configMaps:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
 
     - secrets:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         includeKeys:
           - false
 
     # PVC and storage information
     - pvcs:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
 
     # Ingress configuration
     - ingress:
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
 
     # PostgreSQL specific diagnostics
     - exec:
         name: postgresql-version
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["psql"]
         args: ["-c", "SELECT version();"]
         timeout: 30s
@@ -93,7 +93,7 @@ spec:
         name: postgresql-connections
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["psql"]
         args: ["-c", "SELECT count(*) as connections FROM pg_stat_activity;"]
         timeout: 30s
@@ -102,29 +102,27 @@ spec:
         name: postgresql-database-size
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["psql"]
         args: ["-c", "SELECT pg_size_pretty(pg_database_size('flipt')) as database_size;"]
         timeout: 30s
 
-    # Redis diagnostics
+    # Valkey diagnostics
     - exec:
-        name: redis-info
+        name: valkey-info
         selector:
-          - app.kubernetes.io/name=redis
-          - app.kubernetes.io/component=master
-        namespace: {{ .Release.Namespace }}
-        command: ["redis-cli"]
+          - app.kubernetes.io/name=valkey
+        namespace: "{{ .Release.Namespace }}"
+        command: ["valkey-cli"]
         args: ["INFO"]
         timeout: 30s
 
     - exec:
-        name: redis-memory
+        name: valkey-memory
         selector:
-          - app.kubernetes.io/name=redis
-          - app.kubernetes.io/component=master
-        namespace: {{ .Release.Namespace }}
-        command: ["redis-cli"]
+          - app.kubernetes.io/name=valkey
+        namespace: "{{ .Release.Namespace }}"
+        command: ["valkey-cli"]
         args: ["INFO", "memory"]
         timeout: 30s
 
@@ -140,7 +138,7 @@ spec:
         name: helm-values
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["sh"]
         args: ["-c", "helm get values {{ .Release.Name }} -n {{ .Release.Namespace }}"]
         timeout: 30s
@@ -149,7 +147,7 @@ spec:
         name: helm-manifest
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["sh"]
         args: ["-c", "helm get manifest {{ .Release.Name }} -n {{ .Release.Namespace }}"]
         timeout: 30s
@@ -165,25 +163,25 @@ spec:
         name: flipt-to-postgres-connectivity
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["sh"]
         args: ["-c", "nc -zv {{ .Release.Name }}-cluster-rw 5432 || echo 'Cannot connect to PostgreSQL'"]
         timeout: 10s
 
     - exec:
-        name: flipt-to-redis-connectivity
+        name: flipt-to-valkey-connectivity
         selector:
           - app.kubernetes.io/name=flipt
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         command: ["sh"]
-        args: ["-c", "nc -zv {{ .Release.Name }}-redis-master 6379 || echo 'Cannot connect to Redis'"]
+        args: ["-c", "nc -zv {{ .Release.Name }}-valkey-svc 6379 || echo 'Cannot connect to Valkey'"]
         timeout: 10s
 
   analyzers:
     # Pod status analysis
     - deploymentStatus:
         name: flipt-deployment
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         outcomes:
           - fail:
               when: "< 1"
@@ -197,7 +195,7 @@ spec:
     # PostgreSQL cluster health
     - clusterPodStatuses:
         name: postgresql-cluster-health
-        namespace: {{ .Release.Namespace }}
+        namespace: "{{ .Release.Namespace }}"
         outcomes:
           - fail:
               when: "!= Healthy"
@@ -205,16 +203,16 @@ spec:
           - pass:
               message: PostgreSQL cluster is healthy
 
-    # Redis health
-    - statefulsetStatus:
-        name: redis-health
-        namespace: {{ .Release.Namespace }}
+    # Valkey health
+    - deploymentStatus:
+        name: valkey-health
+        namespace: "{{ .Release.Namespace }}"
         outcomes:
           - fail:
               when: "< 1"
-              message: Redis has no ready replicas
+              message: Valkey deployment has no ready replicas
           - pass:
-              message: Redis is healthy
+              message: Valkey is healthy
 
     # Storage analysis
     - textAnalyze:
@@ -264,15 +262,15 @@ spec:
               message: No database connection errors found
 
     - textAnalyze:
-        checkName: Check for Redis connection errors
+        checkName: Check for Valkey connection errors
         fileName: flipt/logs/*.log
-        regex: 'redis.*error|ECONNREFUSED.*redis|redis.*timeout'
+        regex: 'redis.*error|valkey.*error|ECONNREFUSED.*(redis|valkey)|(redis|valkey).*timeout'
         outcomes:
           - warn:
               when: "true"
-              message: Redis connection errors detected. Check Redis connectivity.
+              message: Valkey connection errors detected. Check Valkey connectivity.
           - pass:
-              message: No Redis connection errors found
+              message: No Valkey connection errors found
 
     - textAnalyze:
         checkName: Check for OOM errors

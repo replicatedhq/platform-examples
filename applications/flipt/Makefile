@@ -133,6 +133,10 @@ release: package ## Lint, package, update Replicated config, and create release
 	@sed -i '' 's/chartVersion:.*/chartVersion: $(CHART_VERSION)/' $(REPLICATED_DIR)/kots-helm-chart.yaml
 	@echo "Chart $(CHART_NAME)-$(CHART_VERSION) packaged and staged in $(REPLICATED_DIR)/"
 	@echo ""
+	@# Lint Replicated KOTS configs
+	@echo "Linting KOTS configuration..."
+	replicated release lint --yaml-dir $(REPLICATED_DIR)/
+	@echo ""
 	@# Determine next version by bumping previous release patch version
 	@PREV_VERSION=$$(replicated release ls 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); \
 	if [ -n "$$PREV_VERSION" ]; then \

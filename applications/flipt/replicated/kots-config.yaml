@@ -15,19 +15,12 @@ spec:
           required: true
           help_text: Name for this Flipt deployment (used as Helm release name)
 
-        - name: namespace
-          title: Namespace
-          type: text
-          default: flipt
-          required: true
-          help_text: Kubernetes namespace where Flipt will be deployed
-
         - name: replica_count
           title: Number of Flipt Replicas
           type: text
           default: "2"
           required: true
-          help_text: Number of Flipt pod replicas (2+ recommended for HA with Redis)
+          help_text: Number of Flipt pod replicas (2+ recommended for HA with Valkey cache)
 
     - name: ingress
       title: Ingress Configuration
@@ -75,36 +68,12 @@ spec:
           when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
           help_text: Enable TLS/HTTPS for ingress
 
-        - name: tls_cert_source
-          title: TLS Certificate Source
-          type: select_one
-          default: cert_manager
-          items:
-            - name: cert_manager
-              title: Cert-Manager (Automatic)
-            - name: custom
-              title: Upload Custom Certificate
-          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
-          help_text: How TLS certificates are managed
-
         - name: tls_cert_manager_issuer
           title: Cert-Manager Issuer
           type: text
           default: letsencrypt-prod
-          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "cert_manager") }}'
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
           help_text: Name of the cert-manager ClusterIssuer
-
-        - name: tls_cert
-          title: TLS Certificate
-          type: file
-          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
-          help_text: Upload your TLS certificate file (PEM format)
-
-        - name: tls_key
-          title: TLS Private Key
-          type: file
-          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_cert_source" "custom") }}'
-          help_text: Upload your TLS private key file (PEM format)
 
     - name: database
       title: Database Configuration
@@ -218,56 +187,16 @@ spec:
           when: 'repl{{ ConfigOptionEquals "postgres_type" "external" }}'
           help_text: SSL mode for PostgreSQL connection
 
-    - name: redis
-      title: Redis Configuration
-      description: Redis cache settings for high-performance multi-instance deployments
+    - name: valkey
+      title: Valkey Configuration
+      description: Valkey cache settings for high-performance multi-instance deployments (Redis-compatible)
       items:
-        - name: redis_enabled
-          title: Enable Redis Cache
+        - name: valkey_enabled
+          title: Enable Valkey Cache
           type: bool
           default: "1"
-          help_text: Enable Redis for distributed caching (required for multiple Flipt replicas)
+          help_text: Enable Valkey for distributed caching (required for multiple Flipt replicas)
           recommended: true
-
-        - name: redis_architecture
-          title: Redis Architecture
-          type: select_one
-          default: standalone
-          items:
-            - name: standalone
-              title: Standalone (Single Instance)
-            - name: replication
-              title: Primary-Replica (High Availability)
-          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-          help_text: Redis deployment architecture
-
-        - name: redis_storage_size
-          title: Redis Storage Size
-          type: text
-          default: 5Gi
-          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-          required: true
-          help_text: Storage size for Redis persistence (e.g., 5Gi, 10Gi)
-
-        - name: redis_storage_class
-          title: Redis Storage Class
-          type: text
-          default: ""
-          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-          help_text: Storage class for Redis PVCs (leave empty for default)
-
-        - name: redis_password
-          title: Redis Password
-          type: password
-          when: 'repl{{ ConfigOptionEquals "redis_enabled" "1" }}'
-          help_text: Password for Redis authentication (auto-generated if empty)
-
-        - name: redis_replica_count
-          title: Number of Redis Replicas
-          type: text
-          default: "1"
-          when: '{{repl and (ConfigOptionEquals "redis_enabled" "1") (ConfigOptionEquals "redis_architecture" "replication") }}'
-          help_text: Number of Redis replica instances
 
     - name: resources
       title: Resource Configuration

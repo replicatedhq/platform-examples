@@ -50,7 +50,7 @@ If you prefer to run commands manually:
 cd chart
 rm -f Chart.lock  # Clean cached files
 helm repo add flipt https://helm.flipt.io
-helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add valkey https://valkey.io/valkey-helm/
 helm repo add cnpg https://cloudnative-pg.github.io/charts
 helm repo add replicated https://charts.replicated.com
 helm repo update
@@ -187,7 +187,7 @@ kubectl get pods -n flipt
 # Should see:
 # - flipt-flipt-xxx (2 replicas)
 # - flipt-cluster-xxx (PostgreSQL)
-# - flipt-redis-master-xxx
+# - flipt-valkey-xxx
 
 # Check services
 kubectl get svc -n flipt
@@ -211,8 +211,8 @@ kubectl scale deployment/flipt-flipt -n flipt --replicas=3
 # Check database status
 kubectl get cluster -n flipt
 
-# Check Redis status
-kubectl get pods -l app.kubernetes.io/name=redis -n flipt
+# Check Valkey status
+kubectl get pods -l app.kubernetes.io/name=valkey -n flipt
 ```
 
 ## Troubleshooting
