@@ -57,3 +57,4 @@ applications/wg-easy/release/
 *.tar.gz
 
 **/.claude/settings.local.json
+.worktrees/
