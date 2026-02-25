@@ -16,6 +16,7 @@ graph TD
     DU --> CTA[chart-template-all<br/>📥 chart directories<br/>📤 template validation]
     CLA --> CV[chart-validate<br/>📥 chart directories<br/>📤 validation status]
     CTA --> CV
+    CFV[config-validate<br/>📥 config.yaml, helmChart, ConfigValues<br/>📤 contract status] --> CV
     
     %% Release Chain
     DU --> RP[release-prepare<br/>📥 chart directories<br/>📤 release/ directory]
@@ -129,11 +130,17 @@ graph TD
 - **Dependencies**: `dependencies-update`
 - **Purpose**: Template charts to validate syntax
 
+#### `config-validate`
+- **Inputs**: `config.yaml` files, `helmChart-*.yaml` files, `development-config-values.yaml`, `values.yaml` files
+- **Outputs**: Contract validation status (errors/warnings)
+- **Dependencies**: None
+- **Purpose**: Validate the four-way contract between chart values, HelmChart CRs, KOTS Config items, and ConfigValues
+
 #### `chart-validate`
 - **Inputs**: Chart directories, helmfile template
 - **Outputs**: Complete validation status
-- **Dependencies**: `chart-lint-all`, `chart-template-all`
-- **Purpose**: Complete chart validation including helmfile
+- **Dependencies**: `chart-lint-all`, `chart-template-all`, `config-validate`
+- **Purpose**: Complete chart validation including helmfile and config contract
 
 #### `chart-package-all`
 - **Inputs**: Chart directories
