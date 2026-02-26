@@ -47,13 +47,13 @@ spec:
           config:
             cache:
               ADAPTER: redis
-              HOST: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+              HOST: 'redis://:repl{{ ConfigOption "valkey_password" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&'
             session:
               PROVIDER: redis
-              PROVIDER_CONFIG: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+              PROVIDER_CONFIG: 'redis://:repl{{ ConfigOption "valkey_password" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&'
             queue:
               TYPE: redis
-              CONN_STR: "redis://:repl{{ ConfigOption \"valkey_password\" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&"
+              CONN_STR: 'redis://:repl{{ ConfigOption "valkey_password" }}@gitea-valkey:6379/0?pool_size=100&idle_timeout=180s&'
     - when: 'repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}'
       recursiveMerge: true
       values:
