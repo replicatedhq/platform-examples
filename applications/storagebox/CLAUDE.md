@@ -14,12 +14,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Storagebox is a Replicated Embedded Cluster (EC) application that bundles multiple storage backends into a single deployable unit. It provides:
 
-- **Apache Cassandra** - NoSQL database via Bitnami Helm chart
+- **Apache Cassandra** - NoSQL database via K8ssandra operator
 - **PostgreSQL** - Relational database via CloudnativePG Operator
 - **MinIO** - S3-compatible object storage via MinIO Operator
 - **NFS Server** - Network file system via Obéone Helm chart
 
-This is designed for EC deployments where cluster-scope operators (MinIO, CloudnativePG) are installed during the EC lifecycle, not by the Storagebox chart itself.
+This is designed for EC deployments where cluster-scope operators (MinIO, CloudnativePG, K8ssandra) are installed during the EC lifecycle, not by the Storagebox chart itself.
 
 ## Build and Release Commands
 
@@ -101,6 +101,7 @@ All commands support these environment variables:
 |----------|---------|-------------|
 | `CLUSTER_NAME` | storagebox-test-\<timestamp\> | Cluster name |
 | `CLUSTER_PREFIX` | storagebox | Cluster name prefix for test-cycle |
+| `CUSTOMER_NAME` | current git branch | Customer name for EC testing |
 | `CHANNEL` | test-v018-k8s131 | Release channel |
 | `DISTRIBUTION` | k3s | Kubernetes distribution |
 | `K8S_VERSION` | 1.33 | Kubernetes version |
@@ -115,12 +116,12 @@ All commands support these environment variables:
 
 ```
 charts/storagebox/          # Main Helm chart
-├── Chart.yaml              # Dependencies: cassandra, nfs-server, tenant (MinIO), replicated
-├── values.yaml             # Default values for all components (65K+ lines)
+├── Chart.yaml              # Dependencies: nfs-server, tenant (MinIO), replicated, rqlite
+├── values.yaml             # Default values for all components
 ├── templates/              # Custom templates for Storagebox-specific resources
 │   ├── postgres-db.yaml    # CloudnativePG Cluster CR
 │   ├── postgres-*.yaml     # Postgres secrets and services
-│   ├── cassandra-*.yaml    # Cassandra TLS and credentials
+│   ├── cassandra-*.yaml    # K8ssandraCluster CR and superuser secret
 │   └── replicated-*.yaml   # Preflight checks and support bundles
 
 kots/                       # KOTS/Replicated deployment manifests
@@ -133,9 +134,10 @@ kots/                       # KOTS/Replicated deployment manifests
 
 ### Key Architecture Patterns
 
-**Operator Dependencies**: The EC config (`kots/ec.yaml`) installs four Helm charts as cluster extensions:
+**Operator Dependencies**: The EC config (`kots/ec.yaml`) installs five Helm charts as cluster extensions:
 - CloudnativePG operator (namespace: cnpg)
 - MinIO operator (namespace: minio)
+- K8ssandra operator (namespace: k8ssandra-operator)
 - cert-manager (namespace: cert-manager)
 - ingress-nginx (namespace: ingress-nginx)
 
@@ -143,18 +145,21 @@ kots/                       # KOTS/Replicated deployment manifests
 - Helm values: `cassandra.enabled`, `nfs-server.enabled`, `tenant.enabled`, `postgres.embedded.enabled`
 - KOTS config: Maps admin console settings to Helm values using `repl{{ ConfigOption "..." }}` template functions
 
-**TLS Configuration**: Cassandra supports three TLS modes configured via KOTS:
-- No TLS
-- Auto-generated self-signed certificates
-- External CA with user-provided certificates
+**TLS Configuration**: Cassandra TLS is managed by cert-manager via the K8ssandra operator, toggled by a single boolean in KOTS config.
+
+**Cassandra Deployment Modes**: Two modes selectable via KOTS config:
+- Simple: Cassandra only
+- Full: Cassandra + Reaper (automated repairs)
 
 ### Helm Chart Dependencies
 
 The storagebox chart pulls these subcharts (see `charts/storagebox/charts/`):
-- `cassandra` (Bitnami) - version ~12.3.11
 - `nfs-server` (Obéone) - version ~1.1.2
 - `tenant` (MinIO) - version 7.1.1
 - `replicated` (Replicated SDK) - version ~1.12.2
+- `rqlite` - version 2.0.0
+
+Cassandra is no longer a subchart dependency. It is deployed via a K8ssandraCluster CR template, with the k8ssandra-operator installed as an EC extension.
 
 ### KOTS Template Functions
 
@@ -298,7 +303,9 @@ cassandra:
 **Dependency alignment**:
 - MinIO operator (in `kots/ec.yaml`) MUST match MinIO tenant chart version (in `Chart.yaml`)
 - CloudnativePG operator provides the CRD for PostgreSQL clusters defined in chart templates
-- cert-manager and ingress-nginx are cluster-wide infrastructure components
+- K8ssandra operator provides the CRD for Cassandra clusters defined in chart templates
+- cert-manager is required by both K8ssandra (for TLS) and as a cluster-wide infrastructure component
+- ingress-nginx is a cluster-wide infrastructure component
 
 **Testing before release**:
 - Run `helm lint ./charts/storagebox` to catch chart issues
@@ -311,13 +318,130 @@ cassandra:
 - Do not promote to Stable/Beta without thorough testing
 - Default `make release` promotes to Unstable channel
 
-### VM Testing
+### Embedded Cluster VM Testing
 
-**Note**: VM testing targets are NOT available in this directory. VM infrastructure and testing workflows exist at a different level in the organization. To test Embedded Cluster installations:
+**IMPORTANT**: All VM testing uses CMX (Compatibility Matrix) VMs only. Never consider cloud resources.
 
-1. Create a test release: `replicated release create --yaml-dir ./kots --promote test-channel`
-2. Deploy using Replicated's compatibility matrix (CMX) or manual VM provisioning
-3. Use the install command from the vendor portal
+The Makefile provides comprehensive Embedded Cluster testing workflows with proper customer/license management.
+
+#### Customer Management Workflow
+
+**Key Concepts:**
+- Each customer is assigned to a single channel
+- EC binary downloads require a customer's license ID
+- For feature branch testing, create a customer with the same name as your git branch
+- Download URL pattern: `https://app.xyyzx.net/embedded/storagebox/{channel}`
+- Authorization header uses the customer's license ID
+
+**Customer Management Commands:**
+```bash
+# List all customers
+make customer-list
+
+# Create a new customer assigned to a channel
+make customer-create CUSTOMER_NAME=my-feature-branch CHANNEL=test-my-feature
+
+# Show customer details (ID, license ID, channel)
+make customer-info CUSTOMER_NAME=my-feature-branch
+
+# Create customer if it doesn't exist (recommended)
+make customer-ensure CUSTOMER_NAME=my-feature-branch CHANNEL=test-my-feature
+```
+
+#### Automated EC Test Cycle
+
+The fastest way to set up an EC test environment:
+
+```bash
+# Complete automated workflow (customer + VM + download + expose)
+make vm-ec-test-cycle CUSTOMER_NAME=my-feature CHANNEL=test-my-feature CLUSTER_PREFIX=my-test
+
+# Then install (UI or headless mode)
+make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+# OR
+make vm-ec-install-headless CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Cleanup when done
+make vm-cleanup CLUSTER_PREFIX=my-test
+```
+
+#### Manual Step-by-Step EC Testing
+
+For more control over the testing process:
+
+**Step 1: Ensure customer exists**
+```bash
+# Uses current git branch name by default
+make customer-ensure CUSTOMER_NAME=$(git rev-parse --abbrev-ref HEAD) CHANNEL=test-my-feature
+```
+
+**Step 2: Create CMX VM cluster**
+```bash
+# Single-node cluster
+make vm-1node CLUSTER_PREFIX=my-test
+
+# Three-node HA cluster
+make vm-3node CLUSTER_PREFIX=my-test
+```
+
+**Step 3: Download EC binary**
+```bash
+# Downloads to all VMs using customer's license ID
+make vm-download-ec CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# The target will:
+# - Fetch customer ID by name
+# - Get the customer's license ID
+# - Determine the customer's assigned channel
+# - Download from: https://app.xyyzx.net/embedded/storagebox/{channel}
+# - Use Authorization: {licenseID} header
+# - Extract and prepare binary on all nodes
+```
+
+**Step 4: Expose admin console port**
+```bash
+make vm-expose-ports CLUSTER_PREFIX=my-test
+```
+
+**Step 5: Install Embedded Cluster**
+```bash
+# UI mode (configure via admin console)
+make vm-ec-install CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Headless mode (uses development-values.yaml)
+make vm-ec-install-headless CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+```
+
+**Step 6: Cleanup**
+```bash
+# Delete all VMs for the cluster
+make vm-cleanup CLUSTER_PREFIX=my-test
+```
+
+#### Additional VM Management Commands
+
+```bash
+# List all CMX VMs
+make vm-list
+
+# Show status for specific cluster
+make vm-status CLUSTER_PREFIX=my-test
+
+# Copy license manually (usually automatic)
+make vm-copy-license CLUSTER_PREFIX=my-test CUSTOMER_NAME=my-feature
+
+# Copy config values manually (usually automatic in headless mode)
+make vm-copy-config CLUSTER_PREFIX=my-test
+```
+
+#### Default Behavior
+
+- `CUSTOMER_NAME` defaults to current git branch name
+- `CLUSTER_PREFIX` defaults to "storagebox"
+- The download target automatically resolves:
+  - Customer ID from name
+  - License ID from customer
+  - Channel from customer's assignment
 
 ### Breaking Changes Checklist
 
@@ -423,9 +547,10 @@ Set your KUBECONFIG and test each component:
 ```bash
 export KUBECONFIG=~/.kube/my-test-cluster-config
 
-# Test Cassandra
-kubectl get pods -l app.kubernetes.io/name=cassandra
-kubectl logs cassandra-0
+# Test Cassandra (K8ssandra)
+kubectl get k8ssandraclusters
+kubectl get cassandradatacenters
+kubectl get pods -l app.kubernetes.io/managed-by=cass-operator
 
 # Test PostgreSQL
 kubectl get clusters.postgresql.cnpg.io
@@ -528,10 +653,11 @@ helm repo update
 
 ## Current Version Status
 
-- **Chart Version**: 0.19.0
+- **Chart Version**: 0.20.0
 - **Embedded Cluster**: 2.13.3+k8s-1.33
 - **Kubernetes Version**: 1.33 (k0s distribution)
-- **Last Updated**: 2026-01-30
+- **K8ssandra Operator**: 1.22.0
+- **Last Updated**: 2026-02-09
 
 ## Application CRD
 
