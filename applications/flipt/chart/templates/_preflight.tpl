@@ -91,18 +91,6 @@ spec:
           - pass:
               message: Sufficient resources for Redis cache
 
-    # Network checks
-    - customResourceDefinition:
-        checkName: Check for Ingress Controller
-        customResourceDefinitionName: ingressclasses.networking.k8s.io
-        outcomes:
-          - fail:
-              message: |
-                No ingress controller detected in the cluster.
-                An ingress controller (like NGINX or Traefik) is required if ingress is enabled.
-          - pass:
-              message: Ingress controller CRDs are available
-
     # CloudnativePG operator check (for embedded database)
     - customResourceDefinition:
         checkName: CloudnativePG Operator
@@ -115,18 +103,6 @@ spec:
                 If you prefer to use an external PostgreSQL database, configure it in the admin console.
           - pass:
               message: CloudnativePG operator is available
-
-    # Image pull checks
-    - imagePullSecret:
-        checkName: Registry access
-        registryName: docker.flipt.io
-        outcomes:
-          - fail:
-              message: |
-                Cannot pull images from docker.flipt.io.
-                Check network connectivity or configure image pull secrets.
-          - pass:
-              message: Can pull images from container registry
 
     # Distribution-specific checks
     - distribution:
