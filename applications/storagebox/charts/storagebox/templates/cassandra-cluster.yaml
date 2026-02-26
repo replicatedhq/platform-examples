@@ -1,0 +1,62 @@
+{{- if .Values.cassandra.enabled -}}
+{{- if .Values.cassandra.tls.enabled }}
+{{- fail "Cassandra TLS via cert-manager is not yet implemented. Set cassandra.tls.enabled=false or remove cassandra_tls_enabled from KOTS config." }}
+{{- end }}
+{{- if not .Values.cassandra.datacenters }}
+{{- fail "cassandra.datacenters must contain at least one datacenter when cassandra is enabled" }}
+{{- end }}
+apiVersion: k8ssandra.io/v1alpha1
+kind: K8ssandraCluster
+metadata:
+  name: {{ .Values.cassandra.clusterName }}
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+spec:
+  auth: true
+  cassandra:
+    serverVersion: {{ .Values.cassandra.serverVersion | quote }}
+    superuserSecretRef:
+      name: cassandra-superuser-secret
+    datacenters:
+    {{- range .Values.cassandra.datacenters }}
+      - metadata:
+          name: {{ .name }}
+        size: {{ .size }}
+        storageConfig:
+          cassandraDataVolumeClaimSpec:
+            {{- with .storageConfig.storageClassName }}
+            storageClassName: {{ . }}
+            {{- end }}
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: {{ .storageConfig.size }}
+        {{- with .resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        config:
+          {{- with .config.cassandraYaml }}
+          cassandraYaml:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .config.jvmOptions }}
+          jvmOptions:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- if $.Values.cassandra.telemetry.prometheus.enabled }}
+        telemetry:
+          prometheus:
+            enabled: true
+        {{- end }}
+    {{- end }}
+  {{- if eq .Values.cassandra.mode "full" }}
+  {{- with .Values.cassandra.reaper }}
+  {{- if .enabled }}
+  reaper:
+    keyspace: {{ .keyspace }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end -}}

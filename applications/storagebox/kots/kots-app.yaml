@@ -4,9 +4,26 @@ metadata:
   name: storagebox
 spec:
   title: StorageBox
+  icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj48cmVjdCB4PSIyIiB5PSI2IiB3aWR0aD0iMjgiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjMjU2M2ViIi8+PHJlY3QgeD0iNSIgeT0iOSIgd2lkdGg9IjIyIiBoZWlnaHQ9IjUiIHJ4PSIxIiBmaWxsPSIjNjBhNWZhIi8+PHJlY3QgeD0iNSIgeT0iMTYiIHdpZHRoPSIyMiIgaGVpZ2h0PSI1IiByeD0iMSIgZmlsbD0iIzkzYzVmZCIvPjxyZWN0IHg9IjUiIHk9IjIzIiB3aWR0aD0iMjIiIGhlaWdodD0iMyIgcng9IjEiIGZpbGw9IiNiZmRiZmUiLz48Y2lyY2xlIGN4PSIyNCIgY3k9IjExLjUiIHI9IjEuNSIgZmlsbD0iIzIyYzU1ZSIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iMTguNSIgcj0iMS41IiBmaWxsPSIjMjJjNTVlIi8+PC9zdmc+"
+  releaseNotes: ""
   allowRollback: false
+  requireMinimalRBACPrivileges: false
+  supportMinimalRBACPrivileges: false
+  additionalNamespaces:
+    - cert-manager
+    - ingress-nginx
+    - cnpg
+    - k8ssandra-operator
+    - minio
+  additionalImages:
+    - proxy.xyyzx.net/proxy/storagebox/docker.io/library/busybox:1.37.0
+  ports: []
   statusInformers:
     - statefulset/kotsadm-rqlite
     - deployment/kotsadm
-    - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}statefulset/storagebox-cassandra{{repl end}}'
+    - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}statefulset/storagebox-cassandra-dc1-default-sts{{repl end}}'
+    - '{{repl if ConfigOptionEquals "postgres_enabled" "1"}}pod/postgres-1{{repl end}}'
+    - '{{repl if ConfigOptionEquals "minio_tenant_enabled" "1"}}statefulset/minio-pool-0{{repl end}}'
+    - '{{repl if ConfigOptionEquals "nfs_enabled" "1"}}deployment/storagebox-nfs-server{{repl end}}'
     - '{{repl if ConfigOptionEquals "rqlite_enabled" "1"}}statefulset/storagebox-rqlite{{repl end}}'
+  graphs: []

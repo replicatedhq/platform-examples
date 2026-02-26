@@ -67,6 +67,10 @@ By trigger the github actions, you can integrate the compatibility testing into 
 
 - [Composable Multi-Chart Walkthrough](composable-multi-chart-walkthrough/README.md)
 
+### ConfigMap Hash Rolling Update
+
+- [Force a Deployment Rolling Update When a ConfigMap or Secret Changes](configmap-hash-rolling-update/README.md)
+
 ### Validating Images Signatures in a Preflight Check
 
 - [Validating Images Signatures in a Preflight Check](images-signature-preflight/README.md)

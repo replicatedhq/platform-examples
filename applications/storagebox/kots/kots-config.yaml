@@ -5,7 +5,7 @@ metadata:
   name: config
 spec:
   groups:
-  # cassandra settings
+  # cassandra settings (K8ssandra operator)
   - name: cassandra_settings
     title: Cassandra Settings
     items:
@@ -14,75 +14,75 @@ spec:
       type: bool
       default: false
       required: true
-      description: Enable Cassandra
+      description: Enable Cassandra via K8ssandra operator
+    - name: cassandra_mode
+      title: Cassandra Deployment Mode
+      type: select_one
+      items:
+      - name: simple
+        title: Simple (Cassandra only)
+      - name: full
+        title: Full (Cassandra + Reaper repairs)
+      default: simple
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
     - name: cassandra_user
-      title: Cassandra User
+      title: Cassandra Superuser
       type: text
       default: cassandra
       required: true
-      description: The username to use for the Cassandra user
+      description: The superuser username for Cassandra
     - name: cassandra_password
       title: Cassandra Password
       type: password
       default: cassandra
       required: true
-      description: The password to use for the Cassandra user
+      description: The superuser password for Cassandra
       secret: true
-    - name: cassandra_truststore_password
-      title: Cassandra Truststore Password
-      type: password
-      default: cassandra
-      required: true
-      description: The password to use for the Cassandra truststore
-      secret: true
-    - name: cassandra_keystore_password
-      title: Cassandra Keystore Password
-      type: password
-      default: cassandra
-      required: true
-      description: The password to use for the Cassandra keystore
-      secret: true
-  - name: cassandra_ingress_settings
-    title: Cassandra Ingress Settings
-    items:
-    - name: cassandra_tls_type
-      title: Cassandra TLS Type
-      type: select_one
-      items:
-      - name: cassandra_no_ssl
-        title: TLS client encryption disabled
-      - name: "cassandra_self_signed_ca"
-        title: Autogenerate self-signed CA and certificates
-      - name: "cassandra_external_ca"
-        title: Use external CA and certificates
-      default: "cassandra_no_ssl"
-      required: true
-    - name: cassandra_ingress_host
-      title: Cassandra TLS Hostname
+    # TLS support is not yet implemented - hidden from UI to prevent render failures
+    # Re-enable when cassandra-cluster.yaml TLS templating is complete
+    - name: cassandra_tls_enabled
+      title: Enable TLS
+      type: bool
+      default: false
+      description: Enable TLS encryption via cert-manager (not yet implemented)
+      when: 'false'
+    - name: cassandra_datacenter_size
+      title: Datacenter Replica Count
       type: text
-      default: cassandra.example.com
+      default: "1"
       required: true
-      description: The hostname to use for the Cassandra ingress
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_self_signed_ca" }}'
-    - name: cassandra_tls_cert
-      title: Cassandra TLS Certificate
-      type: file
-      description: The TLS certificate to use for the Cassandra client encryption
+      description: Number of Cassandra nodes in the datacenter
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
+      validation:
+        regex:
+          pattern: ^\d+$
+          message: Must be a whole number.
+    - name: cassandra_storage_class
+      title: Storage Class
+      type: text
+      default: ""
+      description: Kubernetes storage class for Cassandra data volumes. Leave empty for the cluster default.
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
+    - name: cassandra_storage_size
+      title: Data Volume Size
+      type: text
+      default: 8Gi
       required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-    - name: cassandra_tls_key
-      title: Cassandra TLS Key
-      type: file
-      description: The TLS key to use for the Cassandra client encryption
-      secret: true
+      description: Size of the persistent volume for each Cassandra node
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
+    - name: cassandra_heap_size
+      title: JVM Heap Size
+      type: text
+      default: 512M
       required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
-    - name: cassandra_tls_ca
-      title: Cassandra TLS CA
-      type: file
-      description: The root CA to use for the Cassandra client encryption
-      required: true
-      when: 'repl{{ ConfigOptionEquals "cassandra_tls_type" "cassandra_external_ca" }}'
+      description: JVM heap size for Cassandra (e.g. 512M, 1G, 2G)
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
+    - name: cassandra_prometheus_enabled
+      title: Enable Prometheus Metrics
+      type: bool
+      default: false
+      description: Expose Prometheus metrics endpoint for Cassandra
+      when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
   # Postgres settings
   - name: postgres_settings
     title: Postgres database settings
@@ -93,6 +93,12 @@ spec:
       default: false
       required: true
       description: Enable Postgres
+    - name: postgres_external
+      title: Use External PostgreSQL
+      type: bool
+      default: false
+      description: Connect to an external PostgreSQL server instead of deploying an embedded instance
+      when: 'repl{{ ConfigOptionEquals "postgres_enabled" "1" }}'
     - name: postgres_user
       title: Postgres User
       type: text
@@ -118,6 +124,69 @@ spec:
       default: postgres
       required: true
       description: The name of the Postgres database owner
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+    - name: postgres_instances
+      title: Number of Instances
+      type: text
+      default: "1"
+      required: true
+      description: Number of PostgreSQL instances (use odd numbers for HA)
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+      validation:
+        regex:
+          pattern: ^\d+$
+          message: Must be a whole number.
+    - name: postgres_storage_size
+      title: Storage Size
+      type: text
+      default: 10Gi
+      required: true
+      description: Size of the persistent volume for each PostgreSQL instance
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+    - name: postgres_storage_class
+      title: Storage Class
+      type: text
+      default: ""
+      description: Kubernetes storage class for PostgreSQL volumes. Leave empty for the cluster default.
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+    - name: postgres_log_level
+      title: Log Level
+      type: select_one
+      items:
+      - name: error
+        title: Error
+      - name: warning
+        title: Warning
+      - name: info
+        title: Info
+      - name: debug
+        title: Debug
+      - name: trace
+        title: Trace
+      default: info
+      description: PostgreSQL logging verbosity
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+    - name: postgres_external_host
+      title: External Host
+      type: text
+      default: ""
+      required: true
+      description: Hostname or IP of the external PostgreSQL server
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionEquals "postgres_external" "1") }}'
+    - name: postgres_external_port
+      title: External Port
+      type: text
+      default: "5432"
+      required: true
+      description: Port of the external PostgreSQL server
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionEquals "postgres_external" "1") }}'
+    - name: postgres_external_database
+      title: External Database Name
+      type: text
+      default: postgres
+      required: true
+      description: Database name on the external PostgreSQL server
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionEquals "postgres_external" "1") }}'
   # NFS Server settings
   - name: nfs_settings
     title: NFS Server settings
@@ -156,12 +225,6 @@ spec:
       default: minio
       required: true
       description: The name of the MinIO Tenant
-    # - name: minio_tenant_configuration_name
-    #   title: MinIO Tenant Configuration Name
-    #   type: text
-    #   default: minio-env-configuration
-    #   required: true
-    #   description: The name of the MinIO Tenant Configuration
     - name: minio_tenant_configuration_access_key
       title: MinIO Tenant Configuration Access Key
       type: password
@@ -204,6 +267,24 @@ spec:
       type: text
       default: ''
       description: The storage class name for the MinIO Tenant Pool
+    - name: minio_tenant_tls_auto_cert
+      title: Enable Auto TLS
+      type: bool
+      default: true
+      description: Enable automatic TLS certificate generation for MinIO
+      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
+    - name: minio_tenant_ingress_api_host
+      title: API Ingress Hostname
+      type: text
+      default: minio.local
+      description: Hostname for the MinIO S3 API ingress
+      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
+    - name: minio_tenant_ingress_console_host
+      title: Console Ingress Hostname
+      type: text
+      default: minio-console.local
+      description: Hostname for the MinIO Console ingress
+      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
     - name: minio_tenant_metrics_enabled
       title: MinIO Tenant Metrics Enabled
       type: bool
@@ -239,25 +320,6 @@ spec:
       default: us-east-1
       description: The region for the MinIO Tenant Bucket
       required: true
-    # - name: minio_tenant_user_name
-    #   title: MinIO Tenant User Name
-    #   type: text
-    #   default: minio
-    #   required: true
-    #   description: The name of the MinIO Tenant User
-    # - name: minio_tenant_user_access_key
-    #   title: MinIO Tenant User Access Key
-    #   type: password
-    #   default: minio
-    #   required: true
-    #   description: The access key for the MinIO Tenant User
-    # - name: minio_tenant_user_secret_key
-    #   title: MinIO Tenant User Secret Key
-    #   type: password
-    #   default: minio123
-    #   required: true
-    #   description: The secret key for the MinIO Tenant User
-    #   secret: true
   # rqlite settings
   - name: rqlite
     title: rqlite (relational Sqlite) chart settings
@@ -276,6 +338,19 @@ spec:
         regex:
           pattern: ^\d+$
           message: Replicas must be a whole number greater than or equal to 0.
+    - name: rqlite_storage_size
+      title: Data Volume Size
+      type: text
+      default: 10Gi
+      required: true
+      description: Size of the persistent volume for each rqlite node
+      when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
+    - name: rqlite_storage_class
+      title: Storage Class
+      type: text
+      default: ""
+      description: Kubernetes storage class for rqlite volumes. Leave empty for the cluster default.
+      when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
     - name: rqlite_image_tag
       when: repl{{ (ConfigOptionEquals "rqlite_enabled" "1")}}
       type: text
