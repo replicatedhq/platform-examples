@@ -1,0 +1,44 @@
+{{- if and .Values.gateway.enabled .Values.gateway.cassandra.enabled .Values.cassandra.enabled }}
+# Gateway: Cassandra CQL (TCP)
+# Envoy Gateway provisions an Envoy proxy Deployment + Service for this Gateway.
+# Cassandra is typically accessed cluster-internally, but this Gateway enables
+# external CQL access through the Envoy proxy on port 9042.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "storagebox.fullname" . }}-cassandra
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cassandra
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: cassandra-tcp
+      port: {{ .Values.cassandra.service.cqlPort | default 9042 }}
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# K8ssandra/cass-operator creates a CQL service named
+# <cluster-name>-<datacenter-name>-service
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: {{ include "storagebox.fullname" . }}-cassandra
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cassandra
+spec:
+  parentRefs:
+    - name: {{ include "storagebox.fullname" . }}-cassandra
+      sectionName: cassandra-tcp
+  rules:
+    - backendRefs:
+        - name: {{ .Values.cassandra.clusterName }}-{{ (index .Values.cassandra.datacenters 0).name }}-service
+          port: {{ .Values.cassandra.service.cqlPort | default 9042 }}
+{{- end }}

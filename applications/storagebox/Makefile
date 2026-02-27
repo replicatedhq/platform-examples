@@ -637,6 +637,19 @@ vm-ec-install-headless: vm-copy-license vm-copy-config
 # Helper Targets
 # ============================================================================
 
+CMD ?= get pods -A
+.PHONY: vm-kubectl
+vm-kubectl:
+	@vm_id=$$(replicated vm ls --output json | jq -r '.[] | select(.name == "$(CLUSTER_PREFIX)-node-1" and .status == "running") | .id'); \
+	if [ -z "$$vm_id" ]; then \
+		echo "ERROR: $(CLUSTER_PREFIX)-node-1 not found or not running"; \
+		exit 1; \
+	fi; \
+	ssh_endpoint=$$(replicated vm ssh-endpoint $$vm_id --app $(APP_SLUG)); \
+	ssh -o StrictHostKeyChecking=no $$ssh_endpoint "\
+		sudo KUBECONFIG=/var/lib/embedded-cluster/k0s/pki/admin.conf \
+		/var/lib/embedded-cluster/bin/kubectl $(CMD)"
+
 .PHONY: vm-ec-test-cycle
 vm-ec-test-cycle:
 	@echo "=== Full Embedded Cluster Test Cycle ==="
@@ -738,6 +751,7 @@ help:
 	@echo "  make vm-copy-config           - Copy config values to node-1"
 	@echo "  make vm-ec-install            - Install EC on node-1 (UI mode)"
 	@echo "  make vm-ec-install-headless   - Install EC on node-1 (headless)"
+	@echo "  make vm-kubectl CMD='...'     - Run kubectl on node-1 (EC environment)"
 	@echo ""
 	@echo "Workflows:"
 	@echo "  make test-cycle               - Full KOTS test cycle: release + cluster + ready"
@@ -815,10 +829,6 @@ test-install-operators:
 	helm install cloudnative-pg cnpg/cloudnative-pg \
 		--namespace cnpg --create-namespace \
 		--version 0.27.0 \
-		--wait --timeout 5m
-	helm install minio-operator minio-operator/operator \
-		--namespace minio --create-namespace \
-		--version 7.1.1 \
 		--wait --timeout 5m
 	helm install k8ssandra-operator k8ssandra/k8ssandra-operator \
 		--namespace k8ssandra-operator --create-namespace \

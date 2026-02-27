@@ -2,7 +2,7 @@ apiVersion: v2
 name: storagebox
 description: A Helm chart for different storage options
 type: application
-version: 0.24.0
+version: 0.26.8
 appVersion: 1.0.0
 icon: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIj48cmVjdCB4PSIyIiB5PSI2IiB3aWR0aD0iMjgiIGhlaWdodD0iMjIiIHJ4PSIzIiBmaWxsPSIjMjU2M2ViIi8+PHJlY3QgeD0iNSIgeT0iOSIgd2lkdGg9IjIyIiBoZWlnaHQ9IjUiIHJ4PSIxIiBmaWxsPSIjNjBhNWZhIi8+PHJlY3QgeD0iNSIgeT0iMTYiIHdpZHRoPSIyMiIgaGVpZ2h0PSI1IiByeD0iMSIgZmlsbD0iIzkzYzVmZCIvPjxyZWN0IHg9IjUiIHk9IjIzIiB3aWR0aD0iMjIiIGhlaWdodD0iMyIgcng9IjEiIGZpbGw9IiNiZmRiZmUiLz48Y2lyY2xlIGN4PSIyNCIgY3k9IjExLjUiIHI9IjEuNSIgZmlsbD0iIzIyYzU1ZSIvPjxjaXJjbGUgY3g9IjI0IiBjeT0iMTguNSIgcj0iMS41IiBmaWxsPSIjMjJjNTVlIi8+PC9zdmc+
 dependencies:
@@ -14,10 +14,9 @@ dependencies:
   version: "~1.1.2"
   repository: https://charts.obeone.cloud
   condition: nfs-server.enabled
-- name: tenant
-  version: "7.1.1"
-  repository: https://operator.min.io
-  condition: tenant.enabled
+- name: garage
+  version: "0.2.0"
+  condition: garage.enabled
 - name: rqlite
   version: "2.0.0"
   repository: https://rqlite.github.io/helm-charts
