@@ -1,76 +1,26 @@
 # Flipt Examples
 
-This directory contains examples for deploying and using Flipt in various scenarios.
+This directory contains examples for testing and integrating with Flipt.
+
+For Helm installation and Kubernetes deployment instructions, see the [top-level README](../README.md).
 
 ## Directory Structure
 
 ```
 examples/
-├── kubernetes/         # Kubernetes deployment examples
+├── kubernetes/                # Helm values examples
 │   ├── values-minimal.yaml
 │   ├── values-production.yaml
 │   └── values-external-db.yaml
-└── sdk/               # SDK integration examples
+└── sdk/                       # SDK integration examples
     ├── nodejs-example.js
     ├── golang-example.go
     └── python-example.py
 ```
 
-## Kubernetes Deployment Examples
+## Smoke Tests
 
-### Minimal Setup (Development/Testing)
-
-The minimal configuration is perfect for local development or testing:
-
-```bash
-helm install flipt ../chart \
-  --namespace flipt \
-  --create-namespace \
-  --values kubernetes/values-minimal.yaml
-```
-
-Features:
-- Single Flipt replica
-- Embedded PostgreSQL (1 instance)
-- Valkey standalone
-- No ingress (use port-forward)
-
-Access:
-```bash
-kubectl port-forward -n flipt svc/flipt-flipt 8080:8080
-```
-
-### Production Setup (High Availability)
-
-The production configuration provides a highly available deployment:
-
-```bash
-helm install flipt ../chart \
-  --namespace flipt \
-  --create-namespace \
-  --values kubernetes/values-production.yaml
-```
-
-Features:
-- 3 Flipt replicas with autoscaling
-- PostgreSQL cluster (3 instances)
-- Valkey primary-replica architecture
-- Ingress with TLS
-- Prometheus metrics
-- Pod disruption budgets
-
-### External Database Setup
-
-Use this when you have an existing PostgreSQL database:
-
-```bash
-helm install flipt ../chart \
-  --namespace flipt \
-  --create-namespace \
-  --values kubernetes/values-external-db.yaml
-```
-
-**⚠️ Important:** Update the database credentials before deploying!
+Smoke tests are located in [`tests/smoke/`](../tests/smoke/). See the test script there for usage instructions.
 
 ## SDK Integration Examples
 
