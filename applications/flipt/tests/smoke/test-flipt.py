@@ -8,6 +8,7 @@ Quick test script for a running Flipt instance.
 
 Usage:
     pip install requests
+    export FLIPT_URL=http://flipt.example.com   # defaults to http://localhost:8080
     python test-flipt.py
 """
 
