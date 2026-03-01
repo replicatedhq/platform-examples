@@ -36,11 +36,11 @@ spec:
         checkName: Minimum memory available
         outcomes:
           - fail:
-              when: "sum(memoryCapacity) < 4Gi"
-              message: The cluster must have at least 4GB of memory available
+              when: "sum(memoryCapacity) < 2Gi"
+              message: The cluster must have at least 2GB of memory available
           - warn:
-              when: "sum(memoryCapacity) < 8Gi"
-              message: At least 8GB of memory is recommended for production
+              when: "sum(memoryCapacity) < 4Gi"
+              message: At least 4GB of memory is recommended for production
           - pass:
               message: Sufficient memory available
 

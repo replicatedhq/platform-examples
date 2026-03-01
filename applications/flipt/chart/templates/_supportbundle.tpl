@@ -25,9 +25,19 @@ spec:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
         namespace: "{{ .Release.Namespace }}"
         limits:
-          maxAge: 168h
+          maxAge: 720h
           maxLines: 10000
         name: postgresql/logs
+
+    # CloudnativePG operator logs
+    - logs:
+        selector:
+          - app.kubernetes.io/name=cloudnative-pg
+        namespace: "{{ .Release.Namespace }}"
+        limits:
+          maxAge: 720h
+          maxLines: 10000
+        name: cnpg-operator/logs
 
     # Valkey logs
     - logs:
@@ -35,7 +45,7 @@ spec:
           - app.kubernetes.io/name=valkey
         namespace: "{{ .Release.Namespace }}"
         limits:
-          maxAge: 168h
+          maxAge: 720h
           maxLines: 10000
         name: valkey/logs
 
@@ -49,6 +59,11 @@ spec:
         namespace: "{{ .Release.Namespace }}"
         selector:
           - cnpg.io/cluster={{ .Release.Name }}-cluster
+
+    - pods:
+        namespace: "{{ .Release.Namespace }}"
+        selector:
+          - app.kubernetes.io/name=cloudnative-pg
 
     - pods:
         namespace: "{{ .Release.Namespace }}"
@@ -130,7 +145,7 @@ spec:
     - http:
         name: flipt-health
         get:
-          url: http://{{ .Release.Name }}-flipt.{{ .Release.Namespace }}.svc.cluster.local:8080/health
+          url: http://{{ .Release.Name }}.{{ .Release.Namespace }}.svc.cluster.local:8080/health
         timeout: 30s
 
     # Helm release information
@@ -180,7 +195,7 @@ spec:
   analyzers:
     # Pod status analysis
     - deploymentStatus:
-        name: flipt-deployment
+        name: flipt
         namespace: "{{ .Release.Namespace }}"
         outcomes:
           - fail:
@@ -205,7 +220,7 @@ spec:
 
     # Valkey health
     - deploymentStatus:
-        name: valkey-health
+        name: flipt-valkey
         namespace: "{{ .Release.Namespace }}"
         outcomes:
           - fail:
@@ -214,29 +229,13 @@ spec:
           - pass:
               message: Valkey is healthy
 
-    # Storage analysis
-    - textAnalyze:
-        checkName: Persistent Volume Claims
-        fileName: /cluster-resources/persistent-volume-claims.json
-        regexGroups: '"phase": "(\w+)"'
-        outcomes:
-          - fail:
-              when: "Pending"
-              message: One or more PVCs are in Pending state
-          - fail:
-              when: "Failed"
-              message: One or more PVCs have failed
-          - pass:
-              when: "Bound"
-              message: All PVCs are bound
-
     # Node resources
     - nodeResources:
         checkName: Node CPU capacity
         outcomes:
           - warn:
-              when: "sum(cpuCapacity) < 4"
-              message: Less than 4 CPU cores available. Consider scaling cluster for production workloads.
+              when: "sum(cpuCapacity) < 2"
+              message: Less than 2 CPU cores available. Consider scaling cluster for production workloads.
           - pass:
               message: Sufficient CPU resources
 
@@ -244,50 +243,16 @@ spec:
         checkName: Node memory capacity
         outcomes:
           - warn:
-              when: "sum(memoryCapacity) < 8Gi"
-              message: Less than 8GB memory available. Consider scaling cluster for production workloads.
+              when: "sum(memoryCapacity) < 4Gi"
+              message: Less than 4GB memory available. Consider scaling cluster for production workloads.
           - pass:
               message: Sufficient memory resources
-
-    # Log analysis for common errors
-    - textAnalyze:
-        checkName: Check for database connection errors
-        fileName: flipt/logs/*.log
-        regex: 'database connection|connection refused|could not connect'
-        outcomes:
-          - fail:
-              when: "true"
-              message: Database connection errors detected in logs
-          - pass:
-              message: No database connection errors found
-
-    - textAnalyze:
-        checkName: Check for Valkey connection errors
-        fileName: flipt/logs/*.log
-        regex: 'redis.*error|valkey.*error|ECONNREFUSED.*(redis|valkey)|(redis|valkey).*timeout'
-        outcomes:
-          - warn:
-              when: "true"
-              message: Valkey connection errors detected. Check Valkey connectivity.
-          - pass:
-              message: No Valkey connection errors found
-
-    - textAnalyze:
-        checkName: Check for OOM errors
-        fileName: flipt/logs/*.log
-        regex: 'out of memory|OOMKilled|memory limit exceeded'
-        outcomes:
-          - fail:
-              when: "true"
-              message: Out of memory errors detected. Consider increasing memory limits.
-          - pass:
-              message: No OOM errors detected
 
     # HTTP health check analysis
     - textAnalyze:
         checkName: Flipt API health
-        fileName: http-response/flipt-health.json
-        regex: '"status": "ok"'
+        fileName: flipt-health/result.json
+        regex: '"status": "SERVING"'
         outcomes:
           - fail:
               when: "false"
