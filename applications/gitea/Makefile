@@ -6,7 +6,7 @@ ARGS = $(filter-out $@,$(MAKECMDGOALS))
 	@:
 
 SHELL := /bin/bash
-.SHELLFLAGS = -x +u
+.SHELLFLAGS = -x +u -c
 
 # Define the base path to your Helm charts directory
 HELM_CHARTS_DIR = ./charts
@@ -70,7 +70,7 @@ add-helm-repositories:
 	@for chart_file in $(HELM_CHARTS_DIR)/*/Chart.yaml; do \
 	    echo "Processing $$chart_file"; \
 	    repo_name=$$(grep '^name:' $$chart_file | awk '{print $$2}'); \
-	    grep 'dependencies:' -A 10 $$chart_file | grep 'repository:' | awk '{print $$2}' | while read repo; do \
+	    grep 'dependencies:' -A 10 $$chart_file | grep 'repository:' | awk '{print $$2}' | tr -d '"' | while read repo; do \
 	        if ! helm repo list | grep -q "^$$repo_name[[:space:]]"; then \
 	            echo "Adding Helm repo $$repo_name from $$repo"; \
 	            helm repo add $$repo_name $$repo || true; \
@@ -85,3 +85,64 @@ release: package-and-update
 	@chart_version=$$(eval $(call get_gitea_chart_version)); \
 	echo "Creating a new release with Replicated using version $$chart_version"; \
 	replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
+
+
+# ---------------------------------------------------------------------------
+# Test targets
+# ---------------------------------------------------------------------------
+
+CI_VALUES = tests/helm/ci-values.yaml
+RELEASE_NAME = gitea
+NAMESPACE = default
+
+.PHONY: test-lint
+test-lint: add-helm-repositories update-dependencies
+	helm lint ./charts/gitea
+	helm template $(RELEASE_NAME) ./charts/gitea > /dev/null
+	helm template $(RELEASE_NAME) ./charts/gitea -f $(CI_VALUES) > /dev/null
+
+.PHONY: test-install-operators
+test-install-operators:
+	helm repo add jetstack https://charts.jetstack.io || true
+	helm repo add cnpg https://cloudnative-pg.github.io/charts || true
+	helm repo update jetstack cnpg
+	helm install cert-manager jetstack/cert-manager \
+		--namespace cert-manager --create-namespace \
+		--set crds.enabled=true \
+		--wait --timeout 5m
+	helm install cnpg cnpg/cloudnative-pg \
+		--namespace cnpg-system --create-namespace \
+		--wait --timeout 5m
+
+.PHONY: test-install
+test-install: add-helm-repositories update-dependencies
+	helm install $(RELEASE_NAME) ./charts/gitea \
+		-f $(CI_VALUES) \
+		--namespace $(NAMESPACE) \
+		--wait --timeout 10m
+
+.PHONY: test-smoke
+test-smoke:
+	python3 -m venv ./venv
+	./venv/bin/pip install -r tests/requirements.txt
+	./venv/bin/python tests/smoke_test.py \
+		--release $(RELEASE_NAME) --namespace $(NAMESPACE)
+
+.PHONY: test-all
+test-all: test-lint test-install-operators test-install test-smoke
+
+.PHONY: help
+help:
+	@echo "Build targets:"
+	@echo "  package-and-update   Package charts and update KOTS versions"
+	@echo "  clean                Remove build artifacts"
+	@echo "  update-dependencies  Update Helm chart dependencies"
+	@echo "  add-helm-repositories  Add required Helm repos"
+	@echo "  release              Package and create a Replicated release"
+	@echo ""
+	@echo "Test targets:"
+	@echo "  test-lint            Lint and template-render the chart"
+	@echo "  test-install-operators  Install cert-manager and CloudNativePG"
+	@echo "  test-install         Helm install Gitea with CI values"
+	@echo "  test-smoke           Run Python smoke tests"
+	@echo "  test-all             Full test sequence (lint -> operators -> install -> smoke)"
