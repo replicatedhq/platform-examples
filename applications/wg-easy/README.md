@@ -43,9 +43,9 @@ The `task release-prepare` command walks all `charts/*/replicated/` directories,
 
 Charts are deployed in dependency order via `helmfile.yaml.gotmpl`. The same helmfile serves two purposes through Helmfile environments:
 
-- **`default` environment**: Charts are installed from local paths (`./charts/cert-manager`, `./charts/wg-easy`, etc.). The Replicated SDK is disabled. This is the inner development loop -- validate chart changes against a test cluster without touching the Replicated platform.
+- **`default` environment**: Charts are installed from local paths (`./charts/cert-manager`, `./charts/wg-easy`, etc.). This is the inner development loop -- validate chart changes against a test cluster without touching the Replicated platform.
 
-- **`replicated` environment**: Charts are pulled from the Replicated OCI registry (`oci://registry.replicated.com/<app>/<channel>/<chart>`), authenticated with a customer license ID. Container images are routed through the Replicated registry proxy. The Replicated SDK is enabled. This simulates what an end customer's installation looks like.
+- **`replicated` environment**: Charts are pulled from the Replicated OCI registry (`oci://registry.replicated.com/<app>/<channel>/<chart>`), authenticated with a customer license ID. Container images are routed through the Replicated registry proxy. This simulates what an end customer's installation looks like.
 
 ```bash
 # Local development -- charts from disk
@@ -89,12 +89,11 @@ applications/wg-easy/
 ├── charts/
 │   ├── cert-manager/            # Wrapped cert-manager chart
 │   ├── cert-manager-issuers/    # Chart for cert-manager issuers
-│   ├── replicated-sdk/          # Replicated SDK chart
 │   ├── templates/               # Common templates shared across charts
 │   ├── traefik/                 # Wrapped Traefik chart
-│   └── wg-easy/                 # Main application chart
+│   └── wg-easy/                 # Main application chart (includes Replicated SDK as dependency)
 ├── replicated/                  # Root Replicated configuration
-├── taskfiles/                   # Task utility functions
+├── development-config-values.yaml  # ConfigValues for headless installs
 ├── helmfile.yaml.gotmpl         # Defines chart installation order
 └── Taskfile.yaml                # Main task definitions
 ```

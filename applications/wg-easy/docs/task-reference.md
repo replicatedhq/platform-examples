@@ -44,6 +44,7 @@ These tasks support the iterative development process, focusing on fast feedback
 | Task | Description | Related Workflow Stage |
 |------|-------------|------------------------|
 | `dependencies-update` | Updates Helm dependencies for all charts in the repository | Stage 1: Dependencies |
+| `config-validate` | Validates the four-way contract between values.yaml, HelmChart CR, KOTS Config, and ConfigValues | Stage 2-3: Validation |
 | `helm-preflight` | Runs preflight checks on Helm charts using the preflight CLI | Stage 4: Validation |
 | `helm-install` | Installs all charts using helmfile with proper sequencing | Stage 5: Integration Testing |
 | `ports-expose` | Exposes the configured ports on the cluster for testing | Stage 4-5: Chart Installation/Integration |

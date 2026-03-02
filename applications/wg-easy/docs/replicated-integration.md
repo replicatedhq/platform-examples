@@ -121,6 +121,61 @@ The composable configuration approach enables multi-team ownership of a single R
 4. **Automatic Merging**: Configuration merging is automated at release time
 5. **Automatic Aggregation**: Support bundles and preflights are aggregated by Replicated at runtime
 
+## Replicated SDK as a Subchart
+
+The Replicated SDK is included as a dependency of the wg-easy chart rather than deployed as a standalone chart in its own namespace. This is declared in `charts/wg-easy/Chart.yaml`:
+
+```yaml
+dependencies:
+  - name: replicated
+    version: 1.16.0
+    repository: oci://registry.replicated.com/library
+```
+
+The SDK values (image registry overrides, pull secrets) are configured in the wg-easy HelmChart CR under the `replicated` key. The `builder` section enables the SDK to resolve images during airgap builds:
+
+```yaml
+# charts/wg-easy/replicated/helmChart-wg-easy.yaml
+spec:
+  values:
+    replicated:
+      createPullSecret: true
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "registry.replicated.com" }}'
+        ...
+  builder:
+    replicated:
+      enabled: true
+```
+
+This approach keeps the SDK in the same namespace as the application, simplifying deployment and reducing the number of namespaces to manage.
+
+## Headless Installation with ConfigValues
+
+A `development-config-values.yaml` file provides default values for headless (non-interactive) installations. This file uses the KOTS `ConfigValues` kind and maps directly to the items defined in the KOTS Config screen:
+
+```yaml
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  name: wg-easy
+spec:
+  values:
+    password:
+      value: "testpassword123"
+    domain:
+      value: "10.0.0.11"
+    vpn-port:
+      default: "20000"
+      value: "20000"
+```
+
+The `task config-validate` command validates the four-way contract between:
+1. **`values.yaml`** -- chart defaults
+2. **`helmChart-*.yaml`** -- KOTS HelmChart CR (maps ConfigOption references to chart values)
+3. **`config.yaml`** -- KOTS Config screen items
+4. **`development-config-values.yaml`** -- ConfigValues for headless installs
+
 ## Embedded Cluster Support
 
 Replicated's embedded Kubernetes capability is configured via the `cluster.yaml` file:
@@ -129,10 +184,10 @@ Replicated's embedded Kubernetes capability is configured via the `cluster.yaml`
 apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
-  version: 2.1.3+k8s-1.29
+  version: 2.13.4+k8s-1.33
   unsupportedOverrides:
     k0s: |-
-      config: 
+      config:
         spec:
           workerProfiles:
             - name: default

@@ -6,7 +6,7 @@ spec:
   chart:
     name: wg-easy
   weight: 3
-  
+
   # helmUpgradeFlags specifies additional flags to pass to the `helm upgrade` command.
   helmUpgradeFlags:
     - --skip-crds
@@ -16,6 +16,13 @@ spec:
     - --wait
 
   values:
+    replicated:
+      createPullSecret: true
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "registry.replicated.com" }}'
+        repository: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/replicated-sdk-image'
+      imagePullSecrets:
+        - name: '{{repl ImagePullSecretName }}'
     service:
       vpn:
         ports:
@@ -43,4 +50,6 @@ spec:
         repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "library" }}/debian:bookworm-slim'
 
   namespace: wg-easy
-  builder: {}
+  builder:
+    replicated:
+      enabled: true

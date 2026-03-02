@@ -6,6 +6,9 @@ dependencies:
 - name: templates
   version: '*'
   repository: file://../templates
+- name: replicated
+  version: 1.16.0
+  repository: oci://registry.replicated.com/library
 description: Simple wireguard with web configuration management
 home: https://github.com/replicatedhq/platform-examples/
 maintainers:

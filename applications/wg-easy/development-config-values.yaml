@@ -1,0 +1,15 @@
+---
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  name: wg-easy
+spec:
+  values:
+    # Wireguard Settings
+    password:
+      value: "testpassword123"
+    domain:
+      value: "10.0.0.11"
+    vpn-port:
+      default: "20000"
+      value: "20000"
