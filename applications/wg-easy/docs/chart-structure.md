@@ -6,18 +6,20 @@ This document explains the modular chart approach used in the WG-Easy Helm chart
 
 ```
 applications/wg-easy/
-├── charts/templates/           # Common templates shared across charts
-│   ├── traefik-routes.yaml     # Templates for Traefik IngressRoutes
-│   └── traefik-route-tcp.yaml  # Templates for Traefik TCP routes
-├── cert-manager/               # Wrapped cert-manager chart
-├── cert-manager-issuers/       # Chart for cert-manager issuers
+├── charts/
+│   ├── templates/              # Common templates shared across charts
+│   │   ├── traefik-routes.yaml # Templates for Traefik IngressRoutes
+│   │   └── traefik-route-tcp.yaml  # Templates for Traefik TCP routes
+│   ├── cert-manager/           # Wrapped cert-manager chart
+│   ├── cert-manager-issuers/   # Chart for cert-manager issuers
+│   ├── traefik/                # Wrapped Traefik chart
+│   └── wg-easy/                # Main application chart (includes Replicated SDK as dependency)
 ├── replicated/                 # Root Replicated configuration
-├── replicated-sdk/             # Replicated SDK chart
-├── traefik/                    # Wrapped Traefik chart
-├── wg-easy/                    # Main application chart
-├── helmfile.yaml.gotmpl               # Defines chart installation order
+├── helmfile.yaml.gotmpl        # Defines chart installation order
 └── Taskfile.yaml               # Main task definitions
 ```
+
+The Replicated SDK is included as a dependency of the wg-easy chart (declared in `charts/wg-easy/Chart.yaml`) rather than deployed as a standalone chart. This means the SDK runs in the same namespace as the application and its values are configured through the `replicated` key in the wg-easy HelmChart CR.
 
 ## Chart Wrapping Concept
 
