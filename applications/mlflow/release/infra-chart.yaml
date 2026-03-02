@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: infra
-    chartVersion: 0.2.1
+    chartVersion: 0.2.2
   exclude: 'repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}'
   weight: -10
   helmUpgradeFlags:
@@ -15,8 +15,8 @@ spec:
   values:
     crdCheck:
       image:
-        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "docker.io" }}
-        repository: 'repl{{HasLocalRegistry | ternary LocalRegistryNamespace "bitnamilegacy" }}/kubectl'
+        registry: repl{{ HasLocalRegistry | ternary LocalRegistryHost "registry.k8s.io" }}
+        repository: 'repl{{HasLocalRegistry | ternary (print LocalRegistryNamespace "/kubectl") "kubectl" }}'
     cloudnative-pg:
       image:
         repository: '{{repl HasLocalRegistry | ternary LocalRegistryHost "ghcr.io" }}/{{repl HasLocalRegistry | ternary LocalRegistryNamespace "cloudnative-pg" }}/cloudnative-pg'
