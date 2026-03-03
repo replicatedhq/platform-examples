@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.29
+    chartVersion: 1.0.33
 
   exclude: ""
 
@@ -168,8 +168,8 @@ spec:
             registry: 'repl{{ LocalRegistryHost }}'
             repository: 'repl{{ LocalRegistryNamespace }}/replicated-sdk-image'
 
-    # Ingress configuration
-    - when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+    # Ingress configuration (without TLS)
+    - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (not (ConfigOptionEquals "tls_enabled" "1")) }}'
       recursiveMerge: false
       values:
         ingress:
@@ -181,13 +181,20 @@ spec:
                 - path: /
                   pathType: Prefix
 
-    # TLS with cert-manager
+    # Ingress configuration (with TLS + cert-manager)
     - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
       recursiveMerge: false
       values:
         ingress:
+          enabled: true
+          className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
           annotations:
             cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
+          hosts:
+            - host: 'repl{{ ConfigOption "ingress_hostname" }}'
+              paths:
+                - path: /
+                  pathType: Prefix
           tls:
             - secretName: flipt-tls
               hosts:

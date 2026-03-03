@@ -75,6 +75,14 @@ spec:
           when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
           help_text: Name of the cert-manager ClusterIssuer
 
+        - name: tls_acme_email
+          title: ACME Email Address
+          type: text
+          default: ""
+          required: true
+          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
+          help_text: Email address for Let's Encrypt certificate registration notifications
+
     - name: database
       title: Database Configuration
       description: PostgreSQL database settings for storing feature flags

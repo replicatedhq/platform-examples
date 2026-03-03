@@ -7,7 +7,27 @@ spec:
       repositories:
         - name: ingress-nginx
           url: https://kubernetes.github.io/ingress-nginx
+        - name: jetstack
+          url: https://charts.jetstack.io
       charts:
+        - name: cert-manager
+          chartname: jetstack/cert-manager
+          namespace: cert-manager
+          version: "v1.17.1"
+          values: |
+            crds:
+              enabled: true
+            image:
+              digest: ""
+            webhook:
+              image:
+                digest: ""
+            cainjector:
+              image:
+                digest: ""
+            startupapicheck:
+              image:
+                digest: ""
         - name: ingress-nginx
           chartname: ingress-nginx/ingress-nginx
           namespace: ingress-nginx
