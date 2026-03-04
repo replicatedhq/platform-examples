@@ -6,7 +6,7 @@ For Helm installation and Kubernetes deployment instructions, see the [top-level
 
 ## Directory Structure
 
-```
+```bash
 examples/
 ├── kubernetes/                # Helm values examples
 │   ├── values-minimal.yaml
@@ -27,6 +27,7 @@ Smoke tests are located in [`tests/smoke/`](../tests/smoke/). See the test scrip
 ### Node.js
 
 The Node.js example demonstrates:
+
 - Simple boolean flag evaluation
 - Variant flags for A/B testing
 - Batch flag evaluation
@@ -43,6 +44,7 @@ node nodejs-example.js
 ```
 
 **Key features:**
+
 - ✅ Boolean flags
 - ✅ Variant flags (A/B testing)
 - ✅ Batch evaluation
@@ -53,6 +55,7 @@ node nodejs-example.js
 ### Go
 
 The Go example demonstrates:
+
 - gRPC client integration
 - Boolean and variant flag evaluation
 - HTTP middleware
@@ -70,6 +73,7 @@ go run golang-example.go
 ```
 
 **Key features:**
+
 - ✅ gRPC client
 - ✅ Boolean flags
 - ✅ Variant flags
@@ -80,6 +84,7 @@ go run golang-example.go
 ### Python
 
 The Python example demonstrates:
+
 - HTTP REST API client
 - Flask middleware integration
 - Django middleware integration
@@ -96,6 +101,7 @@ python python-example.py
 ```
 
 **Key features:**
+
 - ✅ REST API client
 - ✅ Flask integration
 - ✅ Django integration

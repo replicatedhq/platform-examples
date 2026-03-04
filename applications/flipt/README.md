@@ -17,14 +17,14 @@ This Helm chart provides a production-ready deployment with:
 - ✅ PostgreSQL database (embedded via CloudnativePG or external)
 - ✅ Valkey distributed caching for high performance
 - ✅ Horizontal pod autoscaling support
-- ✅ TLS/ingress configuration
+- ✅ TLS/Ingress configuration
 - ✅ Replicated SDK integration for enterprise management
 - ✅ Comprehensive monitoring and metrics
 - ✅ Support bundle generation for troubleshooting
 
 ## Architecture
 
-```
+```bash
 ┌─────────────────────────────────────────────────────────────┐
 │                       Load Balancer                          │
 │                         (Ingress)                            │
@@ -75,6 +75,7 @@ This Helm chart provides a production-ready deployment with:
 3. **Deploy** and monitor via the admin console
 
 The admin console provides:
+
 - One-click deployment
 - Configuration validation
 - Preflight checks
@@ -88,235 +89,19 @@ The admin console provides:
 ### Important: Replicated License Required
 
 Flipt requires a Replicated development license for local testing. This provides access to:
+
 - Replicated SDK integration
 - Admin console features
 - Preflight checks
 - Support bundle generation
 
 **Quick Setup:**
-```bash
-# 1. Set up development license
-export REPLICATED_API_TOKEN=your-token
-export REPLICATED_LICENSE_ID=your-license-id
-```
 
-**Detailed instructions:** See [Development License Guide](docs/DEVELOPMENT_LICENSE.md)
+See the [Quickstart](./QUICKSTART.md) for install methods and creating your first Flipt feature flag, plus integration with your app code.
 
-1. **Add the Helm repositories:**
+## Flipt Advanced Features
 
-   ```bash
-   helm repo add flipt-repo https://helm.flipt.io
-   helm repo add replicated https://charts.replicated.com
-   helm repo update
-   ```
-
-3. **Install the chart:**
-
-   ```bash
-   cd chart
-   helm dependency update
-   cd ..
-
-   helm install flipt ./chart \
-     --namespace flipt \
-     --create-namespace \
-     --values custom-values.yaml \
-     --timeout 10m
-   ```
-
-4. **Wait for deployment:**
-
-   ```bash
-   kubectl wait --for=condition=ready pod \
-     -l app.kubernetes.io/name=flipt \
-     -n flipt \
-     --timeout=5m
-   ```
-
-## Configuration
-
-### Key Configuration Options
-
-The chart can be configured via `values.yaml` or the Replicated admin console:
-
-#### Flipt Application
-
-```yaml
-flipt:
-  replicaCount: 2  # Number of Flipt pods (2+ recommended with Valkey)
-  resources:
-    limits:
-      cpu: 500m
-      memory: 512Mi
-    requests:
-      cpu: 100m
-      memory: 128Mi
-```
-
-#### PostgreSQL Database
-
-```yaml
-postgresql:
-  type: embedded  # 'embedded' or 'external'
-
-  # Embedded database (CloudnativePG)
-  embedded:
-    enabled: true
-    cluster:
-      instances: 1  # 3 for HA
-      storage:
-        size: 10Gi
-        storageClass: ""
-```
-
-#### Valkey Cache
-
-```yaml
-valkey:
-  enabled: true  # Required for multiple Flipt replicas
-  image:
-    repository: ghcr.io/valkey-io/valkey
-    tag: "8.0"
-  # Uses emptyDir by default (cache data is ephemeral)
-```
-
-#### Ingress
-
-```yaml
-flipt:
-  ingress:
-    enabled: true
-    className: nginx
-    hosts:
-      - host: flipt.example.com
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - secretName: flipt-tls
-        hosts:
-          - flipt.example.com
-```
-
-## Accessing Flipt
-
-### Via Ingress
-
-If ingress is enabled, access Flipt at your configured hostname:
-
-```
-https://flipt.example.com
-```
-
-### Via Port Forward
-
-For local access without ingress:
-
-```bash
-kubectl port-forward -n flipt svc/flipt-flipt 8080:8080
-```
-
-Then open: http://localhost:8080
-
-### Via LoadBalancer
-
-Change the service type to LoadBalancer:
-
-```yaml
-flipt:
-  service:
-    type: LoadBalancer
-```
-
-## Using Flipt
-
-### 1. Create Your First Feature Flag
-
-Navigate to the Flipt UI and:
-
-1. Create a new flag (e.g., `new_dashboard`)
-2. Set the flag type (boolean, variant, etc.)
-3. Configure targeting rules (optional)
-4. Enable the flag
-
-### 2. Integrate with Your Application
-
-#### Node.js Example
-
-```javascript
-const { FliptClient } = require('@flipt-io/flipt');
-
-const client = new FliptClient({
-  url: 'http://flipt.example.com',
-});
-
-// Evaluate a boolean flag
-const result = await client.evaluateBoolean({
-  namespaceKey: 'default',
-  flagKey: 'new_dashboard',
-  entityId: 'user-123',
-  context: {
-    email: 'user@example.com',
-    plan: 'enterprise'
-  }
-});
-
-if (result.enabled) {
-  // Show new dashboard
-}
-```
-
-#### Go Example
-
-```go
-import (
-    "context"
-    flipt "go.flipt.io/flipt/rpc/flipt"
-    "google.golang.org/grpc"
-)
-
-conn, _ := grpc.Dial("flipt.example.com:9000", grpc.WithInsecure())
-client := flipt.NewFliptClient(conn)
-
-resp, _ := client.EvaluateBoolean(context.Background(), &flipt.EvaluationRequest{
-    NamespaceKey: "default",
-    FlagKey:      "new_dashboard",
-    EntityId:     "user-123",
-    Context: map[string]string{
-        "email": "user@example.com",
-        "plan":  "enterprise",
-    },
-})
-
-if resp.Enabled {
-    // Show new dashboard
-}
-```
-
-#### Python Example
-
-```python
-from flipt import FliptClient
-
-client = FliptClient(url="http://flipt.example.com")
-
-result = client.evaluate_boolean(
-    namespace_key="default",
-    flag_key="new_dashboard",
-    entity_id="user-123",
-    context={
-        "email": "user@example.com",
-        "plan": "enterprise"
-    }
-)
-
-if result.enabled:
-    # Show new dashboard
-```
-
-### 3. Advanced Features
-
-#### Percentage Rollouts
+### Percentage Rollouts
 
 Gradually release features to a percentage of users:
 
@@ -354,7 +139,7 @@ Variants:
 
 ### Horizontal Scaling
 
-Enable autoscaling for automatic pod scaling:
+Enable autoscaling for automatic pod scaling, configure this via the Admin Console which in turn will configure the Helm values as per below.
 
 ```yaml
 flipt:
@@ -367,7 +152,7 @@ flipt:
 
 ### Database HA
 
-For production, use 3 PostgreSQL instances:
+For production, use 3 PostgreSQL instances, configure this via the Admin Console which in turn will configure the Helm values as per below.
 
 ```yaml
 postgresql:
@@ -380,7 +165,7 @@ postgresql:
 
 ### Prometheus Metrics
 
-Enable metrics collection:
+Enable metrics collection, configure this via the Admin Console which in turn will configure the Helm values as per below.
 
 ```yaml
 flipt:
@@ -401,7 +186,7 @@ Flipt exposes metrics at `/metrics`:
 
 ### Generate Support Bundle
 
-Via Replicated admin console: Navigate to Troubleshoot > Generate Support Bundle
+Via Replicated Admin Console: Navigate to Troubleshoot > Generate Support Bundle
 
 Via CLI:
 
@@ -461,14 +246,14 @@ flipt:
 
 ## Upgrading
 
-### Via Replicated Admin Console
+### Upgrade via Replicated Admin Console
 
 1. Navigate to Version History
 2. Select the new version
 3. Review changes
 4. Deploy
 
-### Via Helm
+### Upgrade via Helm
 
 ```bash
 helm upgrade flipt ./chart \
@@ -478,11 +263,11 @@ helm upgrade flipt ./chart \
 
 ## Uninstallation
 
-### Via Replicated Admin Console
+### Uninstall via Replicated Admin Console
 
 Navigate to application settings and select "Remove Application"
 
-### Via Helm
+### Uninstall via Helm
 
 ```bash
 helm uninstall flipt --namespace flipt
@@ -564,43 +349,23 @@ flipt:
 
 ## Resources
 
-- **Flipt Documentation**: https://docs.flipt.io
-- **API Reference**: https://docs.flipt.io/reference/overview
-- **SDKs**: https://docs.flipt.io/integration
-- **GitHub**: https://github.com/flipt-io/flipt
-- **Discord Community**: https://discord.gg/kRhEqG2T
-- **Replicated Documentation**: https://docs.replicated.com
+- **Flipt Documentation**: <https://docs.flipt.io>
+- **API Reference**: <https://docs.flipt.io/reference/overview>
+- **SDKs**: <https://docs.flipt.io/integration>
+- **GitHub**: <https://github.com/flipt-io/flipt>
+- **Discord Community**: <https://discord.gg/kRhEqG2T>
+- **Replicated Documentation**: <https://docs.replicated.com>
 
 ## Support
 
 For issues with:
-- **Flipt application**: https://github.com/flipt-io/flipt/issues
-- **Helm chart/deployment**: https://github.com/flipt-io/helm-charts/issues
-- **Replicated integration**: https://support.replicated.com
+
+- **Flipt application**: <https://github.com/flipt-io/flipt/issues>
+- **Helm chart/deployment**: <https://github.com/flipt-io/helm-charts/issues>
+- **Replicated integration**: <https://support.replicated.com>
 
 ## License
 
 - Flipt is licensed under GPL-3.0
 - This Helm chart follows the same GPL-3.0 license
 - Replicated SDK has its own licensing terms
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Changelog
-
-### Version 1.0.0
-
-- Initial release
-- Flipt v1.61.0
-- PostgreSQL 16 via CloudnativePG
-- Valkey 8.0 for distributed caching
-- Replicated SDK integration
-- Comprehensive KOTS configuration
-- Preflight checks and support bundles

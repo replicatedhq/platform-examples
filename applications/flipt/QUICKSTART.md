@@ -13,35 +13,17 @@ Get up and running with Flipt in 5 minutes.
 Before you begin, you need a **Replicated development license**:
 
 ```bash
-# 1. Set your Replicated API token
-export REPLICATED_API_TOKEN=your-token-here
-
+# 1. Set your Replicated API token & License
+export REPLICATED_API_TOKEN=<your-token>
+export REPLICATED_LICENSE_ID=<your-license-id>
+```
 
 **Don't have a Replicated account?**
+
 - Sign up at [vendor.replicated.com](https://vendor.replicated.com)
 - See [Development License Guide](docs/DEVELOPMENT_LICENSE.md) for detailed instructions
 
-## Option 1: Quick Install (Development)
-
-Install with default settings for testing:
-
-### Easy Install (Recommended)
-
-Use the automated installation script:
-
-```bash
-./scripts/install.sh
-```
-
-This script will:
-- ✅ Check prerequisites (kubectl, helm)
-- ✅ Install CloudNativePG operator (if not present)
-- ✅ Add all required Helm repositories
-- ✅ Clean and rebuild dependencies
-- ✅ Install Flipt with all components
-- ✅ Show status and next steps
-
-### Manual Install
+## Option 1: Manual Helm Install on local machine
 
 If you prefer to run commands manually:
 
@@ -68,26 +50,29 @@ helm install flipt ./chart \
 kubectl port-forward -n flipt svc/flipt-flipt 8080:8080
 ```
 
-Open your browser to: **http://localhost:8080**
+Open your browser to: <http://localhost:8080>
 
-## Option 2: Replicated KOTS Install
+## Option 2: Replicated Embedded Cluster/KOTS Install
 
-For enterprise deployments with admin console:
+For enterprise deployments with Admin Console:
 
 1. **Upload the application** to your Replicated vendor portal:
+
    ```bash
-   replicated release create --auto --yaml-dir replicated/
+   export REPLICATED_APP=flipt
+   export REPLICATED_LICENSE_ID=<license-id>
+   make release
    ```
 
 2. **Install via Replicated Admin Console**:
-   - Log into your Replicated admin console
+   - Log into your Replicated Admin Console
    - Select the Flipt application
    - Follow the configuration wizard
    - Deploy
 
 3. **Access Flipt** through configured ingress or LoadBalancer
 
-## Option 3: Production Install
+## Option 3: Production Install to existing K8s Cluster
 
 For production with HA:
 
@@ -105,7 +90,7 @@ Access via your configured ingress hostname.
 
 ### 1. Access the UI
 
-Navigate to the Flipt UI (http://localhost:8080 if using port-forward).
+Navigate to the Flipt UI <http://localhost:8080> if using port-forward).
 
 ### 2. Create a Flag
 
@@ -120,12 +105,13 @@ Navigate to the Flipt UI (http://localhost:8080 if using port-forward).
 ### 3. Enable the Flag
 
 1. Toggle the flag to **Enabled**
-2. Set a percentage rollout (e.g., 50%)
+2. Set a percentage rollout under 'Rollouts'(e.g., 50%)
 3. Click **"Save"**
 
 ### 4. Use the Flag in Your App
 
 **Node.js:**
+
 ```javascript
 const { FliptClient } = require('@flipt-io/flipt');
 
@@ -144,6 +130,7 @@ if (result.enabled) {
 ```
 
 **Go:**
+
 ```go
 import flipt "go.flipt.io/flipt/rpc/flipt"
 
@@ -161,6 +148,7 @@ if resp.Enabled {
 ```
 
 **Python:**
+
 ```python
 from flipt import FliptClient
 
@@ -274,6 +262,6 @@ kubectl delete namespace flipt
 
 ## Support
 
-- **Flipt Issues**: https://github.com/flipt-io/flipt/issues
-- **Helm Chart Issues**: https://github.com/flipt-io/helm-charts/issues
-- **Replicated Support**: https://support.replicated.com
+- **Flipt Issues**: <https://github.com/flipt-io/flipt/issues>
+- **Helm Chart Issues**: <https://github.com/flipt-io/helm-charts/issues>
+- **Replicated Support**: <https://support.replicated.com>
