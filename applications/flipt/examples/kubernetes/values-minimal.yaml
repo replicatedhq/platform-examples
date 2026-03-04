@@ -1,0 +1,37 @@
+# Minimal values.yaml for development/testing
+# Single replica, embedded database and Redis
+
+flipt:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  ingress:
+    enabled: false  # Use port-forward for local access
+
+postgresql:
+  type: embedded
+  embedded:
+    enabled: true
+    cluster:
+      instances: 1
+      storage:
+        size: 5Gi
+
+redis:
+  enabled: true
+  architecture: standalone
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+replicated:
+  enabled: true

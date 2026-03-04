@@ -1,0 +1,36 @@
+---
+# Kubernetes SIG Application Custom Resource
+# Adds links/buttons to the Admin Console dashboard
+# See: https://docs.replicated.com/vendor/admin-console-adding-buttons-links
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: flipt
+  labels:
+    app.kubernetes.io/name: flipt
+spec:
+  descriptor:
+    type: "Feature Flag Platform"
+    version: "v1.61.0"
+    description: "Flipt is an open-source, self-hosted feature flag platform"
+    keywords:
+      - feature-flags
+      - feature-toggles
+      - experimentation
+      - ab-testing
+    links:
+      # Open App button - uses ingress hostname if configured
+      - description: Open Flipt
+        url: 'repl{{ if ConfigOptionEquals "ingress_enabled" "1" }}https://repl{{ ConfigOption "ingress_hostname" }}repl{{ else }}http://localhost:8080repl{{ end }}'
+      # Flipt Documentation
+      - description: Documentation
+        url: "https://docs.flipt.io"
+      # Flipt API Docs (built-in)
+      - description: API Reference
+        url: 'repl{{ if ConfigOptionEquals "ingress_enabled" "1" }}https://repl{{ ConfigOption "ingress_hostname" }}/docs/repl{{ else }}http://localhost:8080/docs/repl{{ end }}'
+    maintainers:
+      - name: Flipt
+        url: https://flipt.io
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flipt
