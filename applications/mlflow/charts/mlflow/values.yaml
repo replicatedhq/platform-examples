@@ -37,11 +37,11 @@ mlflow:
   # -- Image configuration for the mlflow deployment
   image:
     # -- Image registry
-    registry: docker.io
+    registry: ghcr.io
     # -- Image repository
-    repository: bitnamilegacy/mlflow
+    repository: mlflow/mlflow
     # -- Image tag
-    tag: 3.3.2-debian-12-r0
+    tag: v3.3.2
     # -- Image pull policy
     pullPolicy: IfNotPresent
   # -- Pod Labels for the mlflow deployment
@@ -87,6 +87,14 @@ mlflow:
     #     secretKeyRef:
     #       name: extra-env-secret
     #       key: extra-env-key-3
+
+  # -- Extra pip packages to install via init container.
+  # The upstream ghcr.io/mlflow/mlflow image does not include database drivers
+  # or cloud storage clients. Packages listed here are installed at startup
+  # into a shared volume and made available via PYTHONPATH.
+  extraPipPackages:
+    - psycopg2-binary
+    - boto3
 
   # -- Extra initialization containers belonging to the mlflow pod.
   extraInitContainers: []
@@ -687,8 +695,8 @@ postgres:
       # -- Image registry
       registry: docker.io
       # -- Image repository
-      repository: bitnamilegacy/postgresql
+      repository: postgres
       # -- Image tag
-      tag: "17.6.0-debian-12-r4"
+      tag: "17.6"
       # -- Image pull policy
       pullPolicy: IfNotPresent

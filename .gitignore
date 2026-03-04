@@ -64,3 +64,4 @@ applications/flipt/release/
 applications/flipt/chart/Chart.lock
 
 **/.claude/settings.local.json
+.worktrees/

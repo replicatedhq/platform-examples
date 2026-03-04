@@ -5,42 +5,43 @@ metadata:
   name: storagebox
 spec:
   values:
-    # Cassandra Settings
+    # Cassandra Settings (K8ssandra operator)
     cassandra_enabled:
       default: "0"
       value: "0"
+    cassandra_mode:
+      default: "simple"
+      value: "simple"
     cassandra_user:
       default: "cassandra"
       value: "cassandra"
     cassandra_password:
       default: "cassandra"
       value: "cassandra"
-    cassandra_truststore_password:
-      default: "cassandra"
-      value: "cassandra"
-    cassandra_keystore_password:
-      default: "cassandra"
-      value: "cassandra"
-
-    # Cassandra Ingress Settings
-    cassandra_tls_type:
-      default: "cassandra_no_ssl"
-      value: "cassandra_no_ssl"
-    cassandra_ingress_host:
-      default: "cassandra.example.com"
-      value: "cassandra.example.com"
-    cassandra_tls_cert:
+    cassandra_tls_enabled:
+      default: "0"
+      value: "0"
+    cassandra_datacenter_size:
+      default: "1"
+      value: "1"
+    cassandra_storage_class:
       default: ""
       value: ""
-    cassandra_tls_key:
-      default: ""
-      value: ""
-    cassandra_tls_ca:
-      default: ""
-      value: ""
+    cassandra_storage_size:
+      default: "8Gi"
+      value: "8Gi"
+    cassandra_heap_size:
+      default: "512M"
+      value: "512M"
+    cassandra_prometheus_enabled:
+      default: "0"
+      value: "0"
 
     # Postgres Settings
     postgres_enabled:
+      default: "0"
+      value: "0"
+    postgres_external:
       default: "0"
       value: "0"
     postgres_user:
@@ -53,6 +54,27 @@ spec:
       default: "postgres"
       value: "postgres"
     postgres_db_owner:
+      default: "postgres"
+      value: "postgres"
+    postgres_instances:
+      default: "1"
+      value: "1"
+    postgres_storage_size:
+      default: "10Gi"
+      value: "10Gi"
+    postgres_storage_class:
+      default: ""
+      value: ""
+    postgres_log_level:
+      default: "info"
+      value: "info"
+    postgres_external_host:
+      default: ""
+      value: ""
+    postgres_external_port:
+      default: "5432"
+      value: "5432"
+    postgres_external_database:
       default: "postgres"
       value: "postgres"
 
@@ -98,6 +120,15 @@ spec:
     minio_tenant_pool_storage_class_name:
       default: ""
       value: ""
+    minio_tenant_tls_auto_cert:
+      default: "1"
+      value: "1"
+    minio_tenant_ingress_api_host:
+      default: "minio.local"
+      value: "minio.local"
+    minio_tenant_ingress_console_host:
+      default: "minio-console.local"
+      value: "minio-console.local"
     minio_tenant_metrics_enabled:
       default: "1"
       value: "1"
@@ -116,3 +147,23 @@ spec:
     minio_tenant_bucket_region:
       default: "us-east-1"
       value: "us-east-1"
+
+    # rqlite Settings
+    rqlite_enabled:
+      default: "0"
+      value: "0"
+    rqlite_replicas:
+      default: "1"
+      value: "1"
+    rqlite_storage_size:
+      default: "10Gi"
+      value: "10Gi"
+    rqlite_storage_class:
+      default: ""
+      value: ""
+    rqlite_image_tag:
+      default: "null"
+      value: "null"
+    rqlite_image_pull_policy:
+      default: "null"
+      value: "null"

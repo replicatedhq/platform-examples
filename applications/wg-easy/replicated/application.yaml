@@ -6,17 +6,13 @@ metadata:
 spec:
   title: wg-easy
   icon: https://www.logo.wine/a/logo/WireGuard/WireGuard-Icon-Logo.wine.svg
-  #releaseNotes: These are our release notes
   allowRollback: true
   additionalImages:
    - debian:buster-slim
+  additionalNamespaces: []
   #additionalNamespaces should be populated by the Task file
-  #ports:
-  #  - serviceName: wg-easy/web
-  #    servicePort: 51821
-  #    applicationUrl: "http://web"
   statusInformers:
-    - wg-easy/deployment/public
+    - wg-easy/deployment/wg-easy
     - traefik/deployment/traefik
     - cert-manager/deployment/cert-manager
     - cert-manager/deployment/cert-manager-cainjector
