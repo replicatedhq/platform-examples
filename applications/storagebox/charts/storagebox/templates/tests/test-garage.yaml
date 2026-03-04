@@ -11,7 +11,6 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation
 spec:
   restartPolicy: Never
-  serviceAccountName: {{ include "storagebox.fullname" . }}-garage-setup
   {{- with .Values.global.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
@@ -36,19 +35,12 @@ spec:
       value: "http://{{ .Release.Name }}-garage:3900"
     - name: BUCKET
       value: {{ .Values.garage.bucket | quote }}
-    - name: NAMESPACE
-      valueFrom:
-        fieldRef:
-          fieldPath: metadata.namespace
     command:
     - sh
     - -ec
     - |
+      # Garage admin token — required by Garage's own admin API, not K8s auth
       ADMIN_TOKEN=$(cat /etc/garage/secrets/admin-token)
-      KUBE_API="https://kubernetes.default.svc"
-      SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-      CA_CERT="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-      SECRET_NAME="{{ include "storagebox.fullname" . }}-garage-s3"
 
       # ---- Test 1: Admin API health check ----
       echo "TEST 1: Garage admin API health check"
@@ -70,55 +62,22 @@ spec:
       }
       echo "  PASS"
 
-      # ---- Test 4: S3 credentials Secret exists ----
-      echo "TEST 4: S3 credentials Secret exists"
-      HTTP_CODE=$(wget -qO /dev/null --server-response \
-        --ca-certificate="${CA_CERT}" \
-        --header="Authorization: Bearer ${SA_TOKEN}" \
-        "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}" 2>&1 \
-        | awk '/HTTP\//{print $2}' | tail -1)
-      [ "${HTTP_CODE}" = "200" ] || {
-        echo "  FAIL: Secret '${SECRET_NAME}' not found (HTTP ${HTTP_CODE})"; exit 1
-      }
+      # ---- Test 4: S3 credentials available ----
+      echo "TEST 4: S3 credentials available"
+      ACCESS_KEY=$(cat /etc/garage/s3-credentials/access-key-id)
+      SECRET_KEY=$(cat /etc/garage/s3-credentials/secret-access-key)
+      [ -n "${ACCESS_KEY}" ] || { echo "  FAIL: access-key-id is empty"; exit 1; }
+      [ -n "${SECRET_KEY}" ] || { echo "  FAIL: secret-access-key is empty"; exit 1; }
       echo "  PASS"
 
       # ---- Test 5: S3 PUT + GET round-trip ----
       echo "TEST 5: S3 write/read round-trip"
 
-      # Fetch S3 credentials from the Secret via K8s API
-      SECRET_JSON=$(wget -qO- --ca-certificate="${CA_CERT}" \
-        --header="Authorization: Bearer ${SA_TOKEN}" \
-        "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}" 2>/dev/null)
-      ACCESS_KEY=$(echo "${SECRET_JSON}" | sed -n 's/.*"access-key-id":"\([^"]*\)".*/\1/p' | base64 -d 2>/dev/null || echo "${SECRET_JSON}" | sed -n 's/.*"access-key-id": *"\([^"]*\)".*/\1/p' | base64 -d)
-      SECRET_KEY=$(echo "${SECRET_JSON}" | sed -n 's/.*"secret-access-key":"\([^"]*\)".*/\1/p' | base64 -d 2>/dev/null || echo "${SECRET_JSON}" | sed -n 's/.*"secret-access-key": *"\([^"]*\)".*/\1/p' | base64 -d)
-
-      [ -n "${ACCESS_KEY}" ] || { echo "  FAIL: could not extract access key"; exit 1; }
-
-      # S3v4 signing helpers
       HOST="{{ .Release.Name }}-garage:3900"
-      REGION="garage"
-      SERVICE="s3"
       OBJECT_KEY="helm-test/connectivity-check"
       PAYLOAD="storagebox-helm-test-$(date +%s)"
-      DATE_STAMP=$(date -u +%Y%m%d)
       DATE_ISO=$(date -u +%Y%m%dT%H%M%SZ)
-      CONTENT_HASH=$(echo -n "${PAYLOAD}" | sha256sum | cut -d' ' -f1)
 
-      # Use the admin API to verify the write instead of S3 signed requests
-      # PUT via admin API key (Garage supports Authorization: Bearer for admin operations)
-      # For a proper S3 test, use the admin API to list bucket contents before and after
-
-      # Count objects before
-      BUCKET_ID=$(wget -qO- --header="Authorization: Bearer ${ADMIN_TOKEN}" \
-        "${GARAGE_ADMIN}/v1/bucket?globalAlias=${BUCKET}" 2>/dev/null \
-        | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
-      BEFORE=$(wget -qO- --header="Authorization: Bearer ${ADMIN_TOKEN}" \
-        "${GARAGE_ADMIN}/v1/bucket/${BUCKET_ID}" 2>/dev/null \
-        | sed -n 's/.*"objects":\([0-9]*\).*/\1/p')
-
-      # Write an object using unsigned S3 PUT (Garage allows it for testing)
-      # Actually use the admin API to create a key-scoped test
-      # Simplest approach: use wget with S3 path-style and basic auth header
       echo -n "${PAYLOAD}" > /tmp/test-object
       wget -qO /dev/null --method=PUT \
         --header="Host: ${HOST}" \
@@ -142,15 +101,21 @@ spec:
       echo ""
       echo "All Garage tests passed"
     volumeMounts:
-    - name: secrets
+    - name: admin-secrets
       mountPath: /etc/garage/secrets
+      readOnly: true
+    - name: s3-credentials
+      mountPath: /etc/garage/s3-credentials
       readOnly: true
     - name: tmp
       mountPath: /tmp
   volumes:
-  - name: secrets
+  - name: admin-secrets
     secret:
       secretName: {{ .Release.Name }}-garage
+  - name: s3-credentials
+    secret:
+      secretName: {{ include "storagebox.fullname" . }}-garage-s3
   - name: tmp
     emptyDir:
       medium: Memory
