@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.33
+    chartVersion: 1.0.41
 
   exclude: ""
 
@@ -151,6 +151,17 @@ spec:
         repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/k8s" LocalRegistryNamespace) "alpine/k8s" }}'
         tag: "1.33.7"
 
+    # License Field → Flipt Feature Flag Sync
+    licenseSync:
+      enabled: repl{{ ConfigOptionEquals "license_sync_enabled" "1" }}
+      schedule: 'repl{{ printf "*/%s * * * *" (ConfigOption "license_sync_interval") }}'
+      fieldNames: 'repl{{ ConfigOption "license_sync_field_names" }}'
+      verifySignatures: repl{{ ConfigOptionNotEquals "license_sync_public_key" "" }}
+      publicKey: 'repl{{ ConfigOption "license_sync_public_key" }}'
+      image:
+        repository: 'repl{{ HasLocalRegistry | ternary (printf "%s/%s/python" LocalRegistryHost LocalRegistryNamespace) "python" }}'
+        tag: "3.12-alpine"
+
     # Replicated SDK
     replicated:
       enabled: true
@@ -264,6 +275,13 @@ spec:
       image:
         repository: ghcr.io/valkey-io/valkey
         tag: "8.0"
+
+    # License sync CronJob image
+    licenseSync:
+      enabled: true
+      image:
+        repository: python
+        tag: "3.12-alpine"
 
     # Replicated SDK
     replicated:

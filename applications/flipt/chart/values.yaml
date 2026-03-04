@@ -282,6 +282,27 @@ valkey:
       cpu: 100m
       memory: 128Mi
 
+## License Field → Flipt Feature Flag Sync
+## Syncs boolean Replicated license fields to Flipt as feature flags
+licenseSync:
+  enabled: false
+  schedule: "*/5 * * * *"
+  fliptNamespace: "default"
+  fieldNames: "ab_testing"  # Comma-separated list of boolean license field names to sync
+  verifySignatures: true
+  publicKey: ""  # RSA public key PEM from Vendor Portal → Settings → Replicated SDK Signature Verification
+  image:
+    repository: python
+    tag: "3.12-alpine"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
 ## Replicated SDK Integration
 replicated:
   enabled: true

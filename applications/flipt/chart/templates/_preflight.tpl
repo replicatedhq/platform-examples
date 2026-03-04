@@ -79,17 +79,17 @@ spec:
           - pass:
               message: Sufficient resources for embedded PostgreSQL
 
-    # Redis specific checks
+    # Redis/Valkey specific checks
     - nodeResources:
-        checkName: Redis resource requirements
+        checkName: Redis/Valkey resource requirements
         outcomes:
           - warn:
               when: "sum(memoryCapacity) < 1Gi"
               message: |
-                At least 1GB of memory recommended for Redis cache.
-                Consider using in-memory caching if Redis is disabled.
+                At least 1GB of memory recommended for Redis/Valkey cache.
+                Consider using in-memory caching if Redis/Valkey is disabled.
           - pass:
-              message: Sufficient resources for Redis cache
+              message: Sufficient resources for Redis/Valkey cache
 
     # CloudnativePG operator check (for embedded database)
     - customResourceDefinition:

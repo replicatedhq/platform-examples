@@ -234,6 +234,36 @@ spec:
           default: 512Mi
           help_text: Memory limit for Flipt pods (e.g., 512Mi, 1Gi, 2Gi)
 
+    - name: license_sync
+      title: License Sync
+      description: Sync boolean Replicated license fields to Flipt as feature flags
+      items:
+        - name: license_sync_enabled
+          title: Enable License Field Sync
+          type: bool
+          default: "0"
+          help_text: Enable a CronJob that syncs boolean license fields from the Replicated SDK to Flipt feature flags
+
+        - name: license_sync_field_names
+          title: License Field Names
+          type: text
+          default: "ab_testing"
+          when: 'repl{{ ConfigOptionEquals "license_sync_enabled" "1" }}'
+          help_text: Comma-separated list of boolean license field names to sync as Flipt feature flags
+
+        - name: license_sync_interval
+          title: Sync Interval (minutes)
+          type: text
+          default: "5"
+          when: 'repl{{ ConfigOptionEquals "license_sync_enabled" "1" }}'
+          help_text: How often to sync license fields to Flipt (in minutes)
+
+        - name: license_sync_public_key
+          title: Signature Verification Public Key
+          type: textarea
+          when: 'repl{{ ConfigOptionEquals "license_sync_enabled" "1" }}'
+          help_text: RSA public key PEM from Vendor Portal → Settings → Replicated SDK Signature Verification. Required for signature verification of license field values.
+
     - name: advanced
       title: Advanced Configuration
       description: Advanced settings for production deployments
