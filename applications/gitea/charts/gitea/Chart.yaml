@@ -5,6 +5,9 @@ dependencies:
   version: "0.9.3"
   repository: "https://valkey.io/valkey-helm/"
   condition: valkey.enabled
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.17.1
 description: Gitea Helm chart for Kubernetes
 icon: https://gitea.com/assets/img/logo.svg
 keywords:
