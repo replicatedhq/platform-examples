@@ -8,6 +8,7 @@ dependencies:
 - name: replicated
   repository: oci://registry.replicated.com/library
   version: 1.17.1
+  condition: replicated.enabled
 description: Gitea Helm chart for Kubernetes
 icon: https://gitea.com/assets/img/logo.svg
 keywords:
