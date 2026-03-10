@@ -38,6 +38,6 @@ dependencies:
 
   # Replicated SDK for admin console integration
   - name: replicated
-    version: "^1.12.0"
+    version: "1.17.0"
     repository: oci://registry.replicated.com/library
     condition: replicated.enabled
