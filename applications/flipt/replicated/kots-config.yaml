@@ -23,14 +23,14 @@ spec:
           help_text: Number of Flipt pod replicas (2+ recommended for HA with Valkey cache)
 
     - name: ingress
-      title: Ingress Configuration
-      description: Configure how Flipt is accessed from outside the cluster
+      title: Gateway Configuration
+      description: Configure how Flipt is accessed from outside the cluster via Envoy Gateway
       items:
         - name: ingress_enabled
-          title: Enable Ingress
+          title: Enable Gateway
           type: bool
           default: "1"
-          help_text: Enable ingress for external access to Flipt
+          help_text: Enable Envoy Gateway for external access to Flipt
 
         - name: ingress_hostname
           title: Hostname
@@ -40,33 +40,19 @@ spec:
           when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
           help_text: Hostname for accessing Flipt UI
 
-        - name: ingress_class
-          title: Ingress Class
-          type: select_one
-          default: nginx
-          items:
-            - name: nginx
-              title: NGINX
-            - name: traefik
-              title: Traefik
-            - name: custom
-              title: Custom
-          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
-          help_text: Ingress controller class to use
-
-        - name: ingress_class_custom
-          title: Custom Ingress Class
+        - name: gateway_replica_count
+          title: Gateway Replica Count
           type: text
-          default: ""
-          when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "ingress_class" "custom") }}'
-          help_text: Custom ingress class name
+          default: "2"
+          when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
+          help_text: Number of Envoy Gateway proxy replicas
 
         - name: tls_enabled
           title: Enable TLS
           type: bool
           default: "1"
           when: 'repl{{ ConfigOptionEquals "ingress_enabled" "1" }}'
-          help_text: Enable TLS/HTTPS for ingress
+          help_text: Enable TLS/HTTPS for the Gateway
 
         - name: tls_cert_manager_issuer
           title: Cert-Manager Issuer

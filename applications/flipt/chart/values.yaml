@@ -132,21 +132,18 @@ service:
   annotations: {}
   labels: {}
 
-## Ingress configuration
-ingress:
+## Gateway configuration (Envoy Gateway / Gateway API)
+gateway:
   enabled: false
-  className: ""
+  replicaCount: 2
+  serviceType: NodePort
   annotations: {}
     # cert-manager.io/cluster-issuer: letsencrypt-prod
-    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
   hosts:
     - host: flipt.local
       paths:
         - path: /
-          pathType: ImplementationSpecific
-          backend:
-            servicePort: http
-            serviceName: ""
+          pathType: PathPrefix
   tls: []
     # - secretName: flipt-tls
     #   hosts:

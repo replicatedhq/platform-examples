@@ -259,30 +259,102 @@ kubectl port-forward -n flipt svc/flipt-flipt 8080:8080
 # Open browser to http://localhost:8080
 ```
 
-**If ingress is enabled, check ingress:**
+**If ingress is enabled, check Gateway and HTTPRoute:**
 ```bash
-kubectl get ingress -n flipt
-kubectl describe ingress flipt-flipt -n flipt
+kubectl get gateway -n flipt
+kubectl get httproute -n flipt
+kubectl describe gateway flipt -n flipt
 
 # Common issues:
-# - Ingress controller not installed
-# - DNS not pointing to ingress
+# - Envoy Gateway not installed
+# - DNS not pointing to the Gateway's LoadBalancer IP
 # - TLS certificate issues
+```
+
+---
+
+### Traffic Flow for Embedded Cluster
+
+```
+External Client
+       │
+       │ TCP :80 / :443
+       ▼
+┌──────────────────────────────────┐
+│      Embedded Cluster Node       │
+│                                  │
+│  Kube-proxy defines Iptables     │
+│  KUBE-NODEPORTS                  │
+│  KUBE-EXT-* → dpt:80/443         │
+│                                  │
+└──────────────┬───────────────────┘
+               │ DNAT
+               ▼
+┌──────────────────────────────────────────────────────┐
+│              Namespace: envoy-gateway-system         │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  GatewayClass: eg                              │  │
+│  │  controllerName: envoyproxy.io/gatewayclass    │  │
+│  │  parametersRef → EnvoyProxy: envoy-rp          │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  EnvoyProxy: envoy-rp                          │  │
+│  │  type: NodePort                                │  │
+│  │  nodePort: 80 / 443                            │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Envoy Proxy Pod                               │  │
+│  │  :10080 (HTTP) / :10443 (HTTPS)                │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+└──────────────────────────┬───────────────────────────┘
+                           │ Route lookup
+                           ▼
+┌──────────────────────────────────────────────────────┐
+│              Namespace: kotsadm                      │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Gateway: flipt                                │  │
+│  │  gatewayClassName: eg                          │  │
+│  │  listeners: HTTP :80 / HTTPS :443              │  │
+│  └────────────────────────────────────────────────┘  │
+│                          │                           │
+│                          ▼                           │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  HTTPRoute: flipt                              │  │
+│  │  parentRef → Gateway: flipt                    │  │
+│  │  hostnames: flipt.example.com                  │  │
+│  │  backendRef → Service: flipt :8080             │  │
+│  └────────────────────────────────────────────────┘  │
+│                          │                           │
+│                          ▼                           │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Service: flipt (ClusterIP :8080)              │  │
+│  └────────────────────────────────────────────────┘  │
+│                          │                           │
+│                          ▼                           │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Flipt Pods :8080                              │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Ingress Issues
 
-**No ingress controller:**
+**Envoy Gateway not installed:**
 ```bash
-kubectl get ingressclass
+kubectl get gatewayclass
 
-# If empty, install one:
-# For NGINX:
-helm upgrade --install ingress-nginx ingress-nginx \
-  --repo https://kubernetes.github.io/ingress-nginx \
-  --namespace ingress-nginx --create-namespace
+# If empty, install Envoy Gateway:
+helm upgrade --install envoy-gateway oci://docker.io/envoyproxy/gateway-helm \
+  --version v1.7.0 \
+  --namespace envoy-gateway-system --create-namespace
 ```
 
 **TLS certificate issues:**

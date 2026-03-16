@@ -17,7 +17,7 @@ This Helm chart provides a production-ready deployment with:
 - ✅ PostgreSQL database (embedded via CloudnativePG or external)
 - ✅ Valkey distributed caching for high performance
 - ✅ Horizontal pod autoscaling support
-- ✅ TLS/Ingress configuration
+- ✅ TLS/Ingress Gateway configuration
 - ✅ Replicated SDK integration for enterprise management
 - ✅ Comprehensive monitoring and metrics
 - ✅ Support bundle generation for troubleshooting
@@ -26,8 +26,8 @@ This Helm chart provides a production-ready deployment with:
 
 ```bash
 ┌─────────────────────────────────────────────────────────────┐
-│                       Load Balancer                          │
-│                         (Ingress)                            │
+│             Load Balancer or Nodeport                       │
+│                 (Ingress Gateway)                           │
 └─────────────────┬───────────────────────────────────────────┘
                   │
         ┌─────────▼─────────┐
@@ -47,7 +47,7 @@ This Helm chart provides a production-ready deployment with:
 1. **Flipt Server**: Core application handling feature flag evaluation and management
 2. **PostgreSQL**: Durable storage for feature flag definitions and metadata (CloudnativePG operator)
 3. **Valkey**: Distributed cache for high-performance flag evaluation (required for multiple replicas)
-4. **Ingress**: External access with TLS support
+4. **Ingress Gateway**: External access with TLS support
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ This Helm chart provides a production-ready deployment with:
   - Default storage class with RWO support
 - **CloudNativePG operator** (for embedded PostgreSQL)
   - Install once per cluster (see installation instructions below)
-- (Optional) Ingress controller (NGINX, Traefik, etc.)
+- (Optional) Envoy Gateway (included in Embedded Cluster; required for standalone ingress)
 - (Optional) cert-manager for automated TLS certificates
 
 ## Installation
@@ -68,7 +68,7 @@ This Helm chart provides a production-ready deployment with:
 
 1. **Install the application** through the Replicated admin console
 2. **Configure settings** in the admin console UI:
-   - Ingress and TLS settings
+   - Ingress Gateway and TLS settings
    - Database configuration (embedded or external)
    - Valkey cache settings
    - Resource limits

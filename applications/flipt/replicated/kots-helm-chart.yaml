@@ -5,7 +5,7 @@ metadata:
 spec:
   chart:
     name: flipt
-    chartVersion: 1.0.41
+    chartVersion: 1.0.48
 
   exclude: ""
 
@@ -179,33 +179,33 @@ spec:
             registry: 'repl{{ LocalRegistryHost }}'
             repository: 'repl{{ LocalRegistryNamespace }}/replicated-sdk-image'
 
-    # Ingress configuration (without TLS)
+    # Gateway configuration (without TLS)
     - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (not (ConfigOptionEquals "tls_enabled" "1")) }}'
       recursiveMerge: false
       values:
-        ingress:
+        gateway:
           enabled: true
-          className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
+          replicaCount: repl{{ ConfigOption "gateway_replica_count" | ParseInt }}
           hosts:
             - host: 'repl{{ ConfigOption "ingress_hostname" }}'
               paths:
                 - path: /
-                  pathType: Prefix
+                  pathType: PathPrefix
 
-    # Ingress configuration (with TLS + cert-manager)
+    # Gateway configuration (with TLS + cert-manager)
     - when: '{{repl and (ConfigOptionEquals "ingress_enabled" "1") (ConfigOptionEquals "tls_enabled" "1") }}'
       recursiveMerge: false
       values:
-        ingress:
+        gateway:
           enabled: true
-          className: 'repl{{ if ConfigOptionEquals "ingress_class" "custom" }}repl{{ ConfigOption "ingress_class_custom" }}repl{{ else }}repl{{ ConfigOption "ingress_class" }}repl{{ end }}'
+          replicaCount: repl{{ ConfigOption "gateway_replica_count" | ParseInt }}
           annotations:
             cert-manager.io/cluster-issuer: 'repl{{ ConfigOption "tls_cert_manager_issuer" }}'
           hosts:
             - host: 'repl{{ ConfigOption "ingress_hostname" }}'
               paths:
                 - path: /
-                  pathType: Prefix
+                  pathType: PathPrefix
           tls:
             - secretName: flipt-tls
               hosts:
