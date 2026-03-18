@@ -4,7 +4,9 @@ Kubernetes does not automatically restart Pods when a ConfigMap or Secret they r
 
 A reliable way to solve this is to include a checksum annotation on the Pod template. When the content of the ConfigMap or Secret changes, the checksum changes, Kubernetes sees a new Pod spec, and a rolling update is triggered automatically.
 
-Source Application: [Mlflow](https://github.com/replicatedhq/platform-examples/blob/main/applications/mlflow)
+Source Applications:
+- [Mlflow](https://github.com/replicatedhq/platform-examples/blob/main/applications/mlflow)
+- [flagd](https://github.com/replicatedhq/platform-examples/blob/main/applications/flagd)
 
 ## Why Pods Don't Restart on ConfigMap Changes
 
@@ -64,6 +66,36 @@ Each annotation uses `include` to render the full template file and pipes the re
 - Changing a value in `mlflow.env.configMap` changes the ConfigMap content, which changes the `checksum/configmap` hash, which updates the Pod spec, which triggers a rolling update.
 - Changing the database password changes the Secret content, which changes the `checksum/secret` hash, triggering the same rollout.
 - The auth secret gets its own checksum so that rotating basic auth credentials also triggers a restart.
+
+## How It Works in flagd
+
+The flagd chart stores feature flag definitions in a ConfigMap as a JSON file, mounted as a volume into the container at `/etc/flagd/flags.json`. flagd reads this file at startup via `--uri file:/etc/flagd/flags.json`.
+
+[flagd ConfigMap](https://github.com/replicatedhq/platform-examples/blob/main/applications/flagd/charts/flagd/templates/configmap.yaml)
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flagd.fullname" . }}
+data:
+  flags.json: |
+    {
+      "$schema": "https://flagd.dev/schema/v0/flags.json",
+      "flags": {{ .Values.flagd.flags | toJson }}
+    }
+```
+
+The same checksum annotation approach triggers a rolling update when flag definitions change:
+
+[flagd Deployment - Checksum Annotation](https://github.com/replicatedhq/platform-examples/blob/main/applications/flagd/charts/flagd/templates/deployment.yaml)
+```yaml
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+```
+
+This matters because changing a rollout percentage (e.g. bumping `new-checkout-flow` from 10% to 50%) updates the ConfigMap content, which changes the checksum, which triggers a rolling update so all pods serve the updated flag evaluations.
 
 ## Variations
 

@@ -1,0 +1,33 @@
+# Upgrade values for the demo.
+# Changes from defaults:
+#   - new-checkout-flow: 10/90 → 50/50
+#   - dark-mode: off → on
+#   - maintenance-mode: off → on
+flagd:
+  flags:
+    new-checkout-flow:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "off"
+      targeting:
+        fractional:
+          - - "on"
+            - 50
+          - - "off"
+            - 50
+
+    dark-mode:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "on"
+
+    maintenance-mode:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "on"
