@@ -1,0 +1,19 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: license-validation
+spec:
+  title: License Validation Demo
+  icon: ""
+  releaseNotes: ""
+  allowRollback: true
+  requireMinimalRBACPrivileges: true
+  supportMinimalRBACPrivileges: true
+  ports:
+    - serviceName: license-validation
+      servicePort: 80
+      localPort: 8888
+      applicationUrl: "http://license-validation"
+  statusInformers:
+    - deployment/license-validation
+  graphs: []
