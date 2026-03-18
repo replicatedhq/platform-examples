@@ -1188,7 +1188,7 @@ tasks:
         # Run helm-docs for each chart
         for chart in {{.CHARTS}}; do
           echo "Generating documentation for $chart chart..."
-          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl
+          (cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl)
         done
         
         echo "✅ Helm chart documentation generated successfully."
@@ -1227,7 +1227,7 @@ tasks:
           fi
           
           # Generate fresh docs
-          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir"
+          (cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir")
           
           # Compare with current docs
           if [ -f "$readme_path" ] && ! diff -q "$readme_path" "$tmp_readme" > /dev/null; then
