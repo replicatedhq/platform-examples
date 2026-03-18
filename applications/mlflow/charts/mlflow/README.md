@@ -88,12 +88,12 @@ For detailed configuration options, see the [Configuration Reference](./README_C
 
 ```yaml
 # Minimal configuration example
-postgresql:
+postgres:
   auth:
     password: "securePassword"  # Required for security
 minio:
-  auth:
-    rootPassword: "securePassword"  # Required for security
+  secrets:
+    secretKey: "securePassword"  # Required for security
 ```
 
 #### Common Configuration Options
@@ -109,12 +109,14 @@ mlflow:
     limits:
       memory: "1Gi"
       cpu: "500m"
- 
+
   # Configure basic authentication
-  auth:
-    enabled: true
-    username: admin
-    password: password
+  trackingServer:
+    basicAuth:
+      enabled: true
+      createSecret:
+        adminUsername: admin
+        adminPassword: "changeme123456"
 ```
 
 For complete configuration options including external services, security settings, and advanced features, see the [Configuration Reference](./README_CONFIG.md).
@@ -403,22 +405,26 @@ postgres:
 
 ```yaml
 minio:
-  # Configure resources for the MinIO server
-  resources:
-    limits:
-      cpu: 1000m
-      memory: 2Gi
-    requests:
-      cpu: 250m
-      memory: 512Mi
+  tenant:
+    pools:
+      pool0:
+        # Configure resources for the MinIO tenant pods
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
 ```
 
 #### Advanced Configurations
 
-For high-traffic environments, increase resource allocations and consider enabling autoscaling:
+For high-traffic environments, increase resource allocations and replicas:
 
 ```yaml
 mlflow:
+  replicas: 3
   resources:
     limits:
       cpu: 2000m
@@ -426,14 +432,6 @@ mlflow:
     requests:
       cpu: 1000m
       memory: 2Gi
- 
-  # Configure horizontal pod autoscaling
-  autoscaling:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
-    targetCPUUtilizationPercentage: 80
-    targetMemoryUtilizationPercentage: 80
 ```
 
 ### Persistence Configurations
@@ -445,25 +443,32 @@ Configure persistent storage for MLflow artifacts and databases to ensure data d
 Configure MinIO or other S3-compatible storage for MLflow artifacts:
 
 ```yaml
-# Using embedded MinIO (default)
+# Using embedded MinIO (default) - MinIO Operator tenant
 minio:
   enabled: true
-  persistence:
-    enabled: true
-    size: 10Gi
-    storageClass: "standard"
-  # Improve reliability with distributed setup
-  mode: distributed
-  replicas: 4
+  secrets:
+    accessKey: minio
+    secretKey: "securePassword"
+  tenant:
+    pools:
+      pool0:
+        servers: 3
+        volumesPerServer: 4
+        size: 10Gi
 
 # Or configure external S3-compatible storage
-externalS3:
-  enabled: true
-  endpoint: "s3.amazonaws.com"
-  bucket: "mlflow-artifacts"
-  region: "us-west-2"
-  # Use Kubernetes secrets for credentials
-  secretName: "s3-credentials"
+minio:
+  enabled: false
+mlflow:
+  artifactStore:
+    s3:
+      enabled: true
+      existingSecret: "my-s3-credentials"  # keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      external:
+        enabled: true
+        protocol: https
+        host: "s3.amazonaws.com"
+        port: 443
 ```
 
 #### Database Persistence
@@ -631,153 +636,81 @@ tracing:
 
 Configure MLflow for high availability and optimal performance at scale.
 
-#### Horizontal Pod Autoscaling
+#### Multiple Replicas
 
-Enable automatic scaling based on resource utilization:
+Increase the number of MLflow server replicas:
 
 ```yaml
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 80
-  behavior:
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Percent
-          value: 25
-          periodSeconds: 60
-    scaleUp:
-      stabilizationWindowSeconds: 0
-      policies:
-        - type: Percent
-          value: 100
-          periodSeconds: 60
+mlflow:
+  replicas: 3
 ```
 
 #### Multi-Zone Deployment
 
-Configure pod anti-affinity for high availability across zones:
+Configure pod anti-affinity for high availability across zones using `mlflow.affinity`:
 
 ```yaml
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - mlflow
-          topologyKey: "topology.kubernetes.io/zone"
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/role
-              operator: In
-              values:
-                - mlflow-nodes
+mlflow:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - mlflow
+            topologyKey: "topology.kubernetes.io/zone"
 ```
 
-#### Replicas and Load Balancing
-
-Configure the number of replicas and load balancing strategies:
+Or use the built-in soft anti-affinity shorthand:
 
 ```yaml
-replicaCount: 3
-
-service:
-  type: ClusterIP
-  port: 80
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-type: nlb
-    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 10800  # 3 hours
+mlflow:
+  podAntiAffinityTopologyKey: "topology.kubernetes.io/zone"
+  podAntiAffinityMode: "soft"  # or "hard" for requiredDuringScheduling
 ```
 
-#### Pod Disruption Budget
+#### Service Configuration
 
-Define a Pod Disruption Budget to ensure availability during voluntary disruptions:
+Configure the MLflow service via `mlflow.service`:
 
 ```yaml
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
-  # Or use maxUnavailable instead
-  # maxUnavailable: 1
+mlflow:
+  service:
+    type: ClusterIP
+    port: 5000
+    annotations: {}
 ```
 
 #### Database High Availability
 
-Configure database for high availability:
+The embedded PostgreSQL uses CloudNativePG which provides HA via multiple instances:
 
 ```yaml
-postgresql:
-  enabled: true
-  architecture: replication
-  auth:
-    username: mlflow
-    database: mlflow
-  primary:
-    replicaCount: 1
-    persistence:
-      enabled: true
+postgres:
+  embedded:
+    instances: 3  # Deploy a 3-node CloudNativePG cluster
+    storage:
       size: 10Gi
-  readReplicas:
-    replicaCount: 2
-    persistence:
-      enabled: true
-      size: 10Gi
-  metrics:
-    enabled: true
-  volumePermissions:
-    enabled: true
-```
-
-#### Connection Pooling
-
-Configure connection pooling for database access:
-
-```yaml
-connectionPooling:
-  enabled: true
-  maxConnections: 100
-  minConnections: 5
-  maxConnectionAge: 600  # 10 minutes
-  connectionTimeout: 30  # 30 seconds
-  poolSize: 20
+      storageClass: ""
 ```
 
 #### Resource Allocation
 
-Configure resource requests and limits appropriate for high-traffic environments:
+Configure resource requests and limits for high-traffic environments:
 
 ```yaml
-resources:
-  limits:
-    cpu: 2000m
-    memory: 4Gi
-  requests:
-    cpu: 500m
-    memory: 1Gi
-
-# Job specific resources
-jobs:
+mlflow:
   resources:
     limits:
-      cpu: 1000m
-      memory: 2Gi
+      cpu: 2000m
+      memory: 4Gi
     requests:
-      cpu: 250m
-      memory: 512Mi
+      cpu: 500m
+      memory: 1Gi
 ```
 
 ### Understanding Platform Integration Files
