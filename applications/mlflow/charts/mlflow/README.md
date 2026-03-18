@@ -292,88 +292,58 @@ Secure your MLflow deployment with the following configuration options.
 
 #### Authentication and Authorization
 
-MLflow supports several authentication methods:
+MLflow supports basic authentication via `mlflow.trackingServer.basicAuth`:
 
 ```yaml
-# Basic Auth
+# Enable basic authentication (disabled by default; requires MLflow 3.x-compatible config)
 mlflow:
-  auth:
-    enabled: true
-    type: "basic"
-    users:
-      - username: admin
-        password: ""  # Will generate a random password if empty
-        isAdmin: true
-      - username: readonly
-        password: "example-password"  # Not recommended, use secrets instead
-        isAdmin: false
-
-# OIDC/OAuth2 Integration
-mlflow:
-  auth:
-    enabled: true
-    type: "oauth"
-    oauth:
-      clientId: "mlflow-client"
-      clientSecret: ""  # Use secretRef instead for production
-      secretRef:
-        name: "mlflow-oauth-secret"
-        key: "client-secret"
-      provider: "keycloak"  # or "okta", "auth0", etc.
-      issuerUrl: "https://keycloak.example.com/auth/realms/mlflow"
-      redirectUri: "https://mlflow.example.com/oauth/callback"
-      scopes: "openid profile email"
+  trackingServer:
+    basicAuth:
+      enabled: true
+      # Use an existing secret containing basic_auth.ini
+      existingSecret: "mlflow-basic-auth"
+      # Or let the chart create a secret with these defaults
+      createSecret:
+        adminUsername: admin
+        adminPassword: "changeme123456"  # min 12 chars for MLflow 3.x
+        defaultPermission: READ
+        authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
 ```
 
 #### Network Security
 
-Secure communication with TLS and network policies:
+Secure communication with TLS via `mlflow.ingress`:
 
 ```yaml
-# TLS Configuration
-ingress:
-  enabled: true
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: mlflow.example.com
-      paths:
-        - path: /
-  tls:
-    - secretName: mlflow-tls
-      hosts:
-        - mlflow.example.com
-
-# Network Policies
-networkPolicies:
-  enabled: true
-  # Only allow traffic from specific namespaces
-  ingressFrom:
-    - namespaceSelector:
-        matchLabels:
-          name: data-science
-    - namespaceSelector:
-        matchLabels:
-          name: ml-pipeline
+mlflow:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hostname: mlflow.example.com
+    path: /
+    pathType: ImplementationSpecific
+    tls:
+      enabled: true
 ```
 
 #### Secrets Management
 
-Use Kubernetes secrets for sensitive information:
+Reference existing Kubernetes secrets for sensitive credentials:
 
 ```yaml
-secretsManager:
-  enabled: true
-  # Integrate with external secrets providers
-  externalSecrets:
-    enabled: true
-    backend: "aws-secretsmanager"  # or "vault", "gcp-secretmanager"
-    secretMapping:
-      - secretName: "mlflow-database-credentials"
-        externalName: "prod/mlflow/db-credentials"
-      - secretName: "mlflow-s3-credentials"
-        externalName: "prod/mlflow/s3-credentials"
+mlflow:
+  trackingServer:
+    basicAuth:
+      # Reference an existing secret containing basic_auth.ini
+      existingSecret: "mlflow-auth-secret"
+
+# Reference existing secrets for artifact store credentials
+mlflow:
+  artifactStore:
+    s3:
+      existingSecret: "mlflow-s3-credentials"
 ```
 
 #### Pod Security Context
@@ -417,9 +387,9 @@ mlflow:
 #### PostgreSQL Resources (when using embedded PostgreSQL)
 
 ```yaml
-postgresql:
-  # Configure resources for the PostgreSQL server
-  primary:
+postgres:
+  embedded:
+    # Configure resources for the CloudNativePG PostgreSQL cluster
     resources:
       limits:
         cpu: 1000m
@@ -501,35 +471,24 @@ externalS3:
 Configure PostgreSQL persistence for MLflow metadata:
 
 ```yaml
-# Using embedded PostgreSQL (default)
-postgresql:
-  enabled: true
-  persistence:
+# Using embedded CloudNativePG PostgreSQL (default)
+postgres:
+  embedded:
     enabled: true
-    size: 8Gi
-    storageClass: "standard"
-  # Optional high-availability settings
-  primary:
-    persistence:
-      enabled: true
-      size: 8Gi
- 
-  # For production, consider configuring backups
-  backup:
-    enabled: true
-    schedule: "0 0 * * *"  # Daily backup at midnight
+    instances: 3
     storage:
+      size: 8Gi
       storageClass: "standard"
-      size: 10Gi
 
 # Or configure external PostgreSQL
-externalPostgresql:
-  enabled: true
-  host: "postgresql.database.svc.cluster.local"
-  port: 5432
-  database: "mlflow"
-  # Use Kubernetes secrets for credentials
-  secretName: "postgresql-credentials"
+postgres:
+  embedded:
+    enabled: false
+  external:
+    enabled: true
+    host: "postgresql.database.svc.cluster.local"
+    port: 5432
+    database: "mlflow"
 ```
 
 #### Backing Up and Restoring Data
@@ -1007,7 +966,7 @@ When making changes to the MLflow Helm chart, corresponding updates may be neede
 | mlflow.trackingServer.port | int | `5000` | Port to expose the tracking server |
 | mlflow.trackingServer.workers | int | `1` | Number of gunicorn worker processes to handle requests |
 | nameOverride | string | `""` | String to override the default generated name |
-| postgres | object | `{"auth":{"password":"mlflow","username":"mlflow"},"backup":{"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"postgres","tag":"17.6"}},"embedded":{"additionalLabels":{},"affinity":{},"annotations":{},"certificates":{},"enableSuperuserAccess":true,"enabled":true,"image":{"repository":"ghcr.io/cloudnative-pg/postgresql","tag":"15.2"},"imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"initdb":{"database":"mlflow","owner":"mlflow","postInitApplicationSQL":[]},"instances":3,"logLevel":"info","podAntiAffinityMode":"soft","podAntiAffinityTopologyKey":"","postgresGID":26,"postgresUID":26,"postgresql":{},"primaryUpdateMethod":"switchover","primaryUpdateStrategy":"unsupervised","priorityClassName":"","resources":{},"roles":[],"storage":{"size":"10Gi","storageClass":""},"superuserSecret":"","type":"postgresql"},"external":{"database":"mlflow","enabled":false,"host":"","port":5432}}` | Embedded Postrgres configuration Deploys a cluster using the CloudnativePG Operator [[ref]](https://github.com/cloudnative-pg/cloudnative-pg) |
+| postgres | object | `{"auth":{"password":"mlflow","username":"mlflow"},"backup":{"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"postgres","tag":"17.6"}},"embedded":{"additionalLabels":{},"affinity":{},"annotations":{},"certificates":{},"enableSuperuserAccess":true,"enabled":true,"image":{"repository":"ghcr.io/cloudnative-pg/postgresql","tag":"15.2"},"imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"initdb":{"database":"mlflow","owner":"mlflow","postInitApplicationSQL":[]},"instances":3,"logLevel":"info","podAntiAffinityMode":"soft","podAntiAffinityTopologyKey":"","postgresGID":26,"postgresUID":26,"postgresql":{},"primaryUpdateMethod":"switchover","primaryUpdateStrategy":"unsupervised","priorityClassName":"","resources":{},"roles":[],"storage":{"size":"10Gi","storageClass":""},"superuserSecret":"","type":"postgresql"},"external":{"database":"mlflow","enabled":false,"host":"","port":5432}}` | Embedded Postgres configuration Deploys a cluster using the CloudnativePG Operator [[ref]](https://github.com/cloudnative-pg/cloudnative-pg) |
 | postgres.auth | object | `{"password":"mlflow","username":"mlflow"}` | Postgres authentication configuration |
 | postgres.auth.password | string | `"mlflow"` | Mlflow Tracking Server Postgres password |
 | postgres.auth.username | string | `"mlflow"` | Mlflow Tracking Server Postgres username |
@@ -1022,7 +981,7 @@ When making changes to the MLflow Helm chart, corresponding updates may be neede
 | postgres.embedded.annotations | object | `{}` | Postgres cluster annotations |
 | postgres.embedded.certificates | object | `{}` | The configuration for the CA and related certificates. See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration |
 | postgres.embedded.enableSuperuserAccess | bool | `true` | When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password. If the secret is not present, the operator will automatically create one. When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created, and then blank the password of the postgres user by setting it to NULL. |
-| postgres.embedded.enabled | bool | `true` | Specifies whether to enable the Embedded Postrgres cluster |
+| postgres.embedded.enabled | bool | `true` | Specifies whether to enable the Embedded Postgres cluster |
 | postgres.embedded.image.repository | string | `"ghcr.io/cloudnative-pg/postgresql"` | Image registry |
 | postgres.embedded.image.tag | string | `"15.2"` | Image tag |
 | postgres.embedded.imagePullPolicy | string | `"IfNotPresent"` | Image pull policy |
