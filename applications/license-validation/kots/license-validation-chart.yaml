@@ -1,0 +1,25 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: license-validation
+spec:
+  chart:
+    name: license-validation
+    chartVersion: 0.1.0
+  values:
+    global:
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
+    image:
+      repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/replicatedhq/platform-examples/license-validation") "ghcr.io/replicatedhq/platform-examples/license-validation" }}
+      tag: latest
+      pullPolicy: IfNotPresent
+    replicated:
+      enabled: true
+    simulatedSeatUsage: repl{{ ConfigOption "simulated_seat_usage" }}
+    appPublicKey: repl{{ ConfigOption "app_public_key" }}
+
+  namespace: license-validation
+  builder:
+    replicated:
+      enabled: true

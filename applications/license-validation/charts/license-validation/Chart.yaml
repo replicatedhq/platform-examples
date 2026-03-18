@@ -1,0 +1,11 @@
+apiVersion: v2
+name: license-validation
+description: A demo application showcasing Replicated custom license field consumption and signature validation
+type: application
+version: 0.1.0
+appVersion: 1.0.0
+dependencies:
+- name: replicated
+  version: "~1.12.2"
+  repository: "oci://registry.replicated.com/library"
+  condition: replicated.enabled
