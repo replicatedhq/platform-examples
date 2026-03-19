@@ -13,6 +13,15 @@ the context of a broader application. During the review process, we may ask
 that your show your pattern in the context of a larger application, or extract
 one or more patterns from your application example. 
 
+## Dependabot
+
+This repository uses Dependabot to automatically update the Replicated SDK
+dependency in Helm charts. If you add a new application that depends on the
+Replicated SDK, add an entry to `.github/dependabot.yml` for the chart
+directory. See the existing entries in that file for the pattern to follow.
+
+## Patterns
+
 Even a very simple pattern can (and should) be packaged as a deployable
 application, but the goal is different. The goal of a pattern is to show a
 single common problem and it's solution. An example is pattern is "Specifying

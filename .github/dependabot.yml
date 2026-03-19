@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+#
+# When adding a new Helm chart that depends on the Replicated SDK,
+# add a corresponding entry here so Dependabot keeps it up to date.
+#
+version: 2
+updates:
+  - package-ecosystem: "helm"
+    directory: "/applications/fake-services/app"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/mlflow/charts/mlflow"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/n8n/charts/n8n"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/onlineboutique/chart"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/powerdns/charts/powerdns-authoritative"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/storagebox/charts/storagebox"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
+
+  - package-ecosystem: "helm"
+    directory: "/applications/wg-easy/charts/wg-easy"
+    schedule:
+      interval: "daily"
+    groups:
+      replicated-sdk:
+        patterns:
+          - "replicated"
