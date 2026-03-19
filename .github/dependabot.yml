@@ -5,8 +5,9 @@
 #
 version: 2
 updates:
+  # Track the Replicated SDK on a weekly cadence
   - package-ecosystem: "helm"
-    directories:
+    directories: &helm-dirs
       - "/applications/fake-services/app"
       - "/applications/mlflow/charts/mlflow"
       - "/applications/n8n/charts/n8n"
@@ -16,7 +17,21 @@ updates:
       - "/applications/wg-easy/charts/wg-easy"
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-name: "replicated"
     groups:
       replicated-sdk:
         patterns:
           - "replicated"
+
+  # Track all other Helm dependencies on a monthly cadence
+  - package-ecosystem: "helm"
+    directories: *helm-dirs
+    schedule:
+      interval: "monthly"
+    ignore:
+      - dependency-name: "replicated"
+    groups:
+      all-other-deps:
+        patterns:
+          - "*"
