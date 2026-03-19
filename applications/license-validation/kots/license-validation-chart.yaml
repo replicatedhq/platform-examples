@@ -11,8 +11,8 @@ spec:
       imagePullSecrets:
         - name: repl{{ ImagePullSecretName }}
     image:
-      repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/replicatedhq/platform-examples/license-validation") "ghcr.io/replicatedhq/platform-examples/license-validation" }}
-      tag: latest
+      repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/license-validation") "ttl.sh/license-validation" }}
+      tag: 2h
       pullPolicy: IfNotPresent
     replicated:
       enabled: true

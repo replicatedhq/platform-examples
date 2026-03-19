@@ -42,6 +42,7 @@ __pycache__/
 
 # Misc
 .env
+sbom/
 
 # Cursor
 .cursor/
