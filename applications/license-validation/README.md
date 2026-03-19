@@ -116,7 +116,7 @@ export REPLICATED_APP=license-validation
 
 ### Step 2: Create Custom License Fields
 
-1. In the Vendor Portal, go to **Settings > Custom License Fields**
+1. In the Vendor Portal, go to **License Fields**
 2. Create two fields:
 
 | Field Name   | Type    | Default        |
@@ -181,8 +181,7 @@ replicated cluster ls
 ### Step 7: Get Kubeconfig
 
 ```bash
-replicated cluster kubeconfig \
-  --name license-validation-demo \
+replicated cluster kubeconfig license-validation-demo \
   --output-path ./demo.kubeconfig
 
 export KUBECONFIG=./demo.kubeconfig
@@ -210,8 +209,11 @@ helm install license-validation \
 **Option B: KOTS install**
 
 ```bash
-# Download the customer license file from the Vendor Portal, then:
-kubectl kots install $REPLICATED_APP \
+# Download the customer license file
+replicated customer download-license --customer "Demo Customer" > ./license.yaml
+
+# Install via KOTS admin console
+kubectl kots install $REPLICATED_APP/unstable \
   --namespace license-validation \
   --shared-password password \
   --license-file ./license.yaml
@@ -241,7 +243,7 @@ The app polls the SDK every 30 seconds, so changes appear within ~30s of saving 
 ### Cleanup
 
 ```bash
-replicated cluster rm --name license-validation-demo
+replicated cluster rm license-validation-demo
 unset KUBECONFIG
 rm -f demo.kubeconfig
 ```

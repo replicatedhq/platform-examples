@@ -7,8 +7,8 @@ spec:
   icon: ""
   releaseNotes: ""
   allowRollback: true
-  requireMinimalRBACPrivileges: true
-  supportMinimalRBACPrivileges: true
+  requireMinimalRBACPrivileges: false
+  supportMinimalRBACPrivileges: false
   ports:
     - serviceName: license-validation
       servicePort: 80

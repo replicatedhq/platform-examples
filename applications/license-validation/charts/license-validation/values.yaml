@@ -5,8 +5,8 @@ replicated:
   enabled: true
 
 image:
-  repository: ghcr.io/replicatedhq/platform-examples/license-validation
-  tag: latest
+  repository: ttl.sh/license-validation
+  tag: 2h
   pullPolicy: IfNotPresent
 
 replicaCount: 1
