@@ -66,3 +66,6 @@ applications/flipt/chart/Chart.lock
 
 **/.claude/settings.local.json
 .worktrees/
+
+# Replicated license files
+**/license.yaml
