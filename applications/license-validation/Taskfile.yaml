@@ -42,8 +42,7 @@ tasks:
     desc: Package chart and update KOTS manifest version reference
     cmds:
       - helm package {{.CHART_DIR}} -d {{.KOTS_DIR}}
-      - |
-        sed -i '' "s/chartVersion: .*/chartVersion: {{.CHART_VERSION}}/" {{.KOTS_DIR}}/{{.APP_NAME}}-chart.yaml
+      - yq -i '.spec.chart.chartVersion = "{{.CHART_VERSION}}"' {{.KOTS_DIR}}/{{.APP_NAME}}-chart.yaml
 
   release-create:
     desc: Create a Replicated release and promote to channel
