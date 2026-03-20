@@ -181,7 +181,7 @@ jobs:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
 
       - name: Debug output
-        if: failure()
+        if: ${{ failure() && steps.create-cluster.outputs.cluster-id != '' }}
         run: |
           KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
           echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
