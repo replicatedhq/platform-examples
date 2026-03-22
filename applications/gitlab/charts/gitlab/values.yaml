@@ -24,48 +24,54 @@ gitlab:
       class: nginx
 
     # -- PostgreSQL configuration
-    # For production, use external PostgreSQL 16+
+    # Uses external-postgresql service (official postgres:16 image)
+    # For production: replace host with your external PostgreSQL endpoint
     psql:
-      host: ""
+      host: external-postgresql
       port: 5432
       database: gitlabhq_production
       username: gitlab
       password:
-        secret: gitlab-postgresql-password
-        key: postgresql-password
+        secret: gitlab-external-pg-password
+        key: password
 
     # -- Redis configuration
+    # Uses external-redis service (official redis:7 image)
+    # For production: replace host with your external Redis endpoint
     redis:
-      host: ""
+      host: external-redis
+      port: 6379
       auth:
         enabled: true
-        secret: gitlab-redis-password
+        secret: gitlab-external-redis-password
         key: redis-password
 
     # -- Object storage (MinIO or S3-compatible)
+    # When using bundled MinIO (eval), leave object_store disabled.
+    # For production, enable and provide an external S3-compatible connection secret.
     appConfig:
       object_store:
         enabled: false
         proxy_download: true
-        connection:
-          secret: ""
-          key: connection
+
+    # -- Bundled MinIO (for evaluation only)
+    # Note: minio.enabled was removed; the correct location is global.minio.enabled
+    minio:
+      enabled: true
 
     # -- Initial root password (auto-generated if not set)
     # Stored in secret: <release-name>-gitlab-initial-root-password
     # key: password
 
-  # -- Bundled PostgreSQL (for evaluation only - deprecated, removed in GitLab 19.0)
+  # -- Bundled PostgreSQL (disabled — use external-postgresql service or cloudnative-pg)
+  # Set to false to use external PostgreSQL configured via global.psql.*
   postgresql:
-    install: true
+    install: false
 
-  # -- Bundled Redis (for evaluation only - deprecated, removed in GitLab 19.0)
+  # -- Bundled Redis (disabled — use external-redis service or valkey)
+  # Set to false to use external Redis configured via global.redis.*
   redis:
-    install: true
-
-  # -- Bundled MinIO (for evaluation only)
-  minio:
-    enabled: true
+    install: false
 
   # -- Bundled NGINX ingress controller
   nginx-ingress:
