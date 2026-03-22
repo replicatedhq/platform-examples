@@ -1,12 +1,12 @@
 dependencies:
 - name: common
   repository: https://bjw-s-labs.github.io/helm-charts
-  version: 3.7.3
+  version: 4.6.2
 - name: templates
   repository: file://../templates
   version: 1.1.0
 - name: replicated
   repository: oci://registry.replicated.com/library
   version: 1.16.0
-digest: sha256:5370f364086a8743fd2aca9559f6effbd2a0d87eb793d31c3938360e82cd8bf3
-generated: "2026-02-24T13:52:16.626819-05:00"
+digest: sha256:35b9266d261463fe20d421deffe687a3c8df9a8f5434f6b24523069eb44104d8
+generated: "2026-03-19T03:30:35.876740193Z"
