@@ -39,6 +39,7 @@ __pycache__/
 
 # Misc
 .env
+sbom/
 
 # Cursor
 .cursor/
@@ -58,3 +59,6 @@ applications/wg-easy/release/
 
 **/.claude/settings.local.json
 .worktrees/
+
+# Replicated license files
+**/license.yaml
