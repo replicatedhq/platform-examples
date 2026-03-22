@@ -1,0 +1,108 @@
+# GitLab Helm Chart Values
+# This wraps the upstream GitLab chart with Replicated SDK integration.
+# See https://docs.gitlab.com/charts/ for full documentation.
+
+# -- Enable/disable the upstream GitLab chart
+gitlab:
+  enabled: true
+
+  # Global configuration for the upstream chart
+  global:
+    # -- Domain configuration
+    hosts:
+      # -- The base domain for GitLab. All subdomains will be derived from this.
+      domain: ""
+      # -- External IP address for ingress
+      externalIP: ""
+
+    # -- GitLab edition: 'ce' (Community) or 'ee' (Enterprise)
+    edition: ce
+
+    # -- Ingress configuration
+    ingress:
+      configureCertmanager: true
+      class: nginx
+
+    # -- PostgreSQL configuration
+    # For production, use external PostgreSQL 16+
+    psql:
+      host: ""
+      port: 5432
+      database: gitlabhq_production
+      username: gitlab
+      password:
+        secret: gitlab-postgresql-password
+        key: postgresql-password
+
+    # -- Redis configuration
+    redis:
+      host: ""
+      auth:
+        enabled: true
+        secret: gitlab-redis-password
+        key: redis-password
+
+    # -- Object storage (MinIO or S3-compatible)
+    appConfig:
+      object_store:
+        enabled: false
+        proxy_download: true
+        connection:
+          secret: ""
+          key: connection
+
+    # -- Initial root password (auto-generated if not set)
+    # Stored in secret: <release-name>-gitlab-initial-root-password
+    # key: password
+
+  # -- Bundled PostgreSQL (for evaluation only - deprecated, removed in GitLab 19.0)
+  postgresql:
+    install: true
+
+  # -- Bundled Redis (for evaluation only - deprecated, removed in GitLab 19.0)
+  redis:
+    install: true
+
+  # -- Bundled MinIO (for evaluation only)
+  minio:
+    enabled: true
+
+  # -- Bundled NGINX ingress controller
+  nginx-ingress:
+    enabled: true
+
+  # -- Bundled cert-manager
+  certmanager:
+    install: true
+    installCRDs: false
+
+  # -- Bundled Prometheus (for evaluation only)
+  prometheus:
+    install: true
+
+  # -- Bundled registry
+  registry:
+    enabled: true
+
+  # -- GitLab Runner (disabled by default - deploy separately)
+  gitlab-runner:
+    install: false
+
+# -- Replicated SDK configuration (added by install-sdk step)
+replicated:
+  enabled: true
+
+# -- Global values shared across subcharts (required by Replicated SDK)
+global:
+  replicated:
+    customerName: ""
+    licenseID: ""
+    licenseType: ""
+    channelID: ""
+    channelName: ""
+    channelSequence: 0
+    releaseSequence: 0
+    releaseCreatedAt: ""
+    releaseNotes: ""
+    replicatedID: ""
+    appID: ""
