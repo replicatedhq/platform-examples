@@ -1,0 +1,210 @@
+name: flagd CI
+
+on:
+  pull_request:
+    paths:
+      - 'applications/flagd/charts/**'
+      - 'applications/flagd/Makefile'
+      - 'applications/flagd/demo-upgrade-values.yaml'
+      - '.github/workflows/flagd-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'applications/flagd/charts/**'
+      - 'applications/flagd/Makefile'
+      - 'applications/flagd/demo-upgrade-values.yaml'
+      - '.github/workflows/flagd-ci.yml'
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: applications/flagd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Helm lint
+        run: helm lint ./charts/flagd
+
+      - name: Helm template (default values)
+        run: helm template flagd ./charts/flagd > /dev/null
+
+      - name: Helm template (checksum disabled)
+        run: helm template flagd ./charts/flagd --set flagd.checksumAnnotation=false > /dev/null
+
+      - name: Verify checksum annotation present
+        run: |
+          helm template flagd ./charts/flagd | grep -q "checksum/config:"
+          echo "checksum/config annotation found"
+
+      - name: Verify checksum changes with values
+        run: |
+          CHECKSUM_BEFORE=$(helm template flagd ./charts/flagd | grep "checksum/config:" | awk '{print $2}')
+          CHECKSUM_AFTER=$(helm template flagd ./charts/flagd --set 'flagd.flags.dark-mode.defaultVariant=on' | grep "checksum/config:" | awk '{print $2}')
+          if [ "$CHECKSUM_BEFORE" = "$CHECKSUM_AFTER" ]; then
+            echo "ERROR: Checksum did not change when flag values changed"
+            exit 1
+          fi
+          echo "Checksum changed: $CHECKSUM_BEFORE -> $CHECKSUM_AFTER"
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template]
+    defaults:
+      run:
+        working-directory: applications/flagd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Create cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          kubernetes-distribution: k3s
+          kubernetes-version: "1.32"
+          cluster-name: flagd-ci-${{ github.run_id }}
+          disk: 50
+          nodes: 1
+          ttl: 1h
+          export-kubeconfig: true
+
+      - name: Install flagd chart
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          helm install flagd ./charts/flagd --wait --timeout 5m
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Wait for pods
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          echo "Waiting for flagd deployment..."
+          kubectl wait --for=condition=Available deployment -l app.kubernetes.io/name=flagd \
+            --timeout=120s
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Evaluate flags
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          kubectl port-forward svc/flagd 8016:8016 &
+          PF_PID=$!
+          sleep 3
+
+          echo "=== Evaluating flags ==="
+          for FLAG in new-checkout-flow dark-mode maintenance-mode; do
+            echo "--- $FLAG ---"
+            curl -sf http://localhost:8016/ofrep/v1/evaluate/flags/$FLAG \
+              -H 'Content-Type: application/json' \
+              -d '{"context":{"targetingKey":"ci-test-user"}}'
+            echo ""
+          done
+
+          kill $PF_PID 2>/dev/null || true
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Test rolling update on config change
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          echo "Recording pod name before upgrade..."
+          POD_BEFORE=$(kubectl get pod -l app.kubernetes.io/name=flagd -o jsonpath='{.items[0].metadata.name}')
+          echo "Pod before: $POD_BEFORE"
+
+          echo "Upgrading with changed flag values..."
+          helm upgrade flagd ./charts/flagd \
+            -f demo-upgrade-values.yaml \
+            --wait --timeout 5m
+
+          echo "Waiting for rollout..."
+          kubectl rollout status deployment/flagd --timeout=120s
+
+          POD_AFTER=$(kubectl get pod -l app.kubernetes.io/name=flagd -o jsonpath='{.items[0].metadata.name}')
+          echo "Pod after: $POD_AFTER"
+
+          if [ "$POD_BEFORE" = "$POD_AFTER" ]; then
+            echo "ERROR: Pod was not replaced after config change — rolling update did not trigger"
+            exit 1
+          fi
+          echo "Rolling update confirmed: pod changed from $POD_BEFORE to $POD_AFTER"
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Evaluate flags after upgrade
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          kubectl port-forward svc/flagd 8016:8016 &
+          PF_PID=$!
+          sleep 3
+
+          echo "=== Evaluating flags after upgrade ==="
+          for FLAG in new-checkout-flow dark-mode maintenance-mode; do
+            echo "--- $FLAG ---"
+            curl -sf http://localhost:8016/ofrep/v1/evaluate/flags/$FLAG \
+              -H 'Content-Type: application/json' \
+              -d '{"context":{"targetingKey":"ci-test-user"}}'
+            echo ""
+          done
+
+          kill $PF_PID 2>/dev/null || true
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Debug output
+        if: ${{ failure() && steps.create-cluster.outputs.cluster-id != '' }}
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          export KUBECONFIG="$KUBECONFIG_FILE"
+
+          echo "=== Pods ==="
+          kubectl get pods -A
+          echo "=== Services ==="
+          kubectl get svc
+          echo "=== Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -40
+          echo "=== flagd pod logs ==="
+          kubectl logs -l app.kubernetes.io/name=flagd --tail=50 || true
+          echo "=== ConfigMap ==="
+          kubectl get configmap flagd -o yaml || true
+          echo "=== Deployment ==="
+          kubectl get deployment flagd -o yaml || true
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Remove cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.17.0
+        if: ${{ always() && steps.create-cluster.outputs.cluster-id != '' }}
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
