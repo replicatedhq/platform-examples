@@ -199,7 +199,7 @@ postgres:
       # -- Image registry
       repository: ghcr.io/cloudnative-pg/postgresql
       # -- Image tag
-      tag: '15.2'
+      tag: '17.5'
     # -- Image pull policy
     imagePullPolicy: IfNotPresent
     # -- Image pull secrets
