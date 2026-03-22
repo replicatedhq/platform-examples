@@ -11,19 +11,28 @@ spec:
   supportMinimalRBACPrivileges: false
   additionalNamespaces:
     - cert-manager
-    - ingress-nginx
+    - envoy-gateway-system
     - cnpg
     - k8ssandra-operator
-    - minio
   additionalImages:
-    - proxy.xyyzx.net/proxy/storagebox/docker.io/library/busybox:1.37.0
+    - docker.io/library/alpine:3.21
+    - docker.io/dxflrs/garage:v1.3.1
   ports: []
   statusInformers:
+    # Infrastructure (EC extensions - always deployed)
+    - cert-manager/deployment/cert-manager
+    - cert-manager/deployment/cert-manager-webhook
+    - cnpg/deployment/cloudnative-pg
+    - envoy-gateway-system/deployment/envoy-gateway
+    - k8ssandra-operator/deployment/k8ssandra-operator
+    - k8ssandra-operator/deployment/k8ssandra-operator-cass-operator
+    # Admin console
     - statefulset/kotsadm-rqlite
     - deployment/kotsadm
+    # Application components (conditional)
     - '{{repl if ConfigOptionEquals "cassandra_enabled" "1"}}statefulset/storagebox-cassandra-dc1-default-sts{{repl end}}'
-    - '{{repl if ConfigOptionEquals "postgres_enabled" "1"}}pod/postgres-1{{repl end}}'
-    - '{{repl if ConfigOptionEquals "minio_tenant_enabled" "1"}}statefulset/minio-pool-0{{repl end}}'
+    - '{{repl if and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1")}}service/postgres-nodeport{{repl end}}'
+    - '{{repl if ConfigOptionEquals "garage_enabled" "1"}}statefulset/storagebox-garage{{repl end}}'
     - '{{repl if ConfigOptionEquals "nfs_enabled" "1"}}deployment/storagebox-nfs-server{{repl end}}'
     - '{{repl if ConfigOptionEquals "rqlite_enabled" "1"}}statefulset/storagebox-rqlite{{repl end}}'
   graphs: []

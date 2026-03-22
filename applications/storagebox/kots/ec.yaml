@@ -10,12 +10,8 @@ spec:
       repositories:
         - name: cnpg
           url: https://cloudnative-pg.github.io/charts
-        - name: minio-operator
-          url: https://operator.min.io
         - name: jetstack
           url: https://charts.jetstack.io
-        - name: ingress-nginx
-          url: https://kubernetes.github.io/ingress-nginx
         - name: k8ssandra
           url: https://helm.k8ssandra.io/stable
       # NOTE: cert-manager MUST be first - k8ssandra cass-operator
@@ -37,21 +33,10 @@ spec:
           values: |
             cloudnative-pg:
               enabled: true
-        - name: minio-operator
-          chartname: minio-operator/operator
-          namespace: minio
-          version: "7.1.1"
-        - name: ingress-nginx
-          chartname: ingress-nginx/ingress-nginx
-          namespace: ingress-nginx
-          version: "4.14.1"
-          values: |
-            controller:
-              service:
-                type: NodePort
-                nodePorts:
-                  http: 80
-                  https: 443
+        - name: envoy-gateway
+          chartname: oci://docker.io/envoyproxy/gateway-helm
+          namespace: envoy-gateway-system
+          version: "v1.7.0"
         - name: k8ssandra-operator
           chartname: k8ssandra/k8ssandra-operator
           namespace: k8ssandra-operator
