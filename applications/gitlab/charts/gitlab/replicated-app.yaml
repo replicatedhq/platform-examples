@@ -1,7 +1,0 @@
-apiVersion: kots.io/v1beta1
-kind: Application
-metadata:
-  name: gitlab-pika
-spec:
-  title: GitLab
-  icon: "https://about.gitlab.com/images/press/logo/svg/gitlab-logo-500.svg"
