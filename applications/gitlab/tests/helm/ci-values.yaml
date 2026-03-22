@@ -18,28 +18,19 @@ gitlab:
       tls:
         enabled: false
 
-    # External PostgreSQL and Redis (no bundled deps — bitnami images removed from Docker Hub)
+    # Use bundled services for CI (eval only)
     psql:
-      host: external-postgresql
-      port: 5432
-      database: gitlabhq_production
-      username: gitlab
-      password:
-        secret: gitlab-external-pg-password
-        key: password
+      host: ""
     redis:
-      host: external-redis
-      port: 6379
-      auth:
-        enabled: true
-        secret: gitlab-external-redis-password
-        key: redis-password
+      host: ""
 
-  # Disable bundled PostgreSQL and Redis
+  # Bundled services (eval/CI only)
   postgresql:
-    install: false
+    install: true
   redis:
-    install: false
+    install: true
+  minio:
+    enabled: true
   nginx-ingress:
     enabled: true
   certmanager:
