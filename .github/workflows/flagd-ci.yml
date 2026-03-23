@@ -58,6 +58,7 @@ jobs:
   helm-install-test:
     runs-on: ubuntu-22.04
     needs: [lint-and-template]
+    if: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}
     defaults:
       run:
         working-directory: applications/flagd
