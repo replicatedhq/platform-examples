@@ -86,7 +86,7 @@ jobs:
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
-          chart: gitlab-${{ env.VERSION }}.tgz
+          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
           promote-channel: Unstable
 
@@ -127,6 +127,6 @@ jobs:
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
-          chart: gitlab-${{ env.VERSION }}.tgz
+          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
           promote-channel: Stable
