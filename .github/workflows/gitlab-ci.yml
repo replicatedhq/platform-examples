@@ -72,7 +72,7 @@ jobs:
         id: set-release-version
         run: |
           git_hash=$(git rev-parse --short HEAD)
-          version="pr-${{ github.event.pull_request.number }}-${git_hash}"
+          version="0.1.0-pr.${{ github.event.pull_request.number }}.${git_hash}"
           echo "VERSION=${version}" >> $GITHUB_ENV
 
       - name: Add Helm repositories
