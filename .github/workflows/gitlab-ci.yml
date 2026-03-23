@@ -1,6 +1,6 @@
 name: GitLab CI
 
-# Security note: REPLICATED_API_TOKEN must be from a dedicated service account,
+# Security note: GITLAB_REPLICATED_API_TOKEN must be from a dedicated service account,
 # NOT a personal token. Create one at: vendor.replicated.com >
 # Account Settings > Service Accounts.
 
@@ -85,7 +85,7 @@ jobs:
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
           chart: gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
           promote-channel: Unstable
@@ -126,7 +126,7 @@ jobs:
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
           chart: gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
           promote-channel: Stable
