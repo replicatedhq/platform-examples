@@ -88,7 +88,6 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
-          release-notes: "PR #${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}"
           promote-channel: Unstable
 
   promote-stable:
@@ -130,5 +129,4 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: gitlab-${{ env.VERSION }}.tgz
           version: ${{ env.VERSION }}
-          release-notes: "Merged to main - ${{ github.sha }}"
           promote-channel: Stable
