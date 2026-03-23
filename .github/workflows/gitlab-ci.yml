@@ -87,7 +87,6 @@ jobs:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
           chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
-          yaml-dir: applications/gitlab/kots
           version: ${{ env.VERSION }}
           promote-channel: Unstable
 
@@ -129,6 +128,5 @@ jobs:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
           chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
-          yaml-dir: applications/gitlab/kots
           version: ${{ env.VERSION }}
           promote-channel: Stable
