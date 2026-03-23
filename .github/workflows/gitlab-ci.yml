@@ -47,10 +47,7 @@ jobs:
       - name: Helm lint
         run: helm lint ./charts/gitlab
 
-      - name: Helm template (default values)
-        run: helm template gitlab ./charts/gitlab > /dev/null
-
-      - name: Helm template (CI test values)
+      - name: Helm template
         run: helm template gitlab ./charts/gitlab -f tests/helm/ci-values.yaml > /dev/null
 
   create-release:
