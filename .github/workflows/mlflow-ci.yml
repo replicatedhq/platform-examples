@@ -420,6 +420,22 @@ jobs:
           echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
           PORT="5000"
 
+          echo "Waiting for MLflow deployment to be created..."
+          for i in $(seq 1 30); do
+            if KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployment -l app.kubernetes.io/name=mlflow -n default -o name 2>/dev/null | grep -q .; then
+              echo "MLflow deployment found."
+              break
+            fi
+            echo "MLflow deployment not found yet (attempt $i/30), waiting..."
+            sleep 10
+          done
+
+          if ! KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployment -l app.kubernetes.io/name=mlflow -n default -o name 2>/dev/null | grep -q .; then
+            echo "ERROR: MLflow deployment was not created within the expected time"
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployments,pods -n default || true
+            exit 1
+          fi
+
           echo "Waiting for MLflow deployment to be available..."
           KUBECONFIG="$KUBECONFIG_FILE" kubectl wait deployment \
             --selector=app.kubernetes.io/name=mlflow \
@@ -427,8 +443,8 @@ jobs:
             --timeout=5m \
             -n default || {
             echo "ERROR: MLflow deployment not available after 5m"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe deployment -l app.kubernetes.io/name=mlflow -n default
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default || true
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe deployment -l app.kubernetes.io/name=mlflow -n default || true
             exit 1
           }
 
@@ -438,13 +454,29 @@ jobs:
           echo "hostname=localhost:$PORT" >> $GITHUB_OUTPUT
 
           echo "Waiting for port-forward to become ready..."
+          success=false
           for i in $(seq 1 10); do
             if curl -sf http://localhost:$PORT/health >/dev/null 2>&1; then
               echo "MLflow is reachable"
+              success=true
               break
             fi
             sleep 3
           done
+
+          if [ "$success" != "true" ]; then
+            echo "ERROR: MLflow never became reachable via port-forward after 30s"
+            echo "==== Port-forward log ===="
+            cat "/tmp/port-forward-kots-${{ github.run_id }}.log" || true
+            echo "==== MLflow pods ===="
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -l app.kubernetes.io/name=mlflow -n default || true
+            pod_name="$(KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -l app.kubernetes.io/name=mlflow -n default -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")"
+            if [ -n "$pod_name" ]; then
+              echo "==== Logs for pod $pod_name ===="
+              KUBECONFIG="$KUBECONFIG_FILE" kubectl logs "$pod_name" -n default || true
+            fi
+            exit 1
+          fi
         env:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
 
