@@ -99,12 +99,12 @@ For detailed configuration options, see the [Configuration Reference](./README_C
 
 ```yaml
 # Minimal configuration example
-postgresql:
+postgres:
   auth:
     password: "securePassword"  # Required for security
 minio:
-  auth:
-    rootPassword: "securePassword"  # Required for security
+  secrets:
+    secretKey: "securePassword"  # Required for security
 ```
 
 #### Common Configuration Options
@@ -120,12 +120,14 @@ mlflow:
     limits:
       memory: "1Gi"
       cpu: "500m"
-  
+
   # Configure basic authentication
-  auth:
-    enabled: true
-    username: admin
-    password: password
+  trackingServer:
+    basicAuth:
+      enabled: true
+      createSecret:
+        adminUsername: admin
+        adminPassword: "changeme123456"
 ```
 
 For complete configuration options including external services, security settings, and advanced features, see the [Configuration Reference](./README_CONFIG.md).
