@@ -5,6 +5,9 @@ metadata:
   name: wg-easy-supportbundle
 spec:
   collectors:
+    - clusterResources:
+        namespaces:
+          - {{ .Release.Namespace }}
     - logs:
         namespace: {{ .Release.Namespace }}
         selector:
@@ -21,4 +24,4 @@ spec:
           - pass:
               when: 'net.ipv4.ip_forward == 1'
               message: "IP forwarding is enabled."
-{{- end -}} 
+{{- end -}}

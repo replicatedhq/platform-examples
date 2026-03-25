@@ -2,7 +2,7 @@
 
 A Helm chart for MLflow - Open source platform for the machine learning lifecycle.
 
-![Version: 0.4.0](https://img.shields.io/badge/Version-0.4.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 2.10.0](https://img.shields.io/badge/AppVersion-2.10.0-informational?style=flat-square)
+![Version: 0.5.2](https://img.shields.io/badge/Version-0.5.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 3.3.2](https://img.shields.io/badge/AppVersion-3.3.2-informational?style=flat-square)
 
 ## Introduction
 
@@ -88,12 +88,12 @@ For detailed configuration options, see the [Configuration Reference](./README_C
 
 ```yaml
 # Minimal configuration example
-postgresql:
+postgres:
   auth:
     password: "securePassword"  # Required for security
 minio:
-  auth:
-    rootPassword: "securePassword"  # Required for security
+  secrets:
+    secretKey: "securePassword"  # Required for security
 ```
 
 #### Common Configuration Options
@@ -109,12 +109,14 @@ mlflow:
     limits:
       memory: "1Gi"
       cpu: "500m"
- 
+
   # Configure basic authentication
-  auth:
-    enabled: true
-    username: admin
-    password: password
+  trackingServer:
+    basicAuth:
+      enabled: true
+      createSecret:
+        adminUsername: admin
+        adminPassword: "changeme123456"
 ```
 
 For complete configuration options including external services, security settings, and advanced features, see the [Configuration Reference](./README_CONFIG.md).
@@ -144,18 +146,31 @@ The following table lists the configurable parameters for the MLflow chart and t
 
 ### PostgreSQL Configuration
 
-The chart uses PostgreSQL for storing MLflow metadata. You can configure the database connection using:
+The chart uses PostgreSQL for storing MLflow metadata. You can configure the embedded PostgreSQL database using:
 
 ```yaml
-postgresql:
-  enabled: true
-  auth:
-    username: mlflow
-    password: mlflowpassword
-    database: mlflow
-  primary:
-    persistence:
+postgres:
+  embedded:
+    # Enable embedded PostgreSQL
+    enabled: true
+    # Number of PostgreSQL instances for high availability
+    instances: 3
+    # Database name
+    initdb:
+      database: mlflow
+      owner: mlflow
+    # Storage configuration
+    storage:
       size: 10Gi
+      storageClass: ""
+    # Resource configuration
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
 ```
 
 ### MinIO Configuration
@@ -165,43 +180,97 @@ MinIO is used for artifact storage. Configure it with:
 ```yaml
 minio:
   enabled: true
-  auth:
-    rootUser: minioadmin
-    rootPassword: minioadmin
-  persistence:
-    size: 20Gi
-  defaultBuckets: "mlflow"
+  # Authentication credentials
+  secrets:
+    name: myminio-env-configuration
+    accessKey: minio
+    secretKey: minio1234
+  # MinIO tenant configuration
+  tenant:
+    # Resource pool configuration
+    pools:
+      pool0:
+        servers: 3
+        volumesPerServer: 4
+        size: 10Gi
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "250m"
+    # Create a bucket during provisioning
+    buckets:
+    - name: mlflow
 ```
 
 ### Using External Storage
 
-To use external PostgreSQL:
+#### External PostgreSQL
+
+To use an external PostgreSQL database instead of the embedded one:
 
 ```yaml
-postgresql:
-  enabled: false
+# Disable the embedded PostgreSQL
+postgres:
+  embedded:
+    enabled: false
+  external:
+    enabled: true
+    # External PostgreSQL connection details
+    host: "external-postgresql-host"
+    port: 5432
+    database: "mlflow"
 
+# Configure MLflow backend store
 mlflow:
   backendStore:
-    databaseUri: "postgresql://user:password@external-postgresql:5432/mlflow"
+    # Option 1: Using a full database URI
+    databaseUri: "postgresql://user:password@external-postgresql-host:5432/mlflow"
+    # OR Option 2: The connection details will be auto-configured from postgres.external values
 ```
 
-To use external S3-compatible storage:
+Make sure your external database is accessible from your Kubernetes cluster and has the necessary permissions for MLflow to create its schema.
+
+#### External S3-compatible Storage
+
+To use external S3-compatible storage for MLflow artifacts:
 
 ```yaml
+# Disable the embedded MinIO
 minio:
   enabled: false
 
+# Configure MLflow artifact store to use external S3
 mlflow:
-  artifactRoot:
+  # Set the artifact destination
+  trackingServer:
+    artifactsDestination: "s3://my-external-bucket/mlflow"
+ 
+  # Configure S3 artifact store
+  artifactStore:
     s3:
       enabled: true
-      bucket: "mlflow"
-      endpoint: "s3.amazonaws.com"
-      accessKey: "your-access-key"
-      secretKey: "your-secret-key"
-      region: "us-east-1"
+      # Option 1: Using an existing secret with AWS credentials
+      existingSecret: "my-aws-secret"
+      # OR Option 2: Provide credentials directly (not recommended for production)
+      # accessKeyId: "your-access-key"
+      # secretAccessKey: "your-secret-key"
+     
+      # Configure external S3 details
+      external:
+        enabled: true
+        protocol: https
+        host: "s3.amazonaws.com"  # For AWS S3
+        # host: "storage.googleapis.com"  # For Google Cloud Storage
+        port: 443
+        ignoreTls: false
 ```
+
+This configuration works with any S3-compatible storage, including:
+- Amazon S3
+- Google Cloud Storage (with interoperability enabled)
+- MinIO (self-hosted)
+- DigitalOcean Spaces
+- And other compatible services
 
 ### Replicated SDK Integration
 
@@ -219,32 +288,458 @@ replicated:
   enabled: false
 ```
 
-### Security Considerations
+### Security Configurations
 
-By default, this chart doesn't include authentication. In production, consider:
+Secure your MLflow deployment with the following configuration options.
 
-1. Using an ingress with authentication
-2. Setting up TLS encryption
-3. Configuring username/password protection
+#### Authentication and Authorization
 
-Example ingress configuration with TLS:
+MLflow supports basic authentication via `mlflow.trackingServer.basicAuth`:
 
 ```yaml
-ingress:
-  enabled: true
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: mlflow.example.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: mlflow-tls
-      hosts:
-        - mlflow.example.com
+# Enable basic authentication (disabled by default; requires MLflow 3.x-compatible config)
+mlflow:
+  trackingServer:
+    basicAuth:
+      enabled: true
+      # Use an existing secret containing basic_auth.ini
+      existingSecret: "mlflow-basic-auth"
+      # Or let the chart create a secret with these defaults
+      createSecret:
+        adminUsername: admin
+        adminPassword: "changeme123456"  # min 12 chars for MLflow 3.x
+        defaultPermission: READ
+        authorizationFunction: mlflow.server.auth:authenticate_request_basic_auth
 ```
+
+#### Network Security
+
+Secure communication with TLS via `mlflow.ingress`:
+
+```yaml
+mlflow:
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hostname: mlflow.example.com
+    path: /
+    pathType: ImplementationSpecific
+    tls:
+      enabled: true
+```
+
+#### Secrets Management
+
+Reference existing Kubernetes secrets for sensitive credentials:
+
+```yaml
+mlflow:
+  trackingServer:
+    basicAuth:
+      # Reference an existing secret containing basic_auth.ini
+      existingSecret: "mlflow-auth-secret"
+
+# Reference existing secrets for artifact store credentials
+mlflow:
+  artifactStore:
+    s3:
+      existingSecret: "mlflow-s3-credentials"
+```
+
+#### Pod Security Context
+
+Set security contexts for pods and containers:
+
+```yaml
+securityContext:
+  # Pod-level security context
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Container-level security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+```
+
+### Resource Configurations
+
+Configure appropriate resources for MLflow server and its dependencies to ensure optimal performance.
+
+#### MLflow Server Resources
+
+```yaml
+mlflow:
+  # Configure resources for the MLflow server
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+```
+
+#### PostgreSQL Resources (when using embedded PostgreSQL)
+
+```yaml
+postgres:
+  embedded:
+    # Configure resources for the CloudNativePG PostgreSQL cluster
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+```
+
+#### MinIO Resources (when using embedded MinIO)
+
+```yaml
+minio:
+  tenant:
+    pools:
+      pool0:
+        # Configure resources for the MinIO tenant pods
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+```
+
+#### Advanced Configurations
+
+For high-traffic environments, increase resource allocations and replicas:
+
+```yaml
+mlflow:
+  replicas: 3
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+```
+
+### Persistence Configurations
+
+Configure persistent storage for MLflow artifacts and databases to ensure data durability.
+
+#### Artifact Storage
+
+Configure MinIO or other S3-compatible storage for MLflow artifacts:
+
+```yaml
+# Using embedded MinIO (default) - MinIO Operator tenant
+minio:
+  enabled: true
+  secrets:
+    accessKey: minio
+    secretKey: "securePassword"
+  tenant:
+    pools:
+      pool0:
+        servers: 3
+        volumesPerServer: 4
+        size: 10Gi
+
+# Or configure external S3-compatible storage
+minio:
+  enabled: false
+mlflow:
+  artifactStore:
+    s3:
+      enabled: true
+      existingSecret: "my-s3-credentials"  # keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      external:
+        enabled: true
+        protocol: https
+        host: "s3.amazonaws.com"
+        port: 443
+```
+
+#### Database Persistence
+
+Configure PostgreSQL persistence for MLflow metadata:
+
+```yaml
+# Using embedded CloudNativePG PostgreSQL (default)
+postgres:
+  embedded:
+    enabled: true
+    instances: 3
+    storage:
+      size: 8Gi
+      storageClass: "standard"
+
+# Or configure external PostgreSQL
+postgres:
+  embedded:
+    enabled: false
+  external:
+    enabled: true
+    host: "postgresql.database.svc.cluster.local"
+    port: 5432
+    database: "mlflow"
+```
+
+#### Backing Up and Restoring Data
+
+For critical deployments, configure regular backups:
+
+```yaml
+backup:
+  enabled: true
+  schedule: "0 0 * * *"  # Daily backup at midnight
+  retention: 7           # Keep 7 days of backups
+  destination:
+    s3:
+      bucket: "mlflow-backups"
+      region: "us-west-2"
+      secretName: "backup-credentials"
+```
+
+### Monitoring and Observability
+
+Configure monitoring for your MLflow deployment to ensure optimal performance and reliability.
+
+#### Prometheus Metrics
+
+Enable Prometheus metrics collection for MLflow components:
+
+```yaml
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    # If using Prometheus Operator
+    additionalLabels:
+      release: prometheus
+    # Scrape interval
+    interval: 30s
+    # Metrics path
+    path: /metrics
+    # Metrics port
+    port: metrics
+```
+
+#### Logging Configuration
+
+Configure logging levels and output formats:
+
+```yaml
+logging:
+  # Global log level
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  # Log format options
+  format: json  # or text
+  # Retention configuration
+  retention:
+    days: 7
+    maxSize: 500Mi
+```
+
+#### Grafana Dashboards
+
+Automatically provision Grafana dashboards for MLflow metrics:
+
+```yaml
+dashboards:
+  enabled: true
+  # Label that Grafana uses to discover dashboards
+  label: grafana_dashboard
+  # Annotations
+  annotations:
+    grafana_folder: MLflow
+  # Dashboard configurations
+  mlflowDashboard:
+    enabled: true
+  databaseDashboard:
+    enabled: true
+  artifactStoreDashboard:
+    enabled: true
+```
+
+#### Alerts and Notifications
+
+Configure alerts for critical metrics:
+
+```yaml
+alerts:
+  enabled: true
+  # Configure alert rules
+  rules:
+    highCpuUsage:
+      expr: 'avg(rate(container_cpu_usage_seconds_total{container="mlflow"}[5m])) > 0.8'
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High CPU usage for MLflow"
+        description: "MLflow has high CPU usage (> 80%) for the last 10 minutes"
+   
+    highMemoryUsage:
+      expr: 'avg(container_memory_usage_bytes{container="mlflow"}) / avg(container_spec_memory_limit_bytes{container="mlflow"}) > 0.9'
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High memory usage for MLflow"
+        description: "MLflow is using over 90% of its memory allocation"
+ 
+  # Configure alert receivers
+  receivers:
+    slack:
+      enabled: true
+      channel: "#mlflow-alerts"
+      webhookUrl: ""  # Use secretRef in production
+      secretRef:
+        name: slack-webhook
+        key: url
+    email:
+      enabled: false
+      to: "mlops-team@example.com"
+```
+
+#### Tracing
+
+Enable distributed tracing for MLflow requests:
+
+```yaml
+tracing:
+  enabled: true
+  # Supported providers: jaeger, zipkin, datadog
+  provider: jaeger
+  jaeger:
+    endpoint: "http://jaeger-collector:14268/api/traces"
+    samplingRate: 0.1  # Sample 10% of requests
+  # Sample rate configuration
+  sampler:
+    type: const
+    param: 1  # 1 = sample all, lower values sample less
+```
+
+### High Availability and Scaling
+
+Configure MLflow for high availability and optimal performance at scale.
+
+#### Multiple Replicas
+
+Increase the number of MLflow server replicas:
+
+```yaml
+mlflow:
+  replicas: 3
+```
+
+#### Multi-Zone Deployment
+
+Configure pod anti-affinity for high availability across zones using `mlflow.affinity`:
+
+```yaml
+mlflow:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                    - mlflow
+            topologyKey: "topology.kubernetes.io/zone"
+```
+
+Or use the built-in soft anti-affinity shorthand:
+
+```yaml
+mlflow:
+  podAntiAffinityTopologyKey: "topology.kubernetes.io/zone"
+  podAntiAffinityMode: "soft"  # or "hard" for requiredDuringScheduling
+```
+
+#### Service Configuration
+
+Configure the MLflow service via `mlflow.service`:
+
+```yaml
+mlflow:
+  service:
+    type: ClusterIP
+    port: 5000
+    annotations: {}
+```
+
+#### Database High Availability
+
+The embedded PostgreSQL uses CloudNativePG which provides HA via multiple instances:
+
+```yaml
+postgres:
+  embedded:
+    instances: 3  # Deploy a 3-node CloudNativePG cluster
+    storage:
+      size: 10Gi
+      storageClass: ""
+```
+
+#### Resource Allocation
+
+Configure resource requests and limits for high-traffic environments:
+
+```yaml
+mlflow:
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+```
+
+### Understanding Platform Integration Files
+
+This section describes the KOTS manifest files used for platform integration in the `applications/mlflow/kots` directory. These files enable MLflow to be deployed through the Replicated platform.
+
+#### KOTS Manifest Files
+
+| File | Description |
+| ---- | ----------- |
+| `kots-app.yaml` | Defines the application metadata for KOTS, including title, icon, status informers, and ports. |
+| `kots-config.yaml` | Contains all configurable options presented to the user during installation, organized in groups like database settings, S3 storage, and networking configuration. |
+| `mlflow-chart.yaml` | A HelmChart custom resource that integrates the MLflow Helm chart with KOTS, connecting user configuration options to Helm values. |
+| `infra-chart.yaml` | A HelmChart custom resource for infrastructure components that MLflow depends on. |
+| `kots-preflight.yaml` | Defines preflight checks that run before installation to validate the environment meets requirements. |
+| `kots-support-bundle.yaml` | Configures support bundle collection for troubleshooting. |
+| `k8s-app.yaml` | Kubernetes Application custom resource definition. |
+| `ec.yaml` | EntitlementSpec that defines license entitlements and limits. |
+
+#### Integration Pattern
+
+These files work together to create an integrated experience:
+
+1. The user configures settings through the options defined in `kots-config.yaml`
+2. The values are injected into the Helm charts via template functions in `mlflow-chart.yaml` and `infra-chart.yaml`
+3. Preflight checks in `kots-preflight.yaml` ensure the environment is properly set up
+4. Deployment status is tracked via the informers defined in `kots-app.yaml`
+
+When making changes to the MLflow Helm chart, corresponding updates may be needed in the KOTS manifests to ensure proper integration.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -318,7 +813,7 @@ ingress:
 | mlflow.artifactStore.s3.ignoreTls | bool | `true` | Specify whether to ignore TLS |
 | mlflow.artifactStore.s3.secretAccessKey | string | `"minio1234"` | AWS secret access key Used if S3 is enabled as an artifact storage backend and no existing secret is specified |
 | mlflow.automountServiceAccountToken | bool | `true` | Specifies whether to automount service account token |
-| mlflow.backendStore.databaseUpgrade | bool | `false` | Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store |
+| mlflow.backendStore.databaseUpgrade | bool | `false` | Specifies whether to run `mlflow db upgrade ${MLFLOW_BACKEND_STORE_URI}` to upgrade database schema when use a database as backend store MLflow 3.x with basic auth will auto-create auth tables on first run |
 | mlflow.backendStore.existingSecret | string | `""` | Name of an existing secret which contains key `MLFLOW_BACKEND_STORE_URI` If an existing secret is not provided, a new secret will be created to store the backend store URI using the details from .Values.postgres when Embedded PostgreSQL is enabled |
 | mlflow.containerSecurityContext | object | `{}` | Configure the Security Context for the Container |
 | mlflow.dnsConfig | object | `{}` | Optional DNS settings, configuring the ndots option may resolve nslookup issues on some Kubernetes setups. |
@@ -328,16 +823,17 @@ ingress:
 | mlflow.extraContainers | list | `[]` | Extra containers belonging to the mlflow pod. |
 | mlflow.extraEnvFrom | list | `[]` | Extra environment variable sources in mlflow container |
 | mlflow.extraInitContainers | list | `[]` | Extra initialization containers belonging to the mlflow pod. |
+| mlflow.extraPipPackages | list | `["psycopg2-binary","boto3"]` | Extra pip packages to install via init container. The upstream ghcr.io/mlflow/mlflow image does not include database drivers or cloud storage clients. Packages listed here are installed at startup into a shared volume and made available via PYTHONPATH. |
 | mlflow.extraVolumeMounts | list | `[]` | Extra volume mounts to mount into the mlflow container's file system |
 | mlflow.extraVolumes | list | `[]` | Extra volumes that can be mounted by containers belonging to the mlflow pod |
 | mlflow.hostAliases | list | `[]` | Use hostAliases to add custom entries to /etc/hosts - mapping IP addresses to hostnames. [[ref]](https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/) |
 | mlflow.hostNetwork | bool | `false` | When using hostNetwork make sure you set dnsPolicy to `ClusterFirstWithHostNet` |
 | mlflow.hostname | string | `""` | Allows specifying explicit hostname setting |
-| mlflow.image | object | `{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"bitnami/mlflow","tag":"2.12.2-debian-12-r1"}` | Image configuration for the mlflow deployment |
+| mlflow.image | object | `{"pullPolicy":"IfNotPresent","registry":"ghcr.io","repository":"mlflow/mlflow","tag":"v3.3.2"}` | Image configuration for the mlflow deployment |
 | mlflow.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| mlflow.image.registry | string | `"docker.io"` | Image registry |
-| mlflow.image.repository | string | `"bitnami/mlflow"` | Image repository |
-| mlflow.image.tag | string | `"2.12.2-debian-12-r1"` | Image tag |
+| mlflow.image.registry | string | `"ghcr.io"` | Image registry |
+| mlflow.image.repository | string | `"mlflow/mlflow"` | Image repository |
+| mlflow.image.tag | string | `"v3.3.2"` | Image tag |
 | mlflow.imagePullSecets | list | `[]` | Image pull secrets |
 | mlflow.ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"extraHosts":[],"extraPaths":[],"extraRules":[],"extraTls":[],"hostname":"chart-example.local","path":"/","pathType":"ImplementationSpecific","tls":{"cert":"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n","enabled":false,"genSelfSignedCert":false,"key":"-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n"}}` | Mlflow Ingress configuration [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/) |
 | mlflow.ingress.annotations | object | `{}` | Annotations to add to the ingress |
@@ -390,29 +886,35 @@ ingress:
 | mlflow.tolerations | list | `[]` | Specify taint tolerations [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 | mlflow.topologySpreadConstraints | list | `[]` | Defines topologySpreadConstraint rules. [[ref]](https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/) |
 | mlflow.trackingServer.artifactsDestination | string | `"s3://mlflow"` | Specifies the base artifact location from which to resolve artifact upload/download/list requests (e.g. `s3://my-bucket`) |
-| mlflow.trackingServer.basicAuth.createSecret.adminPassword | string | `"password"` | Default admin password if the admin is not already created |
+| mlflow.trackingServer.basicAuth.createSecret.adminPassword | string | `"password123456"` | Default admin password if the admin is not already created (min 12 chars for MLflow 3.x) |
 | mlflow.trackingServer.basicAuth.createSecret.adminUsername | string | `"admin"` | Default admin username if the admin is not already created |
 | mlflow.trackingServer.basicAuth.createSecret.authorizationFunction | string | `"mlflow.server.auth:authenticate_request_basic_auth"` | Function to authenticate requests |
 | mlflow.trackingServer.basicAuth.createSecret.defaultPermission | string | `"READ"` | Default permission on all resources |
-| mlflow.trackingServer.basicAuth.enabled | bool | `true` | Specifies whether to enable basic authentication |
+| mlflow.trackingServer.basicAuth.enabled | bool | `false` | Specifies whether to enable basic authentication |
 | mlflow.trackingServer.basicAuth.existingSecret | string | `""` | Name of an existing secret which contains key `basic_auth.ini` |
 | mlflow.trackingServer.defaultArtifactRoot | string | `""` | Specifies a default artifact location for logging, data will be logged to `mlflow-artifacts/:` if artifact serving is enabled, otherwise `./mlruns` |
-| mlflow.trackingServer.extraArgs | list | `["--dev"]` | Extra arguments passed to the `mlflow server` command |
+| mlflow.trackingServer.extraArgs | list | `[]` | Extra arguments passed to the `mlflow server` command |
 | mlflow.trackingServer.host | string | `"0.0.0.0"` | Network address to listen on |
 | mlflow.trackingServer.mode | string | `"serve-artifacts"` | Specifies which mode mlflow tracking server run with, available options are `serve-artifacts`, `no-serve-artifacts` and `artifacts-only` |
 | mlflow.trackingServer.port | int | `5000` | Port to expose the tracking server |
 | mlflow.trackingServer.workers | int | `1` | Number of gunicorn worker processes to handle requests |
 | nameOverride | string | `""` | String to override the default generated name |
-| postgres | object | `{"auth":{"password":"mlflow","username":"mlflow"},"embedded":{"additionalLabels":{},"affinity":{},"annotations":{},"certificates":{},"enableSuperuserAccess":true,"enabled":true,"image":{"repository":"ghcr.io/cloudnative-pg/postgresql","tag":"15.2"},"imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"initdb":{"database":"mlflow","owner":"mlflow","postInitApplicationSQL":[]},"instances":3,"logLevel":"info","podAntiAffinityMode":"soft","podAntiAffinityTopologyKey":"","postgresGID":26,"postgresUID":26,"postgresql":{},"primaryUpdateMethod":"switchover","primaryUpdateStrategy":"unsupervised","priorityClassName":"","resources":{},"roles":[],"storage":{"size":"10Gi","storageClass":""},"superuserSecret":"","type":"postgresql"},"external":{"database":"mlflow","enabled":false,"host":"","port":5432}}` | Embedded Postrgres configuration Deploys a cluster using the CloudnativePG Operator [[ref]](https://github.com/cloudnative-pg/cloudnative-pg) |
+| postgres | object | `{"auth":{"password":"mlflow","username":"mlflow"},"backup":{"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"postgres","tag":"17.6"}},"embedded":{"additionalLabels":{},"affinity":{},"annotations":{},"certificates":{},"enableSuperuserAccess":true,"enabled":true,"image":{"repository":"ghcr.io/cloudnative-pg/postgresql","tag":"15.2"},"imagePullPolicy":"IfNotPresent","imagePullSecrets":[],"initdb":{"database":"mlflow","owner":"mlflow","postInitApplicationSQL":[]},"instances":3,"logLevel":"info","podAntiAffinityMode":"soft","podAntiAffinityTopologyKey":"","postgresGID":26,"postgresUID":26,"postgresql":{},"primaryUpdateMethod":"switchover","primaryUpdateStrategy":"unsupervised","priorityClassName":"","resources":{},"roles":[],"storage":{"size":"10Gi","storageClass":""},"superuserSecret":"","type":"postgresql"},"external":{"database":"mlflow","enabled":false,"host":"","port":5432}}` | Embedded Postgres configuration Deploys a cluster using the CloudnativePG Operator [[ref]](https://github.com/cloudnative-pg/cloudnative-pg) |
 | postgres.auth | object | `{"password":"mlflow","username":"mlflow"}` | Postgres authentication configuration |
 | postgres.auth.password | string | `"mlflow"` | Mlflow Tracking Server Postgres password |
 | postgres.auth.username | string | `"mlflow"` | Mlflow Tracking Server Postgres username |
+| postgres.backup | object | `{"image":{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"postgres","tag":"17.6"}}` | Postgres backup configuration |
+| postgres.backup.image | object | `{"pullPolicy":"IfNotPresent","registry":"docker.io","repository":"postgres","tag":"17.6"}` | Image details for the postgres backup deployment |
+| postgres.backup.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| postgres.backup.image.registry | string | `"docker.io"` | Image registry |
+| postgres.backup.image.repository | string | `"postgres"` | Image repository |
+| postgres.backup.image.tag | string | `"17.6"` | Image tag |
 | postgres.embedded.additionalLabels | object | `{}` | Addtional labels for Postgres cluster |
 | postgres.embedded.affinity | object | `{}` | Affinity/Anti-affinity rules for Pods. See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-AffinityConfiguration |
 | postgres.embedded.annotations | object | `{}` | Postgres cluster annotations |
 | postgres.embedded.certificates | object | `{}` | The configuration for the CA and related certificates. See: https://cloudnative-pg.io/documentation/current/cloudnative-pg.v1/#postgresql-cnpg-io-v1-CertificatesConfiguration |
 | postgres.embedded.enableSuperuserAccess | bool | `true` | When this option is enabled, the operator will use the SuperuserSecret to update the postgres user password. If the secret is not present, the operator will automatically create one. When this option is disabled, the operator will ignore the SuperuserSecret content, delete it when automatically created, and then blank the password of the postgres user by setting it to NULL. |
-| postgres.embedded.enabled | bool | `true` | Specifies whether to enable the Embedded Postrgres cluster |
+| postgres.embedded.enabled | bool | `true` | Specifies whether to enable the Embedded Postgres cluster |
 | postgres.embedded.image.repository | string | `"ghcr.io/cloudnative-pg/postgresql"` | Image registry |
 | postgres.embedded.image.tag | string | `"15.2"` | Image tag |
 | postgres.embedded.imagePullPolicy | string | `"IfNotPresent"` | Image pull policy |

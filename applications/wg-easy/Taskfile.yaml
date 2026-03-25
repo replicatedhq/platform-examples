@@ -668,10 +668,11 @@ tasks:
       - dependencies-update
 
   chart-validate:
-    desc: Validate all Helm charts (lint + template + helmfile)
+    desc: Validate all Helm charts (lint + template + helmfile + config contract)
     cmds:
       - task: chart-lint-all
       - task: chart-template-all
+      - task: config-validate
       - echo "Validating helmfile template..."
       - |
         if [ -f "helmfile.yaml.gotmpl" ]; then
@@ -687,6 +688,109 @@ tasks:
           echo "Helmfile template validation successful!"
         else
           echo "No helmfile.yaml.gotmpl found, skipping helmfile validation"
+        fi
+
+  config-validate:
+    desc: Validate the four-way contract between values.yaml, HelmChart CR, KOTS Config, and ConfigValues
+    cmds:
+      - echo "Validating configuration contract..."
+      - |
+        ERRORS=0
+
+        # 1. Collect all config item names from KOTS Config screens
+        CONFIG_ITEMS=$(find . -path '*/replicated/config.yaml' -exec yq -r '.spec.groups[].items[].name' {} \; 2>/dev/null | sort -u)
+        ROOT_CONFIG_ITEMS=""
+        if [ -f "./replicated/config.yaml" ]; then
+          ROOT_CONFIG_ITEMS=$(yq -r '.spec.groups[].items[].name' ./replicated/config.yaml 2>/dev/null | sort -u)
+        fi
+        ALL_CONFIG_ITEMS=$(echo -e "${CONFIG_ITEMS}\n${ROOT_CONFIG_ITEMS}" | sort -u | grep -v '^$')
+
+        echo "=== KOTS Config items ==="
+        echo "$ALL_CONFIG_ITEMS"
+        echo ""
+
+        # 2. Collect all ConfigOption references from HelmChart CRs
+        HELMCHART_REFS=$(find . -path '*/replicated/helmChart-*.yaml' -exec grep -o 'ConfigOption [^}]*' {} \; 2>/dev/null | sed 's/ConfigOption [`"'"'"']//' | sed 's/[`"'"'"'].*//' | sed 's/ConfigOption //' | sort -u)
+
+        echo "=== ConfigOption references in HelmChart CRs ==="
+        echo "$HELMCHART_REFS"
+        echo ""
+
+        # 3. Check that every ConfigOption reference has a matching Config item
+        for ref in $HELMCHART_REFS; do
+          if ! echo "$ALL_CONFIG_ITEMS" | grep -qx "$ref"; then
+            echo "ERROR: HelmChart references ConfigOption '$ref' but no matching Config item found"
+            ERRORS=$((ERRORS + 1))
+          fi
+        done
+
+        # 4. Check that every Config item is referenced in at least one HelmChart CR
+        for item in $ALL_CONFIG_ITEMS; do
+          if ! echo "$HELMCHART_REFS" | grep -qx "$item"; then
+            echo "WARNING: Config item '$item' is not referenced by any HelmChart CR"
+          fi
+        done
+
+        # 5. Validate ConfigValues file if present
+        if [ -f "development-config-values.yaml" ]; then
+          echo "=== Validating development-config-values.yaml ==="
+          CV_ITEMS=$(yq -r '.spec.values | keys | .[]' development-config-values.yaml 2>/dev/null | sort -u)
+          echo "ConfigValues items: $CV_ITEMS"
+          echo ""
+
+          # Every ConfigValues item should match a Config item
+          for cv_item in $CV_ITEMS; do
+            if ! echo "$ALL_CONFIG_ITEMS" | grep -qx "$cv_item"; then
+              echo "ERROR: ConfigValues contains '$cv_item' but no matching Config item found"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+
+          # Every required Config item should have a value in ConfigValues
+          REQUIRED_ITEMS=$(find . -path '*/replicated/config.yaml' -exec yq -r '.spec.groups[].items[] | select(.required == true) | .name' {} \; 2>/dev/null | sort -u)
+          if [ -f "./replicated/config.yaml" ]; then
+            ROOT_REQUIRED=$(yq -r '.spec.groups[].items[] | select(.required == true) | .name' ./replicated/config.yaml 2>/dev/null | sort -u)
+            REQUIRED_ITEMS=$(echo -e "${REQUIRED_ITEMS}\n${ROOT_REQUIRED}" | sort -u | grep -v '^$')
+          fi
+
+          for req_item in $REQUIRED_ITEMS; do
+            CV_VALUE=$(yq -r ".spec.values.\"$req_item\".value" development-config-values.yaml 2>/dev/null)
+            if [ -z "$CV_VALUE" ]; then
+              echo "ERROR: Required Config item '$req_item' has no value in development-config-values.yaml"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+        else
+          echo "WARNING: No development-config-values.yaml found, skipping ConfigValues validation"
+        fi
+
+        # 6. Validate HelmChart value keys exist in chart values.yaml
+        echo ""
+        echo "=== Validating HelmChart values against chart values.yaml ==="
+        find ./charts -maxdepth 2 -mindepth 2 -type d -name replicated | while read chartDir; do
+          parent=$(basename $(dirname $chartDir))
+          helmChartFile="$chartDir/helmChart-$parent.yaml"
+          valuesFile="$(dirname $chartDir)/values.yaml"
+
+          if [ -f "$helmChartFile" ] && [ -f "$valuesFile" ]; then
+            # Extract top-level value keys from HelmChart CR (excluding template functions)
+            HC_KEYS=$(yq -r '.spec.values | keys | .[]' "$helmChartFile" 2>/dev/null | sort -u)
+            VALUES_KEYS=$(yq -r 'keys | .[]' "$valuesFile" 2>/dev/null | sort -u)
+
+            for key in $HC_KEYS; do
+              if ! echo "$VALUES_KEYS" | grep -qx "$key"; then
+                echo "INFO: HelmChart $parent sets top-level key '$key' not in $valuesFile (may be subchart value)"
+              fi
+            done
+          fi
+        done
+
+        echo ""
+        if [ $ERRORS -gt 0 ]; then
+          echo "FAILED: $ERRORS error(s) found in configuration contract"
+          exit 1
+        else
+          echo "Configuration contract validation passed!"
         fi
 
   chart-package-all:

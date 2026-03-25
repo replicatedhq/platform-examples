@@ -14,16 +14,12 @@ environments:
           certManagerIssuers: ./charts/cert-manager-issuers
           traefik: ./charts/traefik
           wgEasy: ./charts/wg-easy
-          replicatedSDK: ./charts/replicated
       # Dynamic chart versions read from Chart.yaml files
       - chartVersions:
           certManager: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
           certManagerIssuers: '{{ exec "yq" (list ".version" "./charts/cert-manager-issuers/Chart.yaml") }}'
           traefik: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
           wgEasy: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
-          replicatedSDK: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
-      - extras:
-          enableReplicatedSDK: false
   replicated:
     values:
       - app: '{{ env "REPLICATED_APP" | default "wg-easy-cre" }}'
@@ -35,16 +31,12 @@ environments:
           certManagerIssuers: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/cert-manager-issuers'
           traefik: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/traefik'
           wgEasy: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/wg-easy'
-          replicatedSDK: 'oci://registry.replicated.com/{{ env "REPLICATED_APP" | default "wg-easy-cre" }}/{{ env "CHANNEL" | default "unstable" }}/replicated'
       # Dynamic chart versions read from Chart.yaml files
       - chartVersions:
           certManager: '{{ exec "yq" (list ".version" "./charts/cert-manager/Chart.yaml") }}'
           certManagerIssuers: '{{ exec "yq" (list ".version" "./charts/cert-manager-issuers/Chart.yaml") }}'
           traefik: '{{ exec "yq" (list ".version" "./charts/traefik/Chart.yaml") }}'
           wgEasy: '{{ exec "yq" (list ".version" "./charts/wg-easy/Chart.yaml") }}'
-          replicatedSDK: '{{ exec "yq" (list ".version" "./charts/replicated/Chart.yaml") }}'
-      - extras:
-          enableReplicatedSDK: true
       # Replicated Registry Proxy configurations for container images
       - proxyImages:
           wgEasy:
@@ -168,23 +160,6 @@ releases:
             imagePullSecret:
               enabled: true
 {{- end }}
-
-  # Install replicated-sdk (only in replicated environment)
-  - name: replicated
-    namespace: replicated
-    chart: {{ .Values.chartSources.replicatedSDK }}
-    version: {{ .Values.chartVersions.replicatedSDK }}
-    createNamespace: true
-    wait: true
-    installed: {{ .Values.extras.enableReplicatedSDK }}
-    skipDeps: true
-    needs:
-      - traefik/traefik
-    values:
-      - templates:
-          replicated:
-            imagePullSecret:
-              enabled: true
 
   # Install wg-easy
   - name: wg-easy

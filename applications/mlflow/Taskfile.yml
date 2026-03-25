@@ -1188,9 +1188,9 @@ tasks:
         # Run helm-docs for each chart
         for chart in {{.CHARTS}}; do
           echo "Generating documentation for $chart chart..."
-          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl
+          (cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl) || exit 1
         done
-        
+
         echo "✅ Helm chart documentation generated successfully."
 
   helm:docs:verify:
@@ -1213,8 +1213,7 @@ tasks:
           
           # Create temp directory
           tmp_dir=$(mktemp -d)
-          trap 'rm -rf "$tmp_dir"' EXIT
-          
+
           # Copy current README.md to temp dir
           readme_path="{{.CHART_DIR}}/$chart/README.md"
           tmp_readme="$tmp_dir/README.md"
@@ -1227,8 +1226,8 @@ tasks:
           fi
           
           # Generate fresh docs
-          cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir"
-          
+          (cd {{.CHART_DIR}}/$chart && helm-docs -t README.md.gotmpl -t README_CHANGELOG.md.gotmpl -t README_CONFIG.md.gotmpl -o "$tmp_dir") || { rm -rf "$tmp_dir"; exit 1; }
+
           # Compare with current docs
           if [ -f "$readme_path" ] && ! diff -q "$readme_path" "$tmp_readme" > /dev/null; then
             echo "❌ Documentation for $chart chart is outdated. Run 'task helm:docs:generate' to update."
@@ -1236,6 +1235,7 @@ tasks:
           else
             echo "✅ Documentation for $chart chart is up to date."
           fi
+          rm -rf "$tmp_dir"
         done
         
         # Exit with error if any docs are outdated
