@@ -5,6 +5,11 @@ metadata:
   name: storagebox
 spec:
   values:
+    # Gateway API Settings
+    gateway_enabled:
+      default: "1"
+      value: "1"
+
     # Cassandra Settings (K8ssandra operator)
     cassandra_enabled:
       default: "0"
@@ -36,6 +41,9 @@ spec:
     cassandra_prometheus_enabled:
       default: "0"
       value: "0"
+    gateway_cassandra_enabled:
+      default: "1"
+      value: "1"
 
     # Postgres Settings
     postgres_enabled:
@@ -77,6 +85,9 @@ spec:
     postgres_external_database:
       default: "postgres"
       value: "postgres"
+    gateway_postgres_enabled:
+      default: "1"
+      value: "1"
 
     # NFS Server Settings
     nfs_enabled:
@@ -89,64 +100,37 @@ spec:
       default: "*(rw,insecure,no_subtree_check,all_squash)"
       value: "*(rw,insecure,no_subtree_check,all_squash)"
 
-    # MinIO Tenant Settings
-    minio_tenant_enabled:
+    # Garage S3 Storage Settings
+    garage_enabled:
       default: "0"
       value: "0"
-    minio_tenant_name:
-      default: "minio"
-      value: "minio"
-    minio_tenant_configuration_name:
-      default: "minio-env-configuration"
-      value: "minio-env-configuration"
-    minio_tenant_configuration_access_key:
-      default: "minio"
-      value: "minio"
-    minio_tenant_configuration_secret_key:
-      default: "minio123"
-      value: "minio123"
-    minio_tenant_pool_name:
-      default: "pool-0"
-      value: "pool-0"
-    minio_tenant_pool_servers:
-      default: "1"
-      value: "1"
-    minio_tenant_pool_volumes_per_server:
-      default: "1"
-      value: "1"
-    minio_tenant_pool_size:
-      default: "10Gi"
-      value: "10Gi"
-    minio_tenant_pool_storage_class_name:
+    garage_bucket:
+      default: "storagebox"
+      value: "storagebox"
+    garage_meta_size:
+      default: "1Gi"
+      value: "1Gi"
+    garage_data_size:
+      default: "50Gi"
+      value: "50Gi"
+    garage_meta_storage_class:
       default: ""
       value: ""
-    minio_tenant_tls_auto_cert:
+    garage_data_storage_class:
+      default: ""
+      value: ""
+    gateway_garage_enabled:
       default: "1"
       value: "1"
-    minio_tenant_ingress_api_host:
-      default: "minio.local"
-      value: "minio.local"
-    minio_tenant_ingress_console_host:
-      default: "minio-console.local"
-      value: "minio-console.local"
-    minio_tenant_metrics_enabled:
-      default: "1"
-      value: "1"
-    minio_tenant_metrics_port:
-      default: "9000"
-      value: "9000"
-    minio_tenant_metrics_protocol:
-      default: "http"
-      value: "http"
-    minio_tenant_bucket_name:
-      default: "minio"
-      value: "minio"
-    minio_tenant_bucket_object_lock:
+    gateway_garage_hostname:
+      default: "garage.local"
+      value: "garage.local"
+    gateway_garage_tls_enabled:
       default: "0"
       value: "0"
-    minio_tenant_bucket_region:
-      default: "us-east-1"
-      value: "us-east-1"
+    gateway_garage_tls_secret_name:
+      default: ""
+      value: ""
 
     # rqlite Settings
     rqlite_enabled:
@@ -167,3 +151,15 @@ spec:
     rqlite_image_pull_policy:
       default: "null"
       value: "null"
+    gateway_rqlite_enabled:
+      default: "1"
+      value: "1"
+    gateway_rqlite_hostname:
+      default: "rqlite.local"
+      value: "rqlite.local"
+    gateway_rqlite_tls_enabled:
+      default: "0"
+      value: "0"
+    gateway_rqlite_tls_secret_name:
+      default: ""
+      value: ""

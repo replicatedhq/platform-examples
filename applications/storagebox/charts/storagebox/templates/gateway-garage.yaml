@@ -1,0 +1,55 @@
+{{- if and .Values.gateway.enabled .Values.gateway.garage.enabled .Values.garage.enabled }}
+# Gateway: Garage S3 API (HTTP)
+# Envoy Gateway provisions an Envoy proxy Deployment + Service for this Gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "storagebox.fullname" . }}-garage
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- if .Values.gateway.garage.tls.enabled }}
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Values.gateway.garage.tls.secretName }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+---
+# HTTPRoute: Garage S3 API
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "storagebox.fullname" . }}-garage-s3
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage-s3
+spec:
+  parentRefs:
+    - name: {{ include "storagebox.fullname" . }}-garage
+      sectionName: {{ if .Values.gateway.garage.tls.enabled }}https{{ else }}http{{ end }}
+  hostnames:
+    - {{ .Values.gateway.garage.hostname | quote }}
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}-garage
+          port: 3900
+{{- end }}

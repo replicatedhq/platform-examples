@@ -1,0 +1,6 @@
+apiVersion: v2
+name: garage
+description: Vendored Garage S3-compatible object storage
+type: application
+version: 0.2.0
+appVersion: "v1.3.1"
