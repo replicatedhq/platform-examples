@@ -113,7 +113,6 @@ jobs:
           # Operator repos (from ec.yaml) not in Chart.yaml dependencies
           helm repo add jetstack https://charts.jetstack.io || true
           helm repo add cnpg https://cloudnative-pg.github.io/charts || true
-          helm repo add minio-operator https://operator.min.io || true
           helm repo add k8ssandra https://helm.k8ssandra.io/stable || true
           helm repo update
 
@@ -144,16 +143,12 @@ jobs:
           done
           kubectl wait --for=condition=Available deployment --all -n cert-manager --timeout=10s
 
-      # Install remaining operators in parallel
+      # Install remaining operators in parallel (Garage needs no operator)
       - name: Install operators
         run: |
           helm install cloudnative-pg cnpg/cloudnative-pg \
             --namespace cnpg --create-namespace \
             --version 0.27.0 &
-
-          helm install minio-operator minio-operator/operator \
-            --namespace minio --create-namespace \
-            --version 7.1.1 &
 
           helm install k8ssandra-operator k8ssandra/k8ssandra-operator \
             --namespace k8ssandra-operator --create-namespace \
@@ -164,7 +159,7 @@ jobs:
 
       - name: Wait for operators
         run: |
-          NAMESPACES="cnpg minio k8ssandra-operator"
+          NAMESPACES="cnpg k8ssandra-operator"
           TIMEOUT=300; ELAPSED=0; INTERVAL=15
           while [ $ELAPSED -lt $TIMEOUT ]; do
             echo ""
@@ -220,7 +215,7 @@ jobs:
             echo ""
             echo "Fully ready: ${READY_COUNT}/${TOTAL}"
 
-            # We need at least postgres, minio, rqlite, cassandra (4 pods minimum)
+            # We need at least postgres, garage, rqlite, cassandra (4 pods minimum)
             if [ "$READY_COUNT" -ge 4 ] && [ -z "$NOT_READY" ]; then
               echo ""
               echo "All pods are ready!"
@@ -237,7 +232,7 @@ jobs:
 
           # Fail if key components aren't ready
           kubectl wait --for=condition=Ready pods -l cnpg.io/cluster=postgres -n $NS --timeout=30s
-          kubectl wait --for=condition=Ready pods -l v1.min.io/tenant=minio -n $NS --timeout=30s
+          kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=garage -n $NS --timeout=60s
           # Cassandra has a sidecar that takes longer to become ready
           kubectl wait --for=condition=Ready pods -l app.kubernetes.io/managed-by=cass-operator -n $NS --timeout=180s
 
@@ -246,7 +241,7 @@ jobs:
         run: |
           pip install -r tests/requirements.txt
           python tests/smoke_test.py storagebox --timeout 120 \
-            --components postgres minio rqlite cassandra
+            --components postgres garage rqlite cassandra
 
       - name: Debug output on failure
         if: failure()
@@ -264,7 +259,6 @@ jobs:
           echo "=== Operator pods ==="
           kubectl get pods -n cert-manager
           kubectl get pods -n cnpg
-          kubectl get pods -n minio
           kubectl get pods -n k8ssandra-operator
           echo ""
           echo "=== PostgreSQL Cluster status ==="
@@ -273,8 +267,8 @@ jobs:
           echo "=== K8ssandraCluster status ==="
           kubectl get k8ssandraclusters -n $NS -o yaml || true
           echo ""
-          echo "=== MinIO Tenant status ==="
-          kubectl get tenants.minio.min.io -n $NS -o yaml || true
+          echo "=== Garage StatefulSet status ==="
+          kubectl get statefulset -l app.kubernetes.io/name=garage -n $NS -o yaml || true
           echo ""
           echo "=== Pod logs (last 30 lines each) ==="
           for pod in $(kubectl get pods -n $NS -o name 2>/dev/null); do

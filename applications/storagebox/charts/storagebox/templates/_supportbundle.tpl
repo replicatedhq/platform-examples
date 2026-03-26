@@ -51,19 +51,26 @@ spec:
           - app.kubernetes.io/managed-by=cloudnative-pg
         limits:
           maxLines: 10000
-    # -- MinIO operator pods
+    # -- Garage S3 storage pods
     - logs:
-        name: minio/operator
-        namespace: minio
+        name: garage/pods
         selector:
-          - app.kubernetes.io/name=operator
+          - app.kubernetes.io/name=garage
         limits:
           maxLines: 10000
-    # -- MinIO tenant pods (in the app namespace)
+    # -- Garage setup job pods
     - logs:
-        name: minio/tenant-pods
+        name: garage/setup-job
         selector:
-          - v1.min.io/tenant
+          - app.kubernetes.io/component=garage-setup
+        limits:
+          maxLines: 10000
+    # -- rqlite pods
+    - logs:
+        name: rqlite/pods
+        selector:
+          - app.kubernetes.io/name=storagebox
+          - app.kubernetes.io/component=voter
         limits:
           maxLines: 10000
     # -- cert-manager pods
@@ -74,14 +81,31 @@ spec:
           - app.kubernetes.io/instance=cert-manager
         limits:
           maxLines: 10000
-    # -- ingress-nginx pods
+    # -- Envoy Gateway controller pods
     - logs:
-        name: ingress-nginx/pods
-        namespace: ingress-nginx
+        name: envoy-gateway/controller
+        namespace: envoy-gateway-system
         selector:
-          - app.kubernetes.io/instance=ingress-nginx
+          - app.kubernetes.io/name=gateway-helm
         limits:
           maxLines: 10000
+    # -- Envoy proxy pods (provisioned per-Gateway in the EG namespace)
+    - logs:
+        name: envoy-gateway/proxy-pods
+        namespace: envoy-gateway-system
+        selector:
+          - app.kubernetes.io/managed-by=envoy-gateway
+        limits:
+          maxLines: 10000
+    # -- NFS server pods
+    {{- if (index .Values "nfs-server" "enabled") }}
+    - logs:
+        name: nfs-server/pods
+        selector:
+          - app.kubernetes.io/name=nfs-server
+        limits:
+          maxLines: 10000
+    {{- end }}
     # -- Preflight re-checks (verify environment hasn't drifted post-install)
     {{- if (index .Values "nfs-server" "enabled") }}
     - runPod:
@@ -91,7 +115,7 @@ spec:
         podSpec:
           containers:
             - name: nfs-kernel-check
-              image: {{ .Values.images.busybox.repository }}:{{ .Values.images.busybox.tag }}
+              image: {{ .Values.images.alpine.repository }}:{{ .Values.images.alpine.tag }}
               command: ["sh", "-c", "cat /proc/filesystems 2>/dev/null; cat /proc/modules 2>/dev/null"]
     {{- end }}
   analyzers:
@@ -107,7 +131,85 @@ spec:
               uri: https://kubernetes.io
           - pass:
               message: Your cluster meets the recommended and required versions of Kubernetes.
-    # -- Preflight re-checks (verify environment hasn't drifted post-install)
+    # -- Infrastructure deployment health
+    - deploymentStatus:
+        name: cert-manager
+        namespace: cert-manager
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: cert-manager is not running. TLS certificate provisioning will not work.
+          - pass:
+              message: cert-manager is running.
+    - deploymentStatus:
+        name: cert-manager-webhook
+        namespace: cert-manager
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: cert-manager webhook is not running.
+          - pass:
+              message: cert-manager webhook is running.
+    - deploymentStatus:
+        name: cloudnative-pg
+        namespace: cnpg
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: CloudnativePG operator is not running. PostgreSQL clusters cannot be managed.
+          - pass:
+              message: CloudnativePG operator is running.
+    - deploymentStatus:
+        name: envoy-gateway
+        namespace: envoy-gateway-system
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: Envoy Gateway controller is not running. Gateway API routing will not work.
+          - pass:
+              message: Envoy Gateway controller is running.
+    - deploymentStatus:
+        name: k8ssandra-operator
+        namespace: k8ssandra-operator
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: K8ssandra operator is not running. Cassandra clusters cannot be managed.
+          - pass:
+              message: K8ssandra operator is running.
+    - deploymentStatus:
+        name: k8ssandra-operator-cass-operator
+        namespace: k8ssandra-operator
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: cass-operator is not running. Cassandra pod lifecycle management will not work.
+          - pass:
+              message: cass-operator is running.
+    # -- Application deployment health
+    {{- if .Values.garage.enabled }}
+    - statefulsetStatus:
+        name: {{ .Release.Name }}-garage
+        namespace: {{ .Release.Namespace }}
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: Garage S3 storage is not running.
+          - pass:
+              message: Garage S3 storage is running.
+    {{- end }}
+    {{- if .Values.rqlite.enabled }}
+    - statefulsetStatus:
+        name: {{ include "storagebox.fullname" . }}-rqlite
+        namespace: {{ .Release.Namespace }}
+        outcomes:
+          - fail:
+              when: "< 1"
+              message: rqlite is not running.
+          - pass:
+              message: rqlite is running.
+    {{- end }}
+    # -- Resource preflights (verify environment hasn't drifted post-install)
     - nodeResources:
         checkName: Total CPU Cores in the cluster is 2 or greater
         outcomes:
@@ -145,7 +247,7 @@ spec:
         outcomes:
           - fail:
               when: "sum(memoryCapacity) < 4Gi"
-              message: The cluster requires at least 4 GiB of memory. StorageBox runs multiple storage backends (Cassandra, PostgreSQL, MinIO) plus cluster operators, each requiring significant memory.
+              message: The cluster requires at least 4 GiB of memory. StorageBox runs multiple storage backends (Cassandra, PostgreSQL, Garage) plus cluster operators, each requiring significant memory.
           - warn:
               when: "sum(memoryCapacity) < 8Gi"
               message: The cluster has less than 8 GiB of memory. 8 GiB or more is recommended when running multiple storage backends simultaneously.
@@ -180,23 +282,15 @@ spec:
           - pass:
               message: Kubernetes version is compatible with CloudnativePG.
     {{- end }}
-    {{- if .Values.tenant.enabled }}
+    {{- if .Values.garage.enabled }}
     - nodeResources:
-        checkName: Cluster memory capacity for MinIO
+        checkName: Cluster memory capacity for Garage
         outcomes:
           - fail:
               when: "sum(memoryCapacity) < 2Gi"
-              message: MinIO requires at least 2 GiB of cluster memory. Each MinIO server pod needs memory for object caching and request handling.
+              message: Garage requires at least 2 GiB of cluster memory for the LMDB metadata engine and S3 request handling.
           - pass:
-              message: The cluster has sufficient memory for MinIO.
-    - nodeResources:
-        checkName: Cluster storage for MinIO
-        outcomes:
-          - fail:
-              when: "sum(ephemeralStorageCapacity) < 10Gi"
-              message: MinIO requires at least 10 GiB of storage capacity for tenant volumes.
-          - pass:
-              message: The cluster has sufficient storage capacity for MinIO.
+              message: The cluster has sufficient memory for Garage.
     {{- end }}
     {{- if .Values.rqlite.enabled }}
     - nodeResources:

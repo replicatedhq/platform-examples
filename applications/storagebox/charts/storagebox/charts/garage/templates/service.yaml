@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "garage.fullname" . }}
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3900
+    targetPort: s3
+    protocol: TCP
+    name: s3
+  - port: 3903
+    targetPort: admin
+    protocol: TCP
+    name: admin
+  selector:
+    {{- include "garage.selectorLabels" . | nindent 4 }}

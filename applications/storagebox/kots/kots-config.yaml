@@ -5,6 +5,20 @@ metadata:
   name: config
 spec:
   groups:
+  # Gateway API settings (Envoy Gateway)
+  - name: gateway_settings
+    title: Gateway API
+    items:
+    - name: gateway_enabled
+      title: Enable Gateway API
+      type: bool
+      default: true
+      required: true
+      description: >-
+        Route application traffic through per-application Envoy Gateway
+        proxies using Gateway API resources (HTTPRoute, TCPRoute). Each
+        enabled service gets its own Gateway. NFS is excluded because
+        Gateway API does not support UDP.
   # cassandra settings (K8ssandra operator)
   - name: cassandra_settings
     title: Cassandra Settings
@@ -83,6 +97,12 @@ spec:
       default: false
       description: Expose Prometheus metrics endpoint for Cassandra
       when: 'repl{{ ConfigOptionEquals "cassandra_enabled" "1" }}'
+    - name: gateway_cassandra_enabled
+      title: Enable Cassandra Gateway
+      type: bool
+      default: true
+      description: Create a TCP Gateway + TCPRoute for Cassandra CQL on port 9042
+      when: 'repl{{ and (ConfigOptionEquals "cassandra_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") }}'
   # Postgres settings
   - name: postgres_settings
     title: Postgres database settings
@@ -187,6 +207,12 @@ spec:
       required: true
       description: Database name on the external PostgreSQL server
       when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionEquals "postgres_external" "1") }}'
+    - name: gateway_postgres_enabled
+      title: Enable PostgreSQL Gateway
+      type: bool
+      default: true
+      description: Create a TCP Gateway + TCPRoute for PostgreSQL on port 5432
+      when: 'repl{{ and (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") (ConfigOptionEquals "gateway_enabled" "1") }}'
   # NFS Server settings
   - name: nfs_settings
     title: NFS Server settings
@@ -209,117 +235,73 @@ spec:
       default: '*(rw,insecure,no_subtree_check,all_squash)'
       required: true
       description: The NFS share options
-  # MinIO Tenant settings
-  - name: minio_settings
-    title: MinIO Tenant settings
+  # Garage S3-compatible object storage settings
+  - name: garage_settings
+    title: Garage S3 Storage
     items:
-    - name: minio_tenant_enabled
-      title: Enable MinIO Tenant
+    - name: garage_enabled
+      title: Enable Garage
       type: bool
       default: false
       required: true
-      description: Enable MinIO Tenant
-    - name: minio_tenant_name
-      title: MinIO Tenant Name
+      description: Deploy Garage S3-compatible object storage. A bucket and credentials are created automatically.
+    - name: garage_bucket
+      title: Bucket Name
       type: text
-      default: minio
+      default: storagebox
       required: true
-      description: The name of the MinIO Tenant
-    - name: minio_tenant_configuration_access_key
-      title: MinIO Tenant Configuration Access Key
-      type: password
-      default: minio
-      required: true
-      description: The access key for the MinIO Tenant Configuration
-    - name: minio_tenant_configuration_secret_key
-      title: MinIO Tenant Configuration Secret Key
-      type: password
-      default: minio123
-      required: true
-      description: The secret key for the MinIO Tenant Configuration
-      secret: true
-    - name: minio_tenant_pool_name
-      title: MinIO Tenant Pool Name
+      description: Name of the S3 bucket to create
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: garage_meta_size
+      title: Metadata Volume Size
       type: text
-      default: pool-0
+      default: 1Gi
       required: true
-      description: The name of the MinIO Tenant Pool
-    - name: minio_tenant_pool_servers
-      title: MinIO Tenant Pool Servers
+      description: Size of the persistent volume for Garage metadata (LMDB)
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: garage_data_size
+      title: Data Volume Size
       type: text
-      default: '1'
+      default: 50Gi
       required: true
-      description: The number of MinIO Tenant Pool Servers
-    - name: minio_tenant_pool_volumes_per_server
-      title: MinIO Tenant Pool Volumes Per Server
+      description: Size of the persistent volume for S3 object data
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: garage_meta_storage_class
+      title: Metadata Storage Class
       type: text
-      default: '1'
-      required: true
-      description: The number of MinIO Tenant Pool Volumes Per Server
-    - name: minio_tenant_pool_size
-      title: MinIO Tenant Pool Size
+      default: ""
+      description: Kubernetes storage class for the metadata volume. Leave empty for cluster default.
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: garage_data_storage_class
+      title: Data Storage Class
       type: text
-      default: 10Gi
-      required: true
-      description: The size of the MinIO Tenant Pool
-    - name: minio_tenant_pool_storage_class_name
-      title: MinIO Tenant Pool Storage Class Name
-      type: text
-      default: ''
-      description: The storage class name for the MinIO Tenant Pool
-    - name: minio_tenant_tls_auto_cert
-      title: Enable Auto TLS
+      default: ""
+      description: Kubernetes storage class for the data volume. Leave empty for cluster default.
+      when: 'repl{{ ConfigOptionEquals "garage_enabled" "1" }}'
+    - name: gateway_garage_enabled
+      title: Enable Garage Gateway
       type: bool
       default: true
-      description: Enable automatic TLS certificate generation for MinIO
-      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
-    - name: minio_tenant_ingress_api_host
-      title: API Ingress Hostname
+      description: Create an HTTP Gateway with HTTPRoute for the Garage S3 API
+      when: 'repl{{ and (ConfigOptionEquals "garage_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") }}'
+    - name: gateway_garage_hostname
+      title: S3 API Gateway Hostname
       type: text
-      default: minio.local
-      description: Hostname for the MinIO S3 API ingress
-      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
-    - name: minio_tenant_ingress_console_host
-      title: Console Ingress Hostname
-      type: text
-      default: minio-console.local
-      description: Hostname for the MinIO Console ingress
-      when: 'repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}'
-    - name: minio_tenant_metrics_enabled
-      title: MinIO Tenant Metrics Enabled
-      type: bool
-      default: true
-      description: Enable MinIO Tenant Metrics
-      required: true
-    - name: minio_tenant_metrics_port
-      title: MinIO Tenant Metrics Port
-      type: text
-      default: '9000'
-      description: The port for MinIO Tenant Metrics
-      required: true
-    - name: minio_tenant_metrics_protocol
-      title: MinIO Tenant Metrics Protocol
-      type: text
-      default: http
-      description: The protocol for MinIO Tenant Metrics
-      required: true
-    - name: minio_tenant_bucket_name
-      title: MinIO Tenant Bucket Name
-      type: text
-      default: minio
-      required: true
-      description: The name of the MinIO Tenant Bucket
-    - name: minio_tenant_bucket_object_lock
-      title: MinIO Tenant Bucket Object Lock
+      default: garage.local
+      description: Hostname for the Garage S3 API HTTP gateway
+      when: 'repl{{ and (ConfigOptionEquals "garage_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_garage_enabled" "1") }}'
+    - name: gateway_garage_tls_enabled
+      title: Enable Garage Gateway TLS
       type: bool
       default: false
-      description: Enable MinIO Tenant Bucket Object Lock
-    - name: minio_tenant_bucket_region
-      title: MinIO Tenant Bucket Region
+      description: Terminate TLS at the Garage Gateway HTTPS listener
+      when: 'repl{{ and (ConfigOptionEquals "garage_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_garage_enabled" "1") }}'
+    - name: gateway_garage_tls_secret_name
+      title: Garage Gateway TLS Secret
       type: text
-      default: us-east-1
-      description: The region for the MinIO Tenant Bucket
-      required: true
+      default: ""
+      description: Name of the Kubernetes TLS Secret for the Garage HTTPS listener
+      when: 'repl{{ and (ConfigOptionEquals "garage_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_garage_enabled" "1") (ConfigOptionEquals "gateway_garage_tls_enabled" "1") }}'
   # rqlite settings
   - name: rqlite
     title: rqlite (relational Sqlite) chart settings
@@ -372,3 +354,27 @@ spec:
         regex:
           pattern: ^(IfNotPresent|Always|Never|null)$
           message: "Value must be one of: IfNotPresent, Always, Never, or null."
+    - name: gateway_rqlite_enabled
+      title: Enable rqlite Gateway
+      type: bool
+      default: true
+      description: Create an HTTP Gateway with HTTPRoute for rqlite
+      when: 'repl{{ and (ConfigOptionEquals "rqlite_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") }}'
+    - name: gateway_rqlite_hostname
+      title: rqlite Gateway Hostname
+      type: text
+      default: rqlite.local
+      description: Hostname for the rqlite HTTP gateway
+      when: 'repl{{ and (ConfigOptionEquals "rqlite_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_rqlite_enabled" "1") }}'
+    - name: gateway_rqlite_tls_enabled
+      title: Enable rqlite Gateway TLS
+      type: bool
+      default: false
+      description: Terminate TLS at the rqlite Gateway HTTPS listener
+      when: 'repl{{ and (ConfigOptionEquals "rqlite_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_rqlite_enabled" "1") }}'
+    - name: gateway_rqlite_tls_secret_name
+      title: rqlite Gateway TLS Secret
+      type: text
+      default: ""
+      description: Name of the Kubernetes TLS Secret for the rqlite HTTPS listener
+      when: 'repl{{ and (ConfigOptionEquals "rqlite_enabled" "1") (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_rqlite_enabled" "1") (ConfigOptionEquals "gateway_rqlite_tls_enabled" "1") }}'
