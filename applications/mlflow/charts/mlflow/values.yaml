@@ -584,7 +584,7 @@ minio:
     #    seccompProfile:
     #      type: RuntimeDefault
 
-# -- Embedded Postrgres configuration
+# -- Embedded Postgres configuration
 # Deploys a cluster using the CloudnativePG Operator
 # [[ref]](https://github.com/cloudnative-pg/cloudnative-pg)
 postgres:
@@ -596,7 +596,7 @@ postgres:
     password: mlflow
 
   embedded:
-    # -- Specifies whether to enable the Embedded Postrgres cluster
+    # -- Specifies whether to enable the Embedded Postgres cluster
     enabled: true
     type: postgresql
     # -- Postgres cluster annotations
