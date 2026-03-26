@@ -1,0 +1,15 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: envoy-rp
+    namespace: envoy-gateway-system
+{{- end }}

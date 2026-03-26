@@ -1,0 +1,129 @@
+# Production values.yaml
+# High availability with multiple replicas, Redis caching, and monitoring
+
+flipt:
+  enabled: true
+  replicaCount: 3
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    hosts:
+      - host: flipt.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: flipt-tls
+        hosts:
+          - flipt.example.com
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+  config:
+    log:
+      level: info
+      encoding: json
+
+postgresql:
+  type: embedded
+  embedded:
+    enabled: true
+    cluster:
+      instances: 3  # HA configuration
+      storage:
+        size: 50Gi
+        storageClass: fast-ssd
+      resources:
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+      backup:
+        enabled: true
+        # Configure backup to S3/MinIO
+      monitoring:
+        enabled: true
+
+redis:
+  enabled: true
+  architecture: replication
+
+  auth:
+    enabled: true
+    # password will be auto-generated
+
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: fast-ssd
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+replicated:
+  enabled: true
+
+# Anti-affinity to spread pods across nodes
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - flipt
+          topologyKey: kubernetes.io/hostname
