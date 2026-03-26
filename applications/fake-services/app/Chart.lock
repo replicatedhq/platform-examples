@@ -1,9 +1,9 @@
 dependencies:
 - name: ingress-nginx
   repository: https://kubernetes.github.io/ingress-nginx
-  version: 4.11.3
+  version: 4.15.1
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.1.1
-digest: sha256:6dd6d2b307511c54683f36157c6763aa55b9913b2717972e55feb6ef007797a0
-generated: "2025-03-05T13:09:57.471411+11:00"
+  version: 1.18.0
+digest: sha256:a1d05339ad5e6dda8ad2be26358f32e8a91c5786ecb9902fca558224820d6ddd
+generated: "2026-03-25T20:41:17.83366196Z"

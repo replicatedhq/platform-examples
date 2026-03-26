@@ -52,5 +52,9 @@ valkey:
   dataStorage:
     enabled: false
 
+# Disable Replicated SDK in CI (no license available)
+replicated:
+  enabled: false
+
 # Reduce resource pressure for CI
 resources: {}

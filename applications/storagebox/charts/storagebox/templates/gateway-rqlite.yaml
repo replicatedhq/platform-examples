@@ -1,0 +1,54 @@
+{{- if and .Values.gateway.enabled .Values.gateway.rqlite.enabled .Values.rqlite.enabled }}
+# Gateway: rqlite (HTTP)
+# Envoy Gateway provisions an Envoy proxy Deployment + Service for this Gateway.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "storagebox.fullname" . }}-rqlite
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rqlite
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: http
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- if .Values.gateway.rqlite.tls.enabled }}
+    - name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ .Values.gateway.rqlite.tls.secretName }}
+      allowedRoutes:
+        namespaces:
+          from: Same
+    {{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "storagebox.fullname" . }}-rqlite
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rqlite
+spec:
+  parentRefs:
+    - name: {{ include "storagebox.fullname" . }}-rqlite
+      sectionName: {{ if .Values.gateway.rqlite.tls.enabled }}https{{ else }}http{{ end }}
+  hostnames:
+    - {{ .Values.gateway.rqlite.hostname | quote }}
+  rules:
+    - backendRefs:
+        - name: {{ include "storagebox.fullname" . }}-rqlite
+          port: 4001
+{{- end }}

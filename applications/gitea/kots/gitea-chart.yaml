@@ -32,6 +32,8 @@ spec:
         initdb:
           database: repl{{ ConfigOption "postgres_db" }}
           owner: repl{{ ConfigOption "postgres_user" }}
+    replicated:
+      enabled: true
     valkey:
       enabled: repl{{ ConfigOptionEquals "internal_valkey_enabled" "1" }}
       auth:

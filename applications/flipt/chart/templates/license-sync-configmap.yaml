@@ -1,0 +1,206 @@
+{{- if .Values.licenseSync.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flipt.fullname" . }}-license-sync
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: license-sync
+data:
+  sync.py: |
+    #!/usr/bin/env python3
+    """
+    License Field to Flipt Feature Flag Sync
+
+    Fetches boolean license fields from the Replicated SDK API,
+    optionally verifies their RSA-PSS signatures, and syncs them
+    to Flipt as boolean feature flags.
+    """
+
+    import base64
+    import json
+    import logging
+    import os
+    import sys
+
+    import requests
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+    log = logging.getLogger("license-sync")
+
+    REPLICATED_SDK_URL = os.environ.get("REPLICATED_SDK_URL", "http://replicated:3000")
+    FLIPT_URL = os.environ.get("FLIPT_URL", "http://localhost:8080")
+    FLIPT_NAMESPACE = os.environ.get("FLIPT_NAMESPACE", "default")
+    VERIFY_SIGNATURES = os.environ.get("VERIFY_SIGNATURES", "true").lower() == "true"
+    PUBLIC_KEY_PATH = os.environ.get("PUBLIC_KEY_PATH", "/etc/license-sync/public-key.pem")
+    FIELD_NAMES = [n.strip() for n in os.environ.get("FIELD_NAMES", "ab_testing").split(",") if n.strip()]
+
+
+    def load_public_key():
+        """Load the RSA public key from the mounted file."""
+        from cryptography.hazmat.primitives.serialization import load_pem_public_key
+
+        with open(PUBLIC_KEY_PATH, "rb") as f:
+            return load_pem_public_key(f.read())
+
+
+    def verify_field_signature(public_key, field):
+        """Verify RSA-PSS signature on a license field."""
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        signature_v1 = field.get("signature", {}).get("v1")
+        if not signature_v1:
+            log.warning("Field '%s' has no v1 signature, skipping verification", field["name"])
+            return False
+
+        value = field.get("value")
+        if value is None:
+            message = b""
+        elif isinstance(value, bool):
+            message = b"true" if value else b"false"
+        elif isinstance(value, bytes):
+            message = value
+        else:
+            message = str(value).encode()
+
+        try:
+            public_key.verify(
+                base64.b64decode(signature_v1),
+                message,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.MD5()),
+                    salt_length=padding.PSS.MAX_LENGTH,
+                ),
+                hashes.MD5(),
+            )
+            return True
+        except Exception as e:
+            log.error("Signature verification failed for field '%s': %s", field["name"], e)
+            return False
+
+
+    def fetch_license_fields():
+        """Fetch license fields from the Replicated SDK API."""
+        url = f"{REPLICATED_SDK_URL}/api/v1/license/fields"
+        log.info("Fetching license fields from %s", url)
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def get_flipt_flag(flag_key):
+        """Check if a flag exists in Flipt. Returns the flag dict or None."""
+        url = f"{FLIPT_URL}/api/v1/namespaces/{FLIPT_NAMESPACE}/flags/{flag_key}"
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+
+
+    def create_flipt_flag(flag_key, enabled):
+        """Create a new boolean flag in Flipt."""
+        url = f"{FLIPT_URL}/api/v1/namespaces/{FLIPT_NAMESPACE}/flags"
+        payload = {
+            "key": flag_key,
+            "name": flag_key,
+            "type": "BOOLEAN_FLAG_TYPE",
+            "enabled": enabled,
+            "description": "Synced from Replicated license field",
+        }
+        log.info("Creating flag '%s' (enabled=%s)", flag_key, enabled)
+        resp = requests.post(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def update_flipt_flag(flag_key, enabled):
+        """Update an existing flag's enabled state in Flipt."""
+        url = f"{FLIPT_URL}/api/v1/namespaces/{FLIPT_NAMESPACE}/flags/{flag_key}"
+        payload = {
+            "key": flag_key,
+            "name": flag_key,
+            "type": "BOOLEAN_FLAG_TYPE",
+            "enabled": enabled,
+            "description": "Synced from Replicated license field",
+        }
+        log.info("Updating flag '%s' (enabled=%s)", flag_key, enabled)
+        resp = requests.put(url, json=payload, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+
+
+    def sync():
+        """Main sync logic."""
+        public_key = None
+        if VERIFY_SIGNATURES:
+            if not os.path.isfile(PUBLIC_KEY_PATH):
+                log.error("Signature verification enabled but public key not found at %s", PUBLIC_KEY_PATH)
+                sys.exit(1)
+            public_key = load_public_key()
+            log.info("Loaded public key for signature verification")
+
+        fields = fetch_license_fields()
+
+        if not fields:
+            log.info("No license fields returned")
+            return
+
+        synced = 0
+        skipped = 0
+
+        log.info("Syncing fields: %s", FIELD_NAMES)
+
+        for field_key, field in fields.items():
+            field_name = field.get("name", field_key)
+            value_type = field.get("valueType", "")
+
+            if field_name not in FIELD_NAMES:
+                log.debug("Skipping field '%s' (not in FIELD_NAMES)", field_name)
+                skipped += 1
+                continue
+
+            if value_type != "Boolean":
+                log.warning("Field '%s' is type '%s', expected Boolean — skipping", field_name, value_type)
+                skipped += 1
+                continue
+
+            if VERIFY_SIGNATURES and public_key:
+                if not verify_field_signature(public_key, field):
+                    log.warning("Skipping field '%s' due to failed signature verification", field_name)
+                    skipped += 1
+                    continue
+
+            enabled = field.get("value") is True or str(field.get("value", "")).lower() == "true"
+
+            existing = get_flipt_flag(field_name)
+            if existing is None:
+                create_flipt_flag(field_name, enabled)
+            elif existing.get("enabled") != enabled:
+                update_flipt_flag(field_name, enabled)
+            else:
+                log.info("Flag '%s' already in desired state (enabled=%s)", field_name, enabled)
+
+            synced += 1
+
+        log.info("Sync complete: %d flags synced, %d fields skipped", synced, skipped)
+
+
+    if __name__ == "__main__":
+        try:
+            sync()
+        except requests.exceptions.ConnectionError as e:
+            log.error("Connection error: %s", e)
+            sys.exit(1)
+        except requests.exceptions.HTTPError as e:
+            log.error("HTTP error: %s", e)
+            sys.exit(1)
+        except Exception as e:
+            log.error("Unexpected error: %s", e)
+            sys.exit(1)
+{{- end }}

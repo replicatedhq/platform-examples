@@ -20,7 +20,7 @@ spec:
         podSpec:
           containers:
             - name: nfs-kernel-check
-              image: {{ .Values.images.busybox.repository }}:{{ .Values.images.busybox.tag }}
+              image: {{ .Values.images.alpine.repository }}:{{ .Values.images.alpine.tag }}
               command: ["sh", "-c", "cat /proc/filesystems 2>/dev/null; cat /proc/modules 2>/dev/null"]
     {{- end }}
   analyzers:
@@ -73,7 +73,7 @@ spec:
         outcomes:
           - fail:
               when: "sum(memoryCapacity) < 4Gi"
-              message: The cluster requires at least 4 GiB of memory. StorageBox runs multiple storage backends (Cassandra, PostgreSQL, MinIO) plus cluster operators, each requiring significant memory.
+              message: The cluster requires at least 4 GiB of memory. StorageBox runs multiple storage backends (Cassandra, PostgreSQL, Garage) plus cluster operators, each requiring significant memory.
           - warn:
               when: "sum(memoryCapacity) < 8Gi"
               message: The cluster has less than 8 GiB of memory. 8 GiB or more is recommended when running multiple storage backends simultaneously.
@@ -108,23 +108,15 @@ spec:
           - pass:
               message: Kubernetes version is compatible with CloudnativePG.
     {{- end }}
-    {{- if .Values.tenant.enabled }}
+    {{- if .Values.garage.enabled }}
     - nodeResources:
-        checkName: Cluster memory capacity for MinIO
+        checkName: Cluster memory capacity for Garage
         outcomes:
           - fail:
               when: "sum(memoryCapacity) < 2Gi"
-              message: MinIO requires at least 2 GiB of cluster memory. Each MinIO server pod needs memory for object caching and request handling.
+              message: Garage requires at least 2 GiB of cluster memory for the LMDB metadata engine and S3 request handling.
           - pass:
-              message: The cluster has sufficient memory for MinIO.
-    - nodeResources:
-        checkName: Cluster storage for MinIO
-        outcomes:
-          - fail:
-              when: "sum(ephemeralStorageCapacity) < 10Gi"
-              message: MinIO requires at least 10 GiB of storage capacity for tenant volumes.
-          - pass:
-              message: The cluster has sufficient storage capacity for MinIO.
+              message: The cluster has sufficient memory for Garage.
     {{- end }}
     {{- if .Values.rqlite.enabled }}
     - nodeResources:
@@ -145,7 +137,7 @@ spec:
           - pass:
               when: "true"
               message: NFS kernel support detected.
-          - warn:
+          - fail:
               when: "false"
               message: NFS kernel support was not detected. The NFS server requires the nfs kernel module to be loaded or available in the host kernel. On minimal VM kernels (e.g., CMX runners with kernel 5.15), the nfs module may not be included. Verify on the host with 'modprobe nfs' or 'cat /proc/filesystems | grep nfs'.
     {{- end }}
