@@ -436,15 +436,13 @@ jobs:
             exit 1
           fi
 
-          echo "Waiting for MLflow deployment to be available..."
-          KUBECONFIG="$KUBECONFIG_FILE" kubectl wait deployment \
-            --selector=app.kubernetes.io/name=mlflow \
-            --for=condition=Available \
-            --timeout=5m \
+          echo "Waiting for MLflow rollout to complete..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl rollout status deployment/mlflow \
+            --timeout=10m \
             -n default || {
-            echo "ERROR: MLflow deployment not available after 5m"
+            echo "ERROR: MLflow deployment did not complete rollout within 10m"
             KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default || true
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe deployment -l app.kubernetes.io/name=mlflow -n default || true
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe deployment/mlflow -n default || true
             exit 1
           }
 
