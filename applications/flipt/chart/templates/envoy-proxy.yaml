@@ -1,0 +1,28 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: envoy-rp
+  namespace: envoy-gateway-system
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyDeployment:
+        replicas: {{ .Values.gateway.replicaCount }}
+      envoyService:
+        type: {{ .Values.gateway.serviceType }}
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                - port: 80
+                  nodePort: 80
+                  protocol: TCP
+                - port: 443
+                  nodePort: 443
+                  protocol: TCP
+{{- end }}

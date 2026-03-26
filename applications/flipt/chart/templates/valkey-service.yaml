@@ -1,0 +1,21 @@
+{{- if .Values.valkey.enabled }}
+# Fix for broken Valkey chart service (targets wrong port name "http" instead of "valkey")
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-valkey-svc
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: valkey
+  selector:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
