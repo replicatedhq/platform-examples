@@ -1,0 +1,80 @@
+## Flox Environment Manifest -----------------------------------------
+##
+##   Replicated Platform Examples - Developer Environment
+##
+##   Activate with: flox activate
+##   https://flox.dev/docs/reference/command-reference/manifest.toml/
+##
+## -------------------------------------------------------------------
+# Flox manifest version managed by Flox CLI
+version = 1
+
+
+## Install Packages --------------------------------------------------
+[install]
+
+# Kubernetes
+helm.pkg-path = "kubernetes-helm"
+kubectl.pkg-path = "kubectl"
+helmfile.pkg-path = "helmfile"
+
+# Task runners
+go-task.pkg-path = "go-task"
+just.pkg-path = "just"
+gnumake.pkg-path = "gnumake"
+
+# Data processing
+yq.pkg-path = "yq-go"
+jq.pkg-path = "jq"
+
+# Linting
+yamllint.pkg-path = "yamllint"
+
+# Python (for tests)
+python3.pkg-path = "python3"
+
+# General utilities
+curl.pkg-path = "curl"
+git.pkg-path = "git"
+
+
+## Environment Variables ---------------------------------------------
+[vars]
+
+
+## Activation Hook ---------------------------------------------------
+[hook]
+on-activate = '''
+  if ! command -v replicated &> /dev/null; then
+    echo "Installing replicated CLI via Homebrew..."
+    brew install replicatedhq/replicated/cli
+  fi
+'''
+
+
+## Profile script ----------------------------------------------------
+[profile]
+common = '''
+  echo ""
+  echo "Replicated Platform Examples dev environment"
+  echo "Tools: helm, kubectl, helmfile, task, just, make, yq, jq, yamllint, python3, replicated"
+  echo ""
+'''
+
+
+## Services ---------------------------------------------------------
+[services]
+
+
+## Build and publish your own packages ------------------------------
+[build]
+
+
+## Other Environment Options -----------------------------------------
+[options]
+systems = [
+  "aarch64-darwin",
+  "aarch64-linux",
+  "x86_64-darwin",
+  "x86_64-linux",
+]

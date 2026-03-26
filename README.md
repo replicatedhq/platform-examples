@@ -7,6 +7,19 @@ features of the platform, while _Patterns_ show a simple reusable solution to a
 common problem you might encounter while distributing your software with
 Replicated.
 
+## Getting Started
+
+This project uses [Flox](https://flox.dev) to manage developer dependencies. With
+Flox installed, activate the environment to get all the tools you need:
+
+```sh
+flox activate
+```
+
+This provides `helm`, `kubectl`, `helmfile`, `task`, `just`, `make`, `yq`, `jq`,
+`yamllint`, `python3`, `replicated`, and other utilities used across the application
+examples.
+
 ## Contributing
 
 Contributions are greatly appreciated. We are currently evolving our
