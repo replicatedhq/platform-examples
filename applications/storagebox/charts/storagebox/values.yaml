@@ -5,6 +5,9 @@ images:
   alpine:
     repository: alpine
     tag: "3.21"
+  garageSetup:
+    repository: curlimages/curl
+    tag: "8"
 
 replicated:
   enabled: true
@@ -185,7 +188,7 @@ certmanager:
 # NFS is excluded: Gateway API does not support UDP, which NFS requires.
 gateway:
   enabled: true
-  className: storagebox
+  className: ""
   serviceType: NodePort
   replicas: 1
   annotations: {}

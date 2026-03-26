@@ -23,7 +23,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  name: {{ .Values.gateway.className }}
+  name: {{ .Values.gateway.className | default (include "storagebox.fullname" .) }}
   labels:
     {{- include "storagebox.labels" . | nindent 4 }}
 spec:

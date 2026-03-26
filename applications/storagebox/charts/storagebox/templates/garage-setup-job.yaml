@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: garage-setup
-        image: {{ .Values.images.alpine.repository }}:{{ .Values.images.alpine.tag }}
+        image: {{ .Values.images.garageSetup.repository }}:{{ .Values.images.garageSetup.tag }}
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
@@ -45,7 +45,7 @@ spec:
         - -c
         - |
           set -e
-          apk add --no-cache curl jq > /dev/null 2>&1
+          apk add --no-cache jq > /dev/null 2>&1
 
           GARAGE_ADMIN="http://{{ .Release.Name }}-garage:3903"
           ADMIN_TOKEN=$(cat /etc/garage/secrets/admin-token)
@@ -166,10 +166,10 @@ spec:
           if [ "${HTTP_CODE}" = "200" ]; then
             echo "Updating S3 credentials Secret..."
             curl -sf --cacert "${CA_CERT}" \
-              -X PUT \
+              -X PATCH \
               -H "Authorization: Bearer ${SA_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "${SECRET_JSON}" \
+              -H "Content-Type: application/merge-patch+json" \
+              -d "{\"data\":{\"access-key-id\":\"${ACCESS_KEY_B64}\",\"secret-access-key\":\"${SECRET_KEY_B64}\"}}" \
               "${KUBE_API}/api/v1/namespaces/${NAMESPACE}/secrets/${SECRET_NAME}" > /dev/null
           else
             echo "Creating S3 credentials Secret..."
