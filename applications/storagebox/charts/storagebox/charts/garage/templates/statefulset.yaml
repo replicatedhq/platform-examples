@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "garage.fullname" . }}
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "garage.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "garage.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "garage.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      # Copy secrets to an emptyDir with mode 0600. Kubernetes fsGroup
+      # processing adds group-read bits to secret volume mounts, but
+      # Garage requires exactly mode 0600 on secret files.
+      initContainers:
+      - name: fix-secret-perms
+        image: "{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
+        command: ["sh", "-c", "cp /secrets-raw/* /etc/garage/secrets/ && chmod 0600 /etc/garage/secrets/*"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: secrets-raw
+          mountPath: /secrets-raw
+          readOnly: true
+        - name: secrets
+          mountPath: /etc/garage/secrets
+      containers:
+      - name: garage
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
+        ports:
+        - name: s3
+          containerPort: 3900
+          protocol: TCP
+        - name: rpc
+          containerPort: 3901
+          protocol: TCP
+        - name: admin
+          containerPort: 3903
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: admin
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: admin
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: config
+          mountPath: /etc/garage.toml
+          subPath: garage.toml
+          readOnly: true
+        - name: secrets
+          mountPath: /etc/garage/secrets
+          readOnly: true
+        - name: meta
+          mountPath: /var/lib/garage/meta
+        - name: data
+          mountPath: /var/lib/garage/data
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "garage.fullname" . }}
+      - name: secrets-raw
+        secret:
+          secretName: {{ include "garage.fullname" . }}
+      - name: secrets
+        emptyDir:
+          medium: Memory
+          sizeLimit: 1Mi
+  volumeClaimTemplates:
+  - metadata:
+      name: meta
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      {{- if .Values.persistence.meta.storageClass }}
+      storageClassName: {{ .Values.persistence.meta.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.meta.size }}
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      {{- if .Values.persistence.data.storageClass }}
+      storageClassName: {{ .Values.persistence.data.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.persistence.data.size }}

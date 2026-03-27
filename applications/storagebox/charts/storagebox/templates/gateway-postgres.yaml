@@ -1,0 +1,42 @@
+{{- if and .Values.gateway.enabled .Values.gateway.postgres.enabled .Values.postgres.embedded.enabled }}
+# Gateway: PostgreSQL (TCP)
+# Envoy Gateway provisions an Envoy proxy Deployment + Service for this Gateway.
+# When gateway mode is active, the postgres-nodeport Service switches to ClusterIP
+# and external access is handled through this TCPRoute.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "storagebox.fullname" . }}-postgres
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gateway.className }}
+  listeners:
+    - name: postgres-tcp
+      port: 5432
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: {{ include "storagebox.fullname" . }}-postgres
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  parentRefs:
+    - name: {{ include "storagebox.fullname" . }}-postgres
+      sectionName: postgres-tcp
+  rules:
+    - backendRefs:
+        - name: postgres-nodeport
+          port: 5432
+{{- end }}

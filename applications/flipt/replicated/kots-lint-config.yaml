@@ -1,0 +1,10 @@
+apiVersion: kots.io/v1beta1
+kind: LintConfig
+metadata:
+  name: default-lint-config
+spec:
+  rules:
+  - name: application-icon
+    level: "off"
+  - name: nonexistent-status-informer-object
+    level: "off"

@@ -1,0 +1,107 @@
+{{- if .Values.licenseSync.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "flipt.fullname" . }}-license-sync
+  labels:
+    {{- include "flipt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: license-sync
+spec:
+  schedule: {{ .Values.licenseSync.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "flipt.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: license-sync
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "flipt.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: license-sync
+        spec:
+          restartPolicy: Never
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          serviceAccountName: {{ include "flipt.serviceAccountName" . }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+          containers:
+            - name: license-sync
+              image: "{{ .Values.licenseSync.image.repository }}:{{ .Values.licenseSync.image.tag }}"
+              imagePullPolicy: {{ .Values.licenseSync.image.pullPolicy }}
+              command:
+                - sh
+                - -c
+                - |
+                  pip install --quiet --disable-pip-version-check --user requests cryptography && \
+                  python /scripts/sync.py
+              env:
+                - name: HOME
+                  value: /tmp/home
+                - name: REPLICATED_SDK_URL
+                  value: "http://replicated:3000"
+                - name: FLIPT_URL
+                  value: "http://{{ include "flipt.fullname" . }}:{{ .Values.service.httpPort }}"
+                - name: FLIPT_NAMESPACE
+                  value: {{ .Values.licenseSync.fliptNamespace | quote }}
+                - name: FIELD_NAMES
+                  value: {{ .Values.licenseSync.fieldNames | quote }}
+                - name: VERIFY_SIGNATURES
+                  value: {{ .Values.licenseSync.verifySignatures | quote }}
+                - name: PUBLIC_KEY_PATH
+                  value: "/etc/license-sync/public-key.pem"
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
+                runAsNonRoot: true
+                runAsUser: 1000
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                {{- toYaml .Values.licenseSync.resources | nindent 16 }}
+              volumeMounts:
+                - name: tmp-home
+                  mountPath: /tmp/home
+                - name: sync-script
+                  mountPath: /scripts
+                  readOnly: true
+                {{- if .Values.licenseSync.publicKey }}
+                - name: public-key
+                  mountPath: /etc/license-sync
+                  readOnly: true
+                {{- end }}
+          volumes:
+            - name: tmp-home
+              emptyDir: {}
+            - name: sync-script
+              configMap:
+                name: {{ include "flipt.fullname" . }}-license-sync
+                defaultMode: 0555
+            {{- if .Values.licenseSync.publicKey }}
+            - name: public-key
+              secret:
+                secretName: {{ include "flipt.fullname" . }}-license-sync-key
+                defaultMode: 0444
+            {{- end }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,41 @@
+apiVersion: embeddedcluster.replicated.com/v1beta1
+kind: Config
+spec:
+  version: "2.13.3+k8s-1.33"
+  extensions:
+    helm:
+      repositories:
+        - name: jetstack
+          url: https://charts.jetstack.io
+      charts:
+        - name: cert-manager
+          chartname: jetstack/cert-manager
+          namespace: cert-manager
+          version: "v1.17.1"
+          values: |
+            crds:
+              enabled: true
+            image:
+              digest: ""
+            webhook:
+              image:
+                digest: ""
+            cainjector:
+              image:
+                digest: ""
+            startupapicheck:
+              image:
+                digest: ""
+        - name: envoy-gateway
+          chartname: oci://docker.io/envoyproxy/gateway-helm
+          namespace: envoy-gateway-system
+          version: "v1.7.0"
+  unsupportedOverrides:
+    k0s: |-
+      config: 
+        spec:
+          workerProfiles:
+            - name: default
+              values:
+                allowedUnsafeSysctls:
+                  - net.ipv4.ip_forward

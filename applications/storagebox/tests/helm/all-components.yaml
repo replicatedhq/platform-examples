@@ -3,6 +3,9 @@
 # No Replicated license or cert-manager ClusterIssuer needed
 # (cert-manager is installed as an operator, not via the chart).
 #
+# Gateway API is disabled: the CI cluster does not have Envoy Gateway or
+# Gateway API CRDs installed. Gateway routing is tested via EC deployments.
+#
 # NOTE: This file is for CI/Helm testing only and is NOT part of the Four-Way Contract.
 # It does not replace development-values.yaml (KOTS ConfigValues).
 # For KOTS deployments, see: development-values.yaml
@@ -13,6 +16,10 @@ replicated:
 certmanager:
   selfSignedClusterIssuer:
     enabled: false
+
+# Disable Gateway API (no Envoy Gateway on CI clusters)
+gateway:
+  enabled: false
 
 # --- Cassandra via K8ssandra operator ---
 cassandra:
@@ -78,88 +85,15 @@ postgres:
   external:
     enabled: false
 
-# --- MinIO via MinIO operator ---
-tenant:
+# --- Garage S3-compatible object storage ---
+garage:
   enabled: true
-  tenant:
-    name: minio
-    image:
-      repository: quay.io/minio/minio
-      tag: RELEASE.2024-08-17T01-24-54Z
-      pullPolicy: IfNotPresent
-    imagePullSecret: {}
-    scheduler: {}
-    configuration:
-      name: minio-env-configuration
-    configSecret:
-      name: minio-env-configuration
-      accessKey: minio
-      secretKey: minio123
-    pools:
-      - servers: 1
-        name: pool-0
-        volumesPerServer: 1
-        size: 2Gi
-        storageAnnotations: {}
-        annotations: {}
-        labels: {}
-        tolerations: []
-        nodeSelector: {}
-        # Empty affinity for single-node clusters and to avoid
-        # null affinity CRD validation issues
-        affinity: {}
-        resources: {}
-        securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          fsGroup: 1000
-          fsGroupChangePolicy: "OnRootMismatch"
-          runAsNonRoot: true
-        containerSecurityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          runAsNonRoot: true
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        topologySpreadConstraints: []
-    mountPath: /export
-    subPath: /data
-    metrics:
-      enabled: false
-    certificate:
-      externalCaCertSecret: []
-      externalCertSecret: []
-      requestAutoCert: true
-      certConfig: {}
-    features:
-      bucketDNS: false
-      domains: {}
-      enableSFTP: false
-    buckets: []
-    users: []
-    podManagementPolicy: Parallel
-    liveness: {}
-    readiness: {}
-    startup: {}
-    lifecycle: {}
-    exposeServices: {}
-    serviceAccountName: ""
-    prometheusOperator: false
-    logging: {}
-    serviceMetadata: {}
-    env: []
-    priorityClassName: ""
-    additionalVolumes: []
-    additionalVolumeMounts: []
-    ingress:
-      api:
-        enabled: false
-      console:
-        enabled: false
+  bucket: storagebox
+  persistence:
+    meta:
+      size: 1Gi
+    data:
+      size: 2Gi
 
 # --- NFS Server ---
 # Disabled in CI: requires host kernel nfs/nfsd modules (modprobe nfs)

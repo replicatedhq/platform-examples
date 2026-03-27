@@ -1,0 +1,36 @@
+{{- if .Values.gateway.enabled -}}
+# EnvoyProxy configures the data plane (Envoy proxy pods and Service) provisioned
+# by Envoy Gateway when a Gateway resource is created. Placed in the Envoy Gateway
+# controller namespace so the GatewayClass parametersRef can discover it.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: {{ include "storagebox.fullname" . }}-proxy
+  namespace: envoy-gateway-system
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: {{ .Values.gateway.serviceType | default "NodePort" }}
+      envoyDeployment:
+        replicas: {{ .Values.gateway.replicas | default 1 }}
+---
+# Custom GatewayClass that references the EnvoyProxy resource above.
+# This gives us control over the data plane service type (NodePort for EC).
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: {{ .Values.gateway.className | default (include "storagebox.fullname" .) }}
+  labels:
+    {{- include "storagebox.labels" . | nindent 4 }}
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: {{ include "storagebox.fullname" . }}-proxy
+    namespace: envoy-gateway-system
+{{- end -}}

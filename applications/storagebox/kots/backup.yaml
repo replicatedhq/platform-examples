@@ -11,14 +11,3 @@ spec:
     # Exclude Replicated resources
     - { key: kots.io/kotsadm, operator: NotIn, values:  ["true"] }
 
-
-#
-# apiVersion: velero.io/v1
-# kind: Backup
-# metadata:
-#   name: backup
-# spec:
-#   includedNamespaces:
-#   - chef-360
-#   includeClusterResources: true
-#
