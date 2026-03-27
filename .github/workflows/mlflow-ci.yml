@@ -452,14 +452,15 @@ jobs:
           echo "hostname=localhost:$PORT" >> $GITHUB_OUTPUT
 
           echo "Waiting for port-forward to become ready..."
+          sleep 10
           success=false
-          for i in $(seq 1 10); do
+          for i in $(seq 1 30); do
             if curl -sf http://localhost:$PORT/health >/dev/null 2>&1; then
               echo "MLflow is reachable"
               success=true
               break
             fi
-            sleep 3
+            sleep 5
           done
 
           if [ "$success" != "true" ]; then
