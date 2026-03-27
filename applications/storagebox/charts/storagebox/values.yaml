@@ -2,9 +2,12 @@ global:
   imagePullSecrets: []
 
 images:
-  busybox:
-    repository: busybox
-    tag: 1.37.0
+  alpine:
+    repository: alpine
+    tag: "3.21"
+  garageSetup:
+    repository: curlimages/curl
+    tag: "8"
 
 replicated:
   enabled: true
@@ -162,28 +165,49 @@ postgres:
     port: 5432
     database: pdns
 
-# MinIO Tenant subchart - only overrides from subchart defaults
-tenant:
+# Garage S3-compatible object storage (vendored subchart)
+# Lightweight alternative to MinIO - single-binary, no operator required.
+# A post-install Job creates a bucket and S3 credentials automatically.
+garage:
   enabled: true
-  tenant:
-    name: minio
-    image:
-      tag: RELEASE.2024-08-17T01-24-54Z
-    configuration:
-      name: minio-env-configuration
-    configSecret:
-      name: minio-env-configuration
-      accessKey: minio
-      secretKey: minio123
-    pools:
-      - servers: 1
-        name: pool-0
-        volumesPerServer: 1
-        size: 10Gi
+  bucket: storagebox
+  persistence:
+    meta:
+      size: 1Gi
+      storageClass: ""
+    data:
+      size: 50Gi
+      storageClass: ""
 
 certmanager:
   selfSignedClusterIssuer:
     enabled: true
+
+# Gateway API configuration (requires Envoy Gateway as EC extension)
+# Each enabled application gets its own Gateway + Envoy proxy instance.
+# NFS is excluded: Gateway API does not support UDP, which NFS requires.
+gateway:
+  enabled: true
+  className: ""
+  serviceType: NodePort
+  replicas: 1
+  annotations: {}
+  garage:
+    enabled: true
+    hostname: garage.local
+    tls:
+      enabled: false
+      secretName: ""
+  postgres:
+    enabled: true
+  cassandra:
+    enabled: true
+  rqlite:
+    enabled: true
+    hostname: rqlite.local
+    tls:
+      enabled: false
+      secretName: ""
 
 rqlite:
   enabled: false

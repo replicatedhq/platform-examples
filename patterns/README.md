@@ -71,6 +71,10 @@ By trigger the github actions, you can integrate the compatibility testing into 
 
 - [Force a Deployment Rolling Update When a ConfigMap or Secret Changes](configmap-hash-rolling-update/README.md)
 
+### Gateway API for Multi-Protocol Applications
+
+- [Gateway API for Multi-Protocol Applications](gateway-api/README.md)
+
 ### Validating Images Signatures in a Preflight Check
 
 - [Validating Images Signatures in a Preflight Check](images-signature-preflight/README.md)
