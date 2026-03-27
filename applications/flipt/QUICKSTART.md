@@ -7,25 +7,71 @@ Get up and running with Flipt in 5 minutes.
 - Kubernetes cluster (1.24+)
 - Helm 3.8+
 - kubectl configured
+- A Replicated development license (see [Getting a Development License](#getting-a-development-license) below)
 
-## ⚠️ Prerequisites
+## Getting a Development License
 
-Before you begin, you need a **Replicated development license**:
+Flipt integrates with the Replicated SDK & KOTS to provide admin console integration, preflight checks, support bundle generation, and license enforcement. A valid license is required even in development environments.
+
+### 1. Install the Replicated CLI
 
 ```bash
-# 1. Set your Replicated API token & License
-export REPLICATED_API_TOKEN=<your-token>
-export REPLICATED_LICENSE_ID=<your-license-id>
+# macOS
+brew install replicatedhq/replicated/cli
+
+# Linux/macOS (alternative)
+curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest | \
+  grep "browser_download_url.*$(uname -s)_$(uname -m)" | \
+  cut -d '"' -f 4 | \
+  xargs curl -L -o replicated
+chmod +x replicated
+sudo mv replicated /usr/local/bin/
 ```
 
-**Don't have a Replicated account?**
+Verify: `replicated version`
 
-- Sign up at [vendor.replicated.com](https://vendor.replicated.com)
-- See [Development License Guide](docs/DEVELOPMENT_LICENSE.md) for detailed instructions
+### 2. Get a Replicated API Token
+
+1. Log in to [vendor.replicated.com](https://vendor.replicated.com)
+2. Navigate to **Settings** > **Service Accounts**
+3. Click **Create Service Account** and copy the token
+4. Export it:
+
+   ```bash
+   export REPLICATED_API_TOKEN=your-token-here
+   ```
+
+### 3. Create a Development Customer and License
+
+```bash
+replicated customer create \
+  --app flipt \
+  --name "dev-$(whoami)" \
+  --channel Unstable \
+  --type dev \
+  --output json > customer.json
+
+export REPLICATED_LICENSE_ID=$(jq -r '.id' customer.json)
+```
+
+### Managing Licenses
+
+```bash
+# List licenses
+replicated customer ls
+
+# Delete a license
+replicated customer rm --customer "customer-name"
+
+# Delete all dev licenses
+replicated customer ls --output json | \
+  jq -r '.[] | select(.licenseType == "dev") | .name' | \
+  xargs -I {} replicated customer rm --customer {}
+```
+
+If your license expires, delete it with `replicated customer rm` and create a new one using the steps above.
 
 ## Option 1: Manual Helm Install on local machine
-
-If you prefer to run commands manually:
 
 ```bash
 # Step 1: Update chart dependencies (includes CloudNativePG operator)
@@ -60,7 +106,6 @@ For enterprise deployments with Admin Console:
 
    ```bash
    export REPLICATED_APP=flipt
-   export REPLICATED_LICENSE_ID=<license-id>
    make release
    ```
 
@@ -70,11 +115,9 @@ For enterprise deployments with Admin Console:
    - Follow the configuration wizard
    - Deploy
 
-3. **Access Flipt** through configured ingress or LoadBalancer
+3. **Access Flipt** through configured Ingress or LoadBalancer
 
 ## Option 3: Production Install to existing K8s Cluster
-
-For production with HA:
 
 ```bash
 helm install flipt ./chart \
@@ -166,8 +209,6 @@ if result.enabled:
 
 ## Verify Installation
 
-Check that all components are running:
-
 ```bash
 # Check pods
 kubectl get pods -n flipt
@@ -235,6 +276,38 @@ kubectl get cluster -n flipt
 kubectl logs -l cnpg.io/cluster=flipt-cluster -n flipt
 ```
 
+### License Errors
+
+```bash
+# "replicated: command not found" — install the CLI (see Getting a Development License above)
+
+# "unauthorized: authentication required"
+replicated api version  # verify token is valid
+export REPLICATED_API_TOKEN=new-token
+
+# "license not found" — verify or recreate the secret
+kubectl get secret replicated-license -n flipt
+kubectl create secret generic replicated-license \
+  --from-literal=license="$REPLICATED_LICENSE_ID" \
+  --namespace flipt
+
+# Replicated SDK logs
+kubectl logs -l app=replicated -n flipt
+```
+
+### Running Without a License (not recommended)
+
+If you need to run without a license for testing purposes:
+
+```bash
+helm install flipt ./chart \
+  --namespace flipt \
+  --create-namespace \
+  --set replicated.enabled=false
+```
+
+**Note:** This disables all Replicated features including support bundles and preflight checks.
+
 ## Next Steps
 
 1. **Set up ingress** for external access
@@ -245,18 +318,17 @@ kubectl logs -l cnpg.io/cluster=flipt-cluster -n flipt
 
 ## Resources
 
-- 📖 [Full Documentation](../README.md)
-- 💻 [SDK Examples](examples/sdk/)
-- ⚙️ [Configuration Examples](examples/kubernetes/)
-- 🆘 [Troubleshooting Guide](../README.md#troubleshooting)
+- [Full Documentation](README.md)
+- [SDK Examples](examples/sdk/)
+- [Configuration Examples](examples/kubernetes/)
+- [Troubleshooting Guide](TROUBLESHOOTING.md)
+- [Replicated CLI Documentation](https://docs.replicated.com/reference/replicated-cli)
+- [License Types](https://docs.replicated.com/vendor/licenses-about)
 
 ## Uninstall
 
 ```bash
-# Uninstall Flipt
 helm uninstall flipt --namespace flipt
-
-# Remove namespace and PVCs
 kubectl delete namespace flipt
 ```
 

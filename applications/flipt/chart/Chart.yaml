@@ -5,7 +5,7 @@ description: |
   This enterprise-ready deployment includes PostgreSQL for durable storage and Valkey
   for distributed caching across multiple instances.
 type: application
-version: 1.0.48
+version: 1.0.53
 appVersion: "1.61.0"
 keywords:
   - feature-flags
@@ -38,6 +38,6 @@ dependencies:
 
   # Replicated SDK for admin console integration
   - name: replicated
-    version: "1.17.0"
+    version: "1.18.0"
     repository: oci://registry.replicated.com/library
     condition: replicated.enabled

@@ -48,5 +48,5 @@ spec:
     - ghcr.io/cloudnative-pg/postgresql:16
     - docker.io/alpine/k8s:1.33.7
     - ghcr.io/valkey-io/valkey:8.0
-    - proxy.replicated.com/library/replicated-sdk-image:1.15.0
+    - proxy.replicated.com/library/replicated-sdk-image:1.18.0
   allowRollback: true

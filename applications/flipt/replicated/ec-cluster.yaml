@@ -8,6 +8,10 @@ spec:
         - name: jetstack
           url: https://charts.jetstack.io
       charts:
+        - name: gateway-helm
+          chartname: oci://docker.io/envoyproxy/gateway-helm
+          namespace: envoy-gateway-system
+          version: "v1.7.0"
         - name: cert-manager
           chartname: jetstack/cert-manager
           namespace: cert-manager
@@ -25,11 +29,7 @@ spec:
                 digest: ""
             startupapicheck:
               image:
-                digest: ""
-        - name: envoy-gateway
-          chartname: oci://docker.io/envoyproxy/gateway-helm
-          namespace: envoy-gateway-system
-          version: "v1.7.0"
+                digest: "" 
   unsupportedOverrides:
     k0s: |-
       config: 
