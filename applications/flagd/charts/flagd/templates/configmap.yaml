@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "flagd.fullname" . }}
+  labels:
+    {{- include "flagd.labels" . | nindent 4 }}
+data:
+  flags.json: |
+    {
+      "$schema": "https://flagd.dev/schema/v0/flags.json",
+      "flags": {{ .Values.flagd.flags | toJson }}
+    }

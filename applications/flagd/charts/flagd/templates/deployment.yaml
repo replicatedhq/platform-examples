@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "flagd.fullname" . }}
+  {{- with (merge (.Values.flagd.labels | default dict) (include "flagd.labels" . | fromYaml)) }}
+  labels: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.flagd.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.flagd.replicas }}
+  selector:
+    matchLabels:
+      {{- include "flagd.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- if .Values.flagd.checksumAnnotation }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
+      labels:
+        {{- include "flagd.selectorLabels" . | nindent 8 }}
+        {{- with .Values.flagd.podLabels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.flagd.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "flagd.serviceAccountName" . }}
+      {{- with .Values.flagd.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ include "flagd.fullname" . }}
+        image: {{ .Values.flagd.image.registry }}/{{ .Values.flagd.image.repository }}:{{ .Values.flagd.image.tag | default (printf "v%s" .Chart.AppVersion) }}
+        imagePullPolicy: {{ .Values.flagd.image.pullPolicy }}
+        args:
+          - start
+          - --uri
+          - file:/etc/flagd/flags.json
+        ports:
+        - containerPort: 8013
+          name: grpc
+          protocol: TCP
+        - containerPort: 8016
+          name: http
+          protocol: TCP
+        volumeMounts:
+        - name: flag-config
+          mountPath: /etc/flagd
+          readOnly: true
+        {{- with .Values.flagd.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.flagd.containerSecurityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      volumes:
+      - name: flag-config
+        configMap:
+          name: {{ include "flagd.fullname" . }}
+      {{- with .Values.flagd.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.flagd.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.flagd.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
