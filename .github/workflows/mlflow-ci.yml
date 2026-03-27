@@ -166,8 +166,10 @@ jobs:
         cluster:
           - distribution: k3s
             version: 1.32
+            nodes: 1
           - distribution: gke
             version: 1.32
+            nodes: 3
         config:
           - name: nodeport-ingress-disabled
             values_file: tests/helm/nodeport-ingress-disabled.yaml
@@ -229,7 +231,7 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           cluster-name: mlflow-ci-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}-${{ matrix.config.name }}
           disk: 100
-          nodes: 3
+          nodes: ${{ matrix.cluster.nodes }}
           ttl: 1h
           export-kubeconfig: true
 
@@ -303,8 +305,10 @@ jobs:
         cluster:
           - distribution: k3s
             version: 1.32
+            nodes: 1
           - distribution: gke
             version: 1.32
+            nodes: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -340,7 +344,7 @@ jobs:
           kubernetes-version: ${{ matrix.cluster.version }}
           cluster-name: mlflow-kots-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
           disk: 100
-          nodes: 3
+          nodes: ${{ matrix.cluster.nodes }}
           ttl: 1h
           export-kubeconfig: true
 
@@ -407,8 +411,6 @@ jobs:
           namespace: default
           wait-duration: 10m
           shared-password: 'replicatedmlflow'
-          skip-preflights: true
-          debug: true
 
       # Set up port forwarding after KOTS installation is complete
       - name: Set up port forwarding
@@ -416,62 +418,63 @@ jobs:
         run: |
           KUBECONFIG_FILE="/tmp/kubeconfig-kots-test-${{ github.run_id }}"
           echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
-          echo "Saved kubeconfig to $KUBECONFIG_FILE"
           PORT="5000"
-          echo "Using port: $PORT for testing"
-          echo "Waiting for MLflow service to be created..."
-          MAX_RETRIES=30
-          RETRY_INTERVAL=10
-          RETRY_COUNT=0
-          SERVICE_FOUND=false
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            echo "Check $((RETRY_COUNT+1))/$MAX_RETRIES: Looking for MLflow service..."
-            if KUBECONFIG="$KUBECONFIG_FILE" kubectl get svc mlflow -n default --no-headers 2>/dev/null; then
-              echo "MLflow service found!"
-              SERVICE_FOUND=true
+
+          echo "Waiting for MLflow deployment to be created..."
+          for i in $(seq 1 30); do
+            if KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployment -l app.kubernetes.io/name=mlflow -n default -o name 2>/dev/null | grep -q .; then
+              echo "MLflow deployment found."
               break
-            else
-              echo "MLflow service not found yet. Waiting $RETRY_INTERVAL seconds..."
-              RETRY_COUNT=$((RETRY_COUNT+1))
-              sleep $RETRY_INTERVAL
             fi
+            echo "MLflow deployment not found yet (attempt $i/30), waiting..."
+            sleep 10
           done
-          if [ "$SERVICE_FOUND" != "true" ]; then
-            echo "ERROR: MLflow service not found after $((MAX_RETRIES * RETRY_INTERVAL)) seconds."
-            echo "Showing all available services in the namespace:"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl get svc -n default
-            echo "Showing KOTS application status:"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl get app -n default || true
-            echo "Showing all pods in the namespace:"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default
+
+          if ! KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployment -l app.kubernetes.io/name=mlflow -n default -o name 2>/dev/null | grep -q .; then
+            echo "ERROR: MLflow deployment was not created within the expected time"
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get deployments,pods -n default || true
             exit 1
           fi
-          KUBECONFIG="$KUBECONFIG_FILE" kubectl get svc -n default
-          echo "Checking pod status..."
-          KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default
-          echo "Waiting for MLflow pods to be running..."
-          KUBECONFIG="$KUBECONFIG_FILE" kubectl wait --for=condition=Ready pods --selector=app.kubernetes.io/name=mlflow -n default --timeout=2m || {
-            echo "WARNING: Timed out waiting for pods to be ready, will try port-forwarding anyway"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe pods -n default
+
+          echo "Waiting for MLflow rollout to complete..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl rollout status deployment/mlflow \
+            --timeout=10m \
+            -n default || {
+            echo "ERROR: MLflow deployment did not complete rollout within 10m"
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n default || true
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl describe deployment/mlflow -n default || true
+            exit 1
           }
-          echo "Setting up port forwarding to run in the background"
+
+          echo "Setting up port forwarding..."
           nohup bash -c "KUBECONFIG='$KUBECONFIG_FILE' kubectl port-forward -n default svc/mlflow $PORT:5000 &>/tmp/port-forward-kots-${{ github.run_id }}.log" &
-          PORT_FORWARD_PID=$!
-          echo "port_forward_pid=$PORT_FORWARD_PID" >> $GITHUB_OUTPUT
-          echo "Set up port forwarding with PID: $PORT_FORWARD_PID"
+          echo "port_forward_pid=$!" >> $GITHUB_OUTPUT
           echo "hostname=localhost:$PORT" >> $GITHUB_OUTPUT
-          echo "Test endpoint will be: localhost:$PORT"
-          echo "Waiting for port-forward to establish..."
-          sleep 15
-          echo "Checking connectivity to MLflow..."
-          if curl -s -o /dev/null -w "%{http_code}" http://localhost:$PORT/; then
-            echo "Successfully connected to MLflow service!"
-          else
-            echo "Warning: Initial connection attempt failed, service may still be starting"
-            echo "Port-forward log:"
-            cat /tmp/port-forward-kots-${{ github.run_id }}.log || true
-            echo "Pod logs:"
-            KUBECONFIG="$KUBECONFIG_FILE" kubectl logs -n default -l app.kubernetes.io/name=mlflow --tail=20 || true
+
+          echo "Waiting for port-forward to become ready..."
+          sleep 10
+          success=false
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:$PORT/health >/dev/null 2>&1; then
+              echo "MLflow is reachable"
+              success=true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$success" != "true" ]; then
+            echo "ERROR: MLflow never became reachable via port-forward after 30s"
+            echo "==== Port-forward log ===="
+            cat "/tmp/port-forward-kots-${{ github.run_id }}.log" || true
+            echo "==== MLflow pods ===="
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -l app.kubernetes.io/name=mlflow -n default || true
+            pod_name="$(KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -l app.kubernetes.io/name=mlflow -n default -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")"
+            if [ -n "$pod_name" ]; then
+              echo "==== Logs for pod $pod_name ===="
+              KUBECONFIG="$KUBECONFIG_FILE" kubectl logs "$pod_name" -n default || true
+            fi
+            exit 1
           fi
         env:
           KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
