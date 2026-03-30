@@ -70,13 +70,12 @@ make release
 Or manually:
 
 ```bash
-helm package charts/gitlab
+helm package charts/gitlab -d kots/
 REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release create \
   --app $REPLICATED_APP \
-  --chart gitlab-*.tgz \
+  --yaml-dir kots \
+  --promote Unstable \
   --release-notes "Initial release"
-REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release promote <seq> Unstable \
-  --app $REPLICATED_APP
 ```
 
 ### 4. Deploy with Embedded Cluster
