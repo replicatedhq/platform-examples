@@ -1,0 +1,87 @@
+# CMX deployment values for GitLab chart — actual cluster deployment.
+#
+# The GitLab chart's bundled Bitnami PostgreSQL and Redis images have been
+# removed from Docker Hub. This file configures external PostgreSQL and Redis
+# services that you must provision separately before installing GitLab.
+#
+# Prerequisites:
+#   1. PostgreSQL 16+ with extensions: pg_trgm, btree_gist
+#   2. Redis 7+
+#   3. Kubernetes secrets for database credentials (see below)
+#
+# Required secrets (create before helm install):
+#   kubectl create secret generic gitlab-external-pg-password \
+#     --from-literal=password=<your-pg-password> -n gitlab
+#   kubectl create secret generic gitlab-external-redis-password \
+#     --from-literal=redis-password=<your-redis-password> -n gitlab
+#
+# Validated: 2026-03-30 on k3s 1.32, r1.xlarge, OCI registry install.
+
+gitlab:
+  enabled: true
+
+  global:
+    hosts:
+      domain: gitlab.example.com
+      externalIP: 10.0.0.1
+
+    edition: ce
+
+    ingress:
+      configureCertmanager: false
+      class: nginx
+      tls:
+        enabled: false
+
+    # External PostgreSQL — replace host with your PostgreSQL service
+    psql:
+      host: external-postgresql
+      port: 5432
+      database: gitlabhq_production
+      username: gitlab
+      password:
+        secret: gitlab-external-pg-password
+        key: password
+
+    # External Redis — replace host with your Redis service
+    redis:
+      host: external-redis
+      port: 6379
+      auth:
+        enabled: true
+        secret: gitlab-external-redis-password
+        key: redis-password
+
+  # Disable bundled PostgreSQL and Redis (bitnami images removed from Docker Hub)
+  postgresql:
+    install: false
+  redis:
+    install: false
+  nginx-ingress:
+    enabled: true
+  certmanager:
+    install: false
+  prometheus:
+    install: false
+  registry:
+    enabled: true
+  gitlab-runner:
+    install: false
+
+  # Reduce resource requirements for evaluation
+  gitlab:
+    webservice:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    sidekiq:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 300Mi
+
+replicated:
+  enabled: true
