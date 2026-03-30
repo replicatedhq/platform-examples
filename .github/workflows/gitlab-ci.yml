@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - 'applications/gitlab/charts/**'
+      - 'applications/gitlab/kots/**'
       - 'applications/gitlab/tests/**'
       - 'applications/gitlab/Makefile'
       - '.github/workflows/gitlab-ci.yml'
@@ -16,6 +17,7 @@ on:
       - main
     paths:
       - 'applications/gitlab/charts/**'
+      - 'applications/gitlab/kots/**'
       - 'applications/gitlab/tests/**'
       - 'applications/gitlab/Makefile'
       - '.github/workflows/gitlab-ci.yml'
@@ -78,15 +80,15 @@ jobs:
       - name: Add Helm repositories
         run: make add-helm-repositories
 
-      - name: Package Helm chart
-        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u
+      - name: Package Helm chart into kots/
+        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u -d kots/
 
       - name: Create Replicated release on Unstable
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
-          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
+          yaml-dir: applications/gitlab/kots
           version: ${{ env.VERSION }}
           promote-channel: Unstable
 
@@ -119,14 +121,14 @@ jobs:
       - name: Add Helm repositories
         run: make add-helm-repositories
 
-      - name: Package Helm chart
-        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u
+      - name: Package Helm chart into kots/
+        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u -d kots/
 
       - name: Create release and promote to Stable
         uses: replicatedhq/compatibility-actions/create-release@v1
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
-          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
+          yaml-dir: applications/gitlab/kots
           version: ${{ env.VERSION }}
           promote-channel: Stable
