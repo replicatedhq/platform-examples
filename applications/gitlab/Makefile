@@ -15,10 +15,11 @@ lint:
 	helm template gitlab $(CHART_DIR) -f tests/helm/ci-values.yaml > /dev/null
 
 package: update-dependencies
-	helm package $(CHART_DIR)
+	helm package $(CHART_DIR) -d kots/
 
 release: package
 	REPLICATED_API_TOKEN=$(REPLICATED_API_TOKEN) replicated release create \
 		--app $(REPLICATED_APP) \
-		--chart gitlab-*.tgz \
+		--yaml-dir kots \
+		--promote Unstable \
 		--release-notes "Release via Makefile"
