@@ -1,6 +1,8 @@
-# CI values for GitLab chart — minimal eval install for lint/template validation.
-# WARNING: This configuration uses bundled dependencies (PostgreSQL, Redis, MinIO)
-# which are deprecated and will be removed in GitLab 19.0. Use for evaluation only.
+# CI values for GitLab chart — lint/template validation ONLY (not for deployment).
+# WARNING: This file references external PostgreSQL and Redis services that must
+# exist before deployment. For actual cluster deployment, use cmx-deploy-values.yaml
+# and provision external PostgreSQL 16+ and Redis 7+ first.
+# The GitLab chart's bundled Bitnami images have been removed from Docker Hub.
 
 gitlab:
   enabled: true

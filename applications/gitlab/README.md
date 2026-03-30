@@ -78,7 +78,57 @@ REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release create \
   --release-notes "Initial release"
 ```
 
-### 4. Deploy with Embedded Cluster
+### 4. Install with Helm CLI (customer flow)
+
+This is the standard customer install path using the Replicated OCI registry.
+See: https://docs.replicated.com/vendor/install-with-helm
+
+**Create a customer** (vendor side):
+
+```bash
+replicated customer create \
+  --app <your-app-slug> \
+  --name my-customer \
+  --channel Unstable \
+  --type dev \
+  --email customer@example.com \
+  --expires-in 72h \
+  --output json
+```
+
+Note the `installationId` from the output -- this is the license ID used for
+registry authentication.
+
+**Install** (customer side):
+
+```bash
+# 1. Authenticate to Replicated registry
+helm registry login registry.replicated.com \
+  --username <customer-email> \
+  --password <license-id>
+
+# 2. Install from OCI registry
+helm install gitlab \
+  oci://registry.replicated.com/<your-app-slug>/unstable/gitlab \
+  --namespace gitlab \
+  --create-namespace \
+  --set global.replicated.licenseID=<license-id> \
+  -f tests/helm/cmx-deploy-values.yaml \
+  --timeout 20m \
+  --wait
+```
+
+Customers receive `<customer-email>` and `<license-id>` from the vendor when a
+customer record is created for them in the Replicated Vendor Portal.
+
+**Important notes:**
+- The registry password is the `installationId` (license ID), NOT the customer `id`.
+- The OCI URL format is `oci://registry.replicated.com/<app-slug>/<channel>/<chart-name>`.
+- The GitLab chart's bundled Bitnami PostgreSQL/Redis images have been removed from
+  Docker Hub. You must provide external PostgreSQL 16+ and Redis 7+ services.
+  See `tests/helm/cmx-deploy-values.yaml` for an example configuration.
+
+### 5. Deploy with Embedded Cluster
 
 Create a customer and download a license, then:
 
@@ -117,7 +167,8 @@ applications/gitlab/
 │   └── k8s-app.yaml            # Kubernetes Application CRD
 ├── tests/
 │   └── helm/
-│       └── ci-values.yaml      # Minimal values for CI lint/template checks
+│       ├── ci-values.yaml          # Minimal values for CI lint/template checks
+│       └── cmx-deploy-values.yaml  # Values for CMX cluster deployment (external PG + Redis)
 ├── Makefile
 └── README.md
 ```
@@ -126,8 +177,8 @@ applications/gitlab/
 
 See [ONBOARDING-GAPS.md](../../ONBOARDING-GAPS.md) for gaps and friction discovered during onboarding.
 
-- **CMX validation not run**: No credits available on the service account used during onboarding. Validate manually after adding credits.
-- **Bundled deps deprecated**: PostgreSQL, Redis, MinIO bundled in the GitLab chart are being removed in GitLab 19.0. This example uses them for eval simplicity but they should be replaced.
+- **CMX validation passed**: Helm CLI customer install validated via OCI registry on k3s 1.32 (r1.xlarge). All pods healthy. Replicated SDK running.
+- **Bundled Bitnami images removed**: The GitLab chart's bundled PostgreSQL and Redis depend on Bitnami Docker Hub images that have been removed. You MUST provide external PostgreSQL and Redis. See `tests/helm/cmx-deploy-values.yaml`.
 - **Gitaly in K8s**: The bundled evaluation mode runs Gitaly in Kubernetes, which is not supported for production. A cloud-native hybrid architecture (stateless K8s + external stateful services) is recommended for production.
 - **Resource requirements**: GitLab is significantly more resource-intensive than other examples in this repo. Minimum eval cluster: 4 vCPU, 12 GB RAM.
 
