@@ -1,0 +1,132 @@
+name: GitLab CI
+
+# Security note: GITLAB_REPLICATED_API_TOKEN must be from a dedicated service account,
+# NOT a personal token. Create one at: vendor.replicated.com >
+# Account Settings > Service Accounts.
+
+on:
+  pull_request:
+    paths:
+      - 'applications/gitlab/charts/**'
+      - 'applications/gitlab/tests/**'
+      - 'applications/gitlab/Makefile'
+      - '.github/workflows/gitlab-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'applications/gitlab/charts/**'
+      - 'applications/gitlab/tests/**'
+      - 'applications/gitlab/Makefile'
+      - '.github/workflows/gitlab-ci.yml'
+
+env:
+  APP_SLUG: gitlab-pika
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: applications/gitlab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Add Helm repositories
+        run: make add-helm-repositories
+
+      - name: Update dependencies
+        run: make update-dependencies
+
+      - name: Helm lint
+        run: helm lint ./charts/gitlab
+
+      - name: Helm template
+        run: helm template gitlab ./charts/gitlab -f tests/helm/ci-values.yaml > /dev/null
+
+  create-release:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template]
+    defaults:
+      run:
+        working-directory: applications/gitlab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Set release version
+        id: set-release-version
+        run: |
+          git_hash=$(git rev-parse --short HEAD)
+          version="0.1.0-pr.${{ github.event.pull_request.number }}.${git_hash}"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+
+      - name: Add Helm repositories
+        run: make add-helm-repositories
+
+      - name: Package Helm chart
+        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u
+
+      - name: Create Replicated release on Unstable
+        uses: replicatedhq/compatibility-actions/create-release@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
+          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
+          version: ${{ env.VERSION }}
+          promote-channel: Unstable
+
+  promote-stable:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template]
+    defaults:
+      run:
+        working-directory: applications/gitlab
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Set release version
+        id: set-release-version
+        run: |
+          git_hash=$(git rev-parse --short HEAD)
+          date_version=$(date -u '+%Y.%-m.%-d-%H%M%S')
+          version="${date_version}-${git_hash}"
+          echo "VERSION=${version}" >> $GITHUB_ENV
+
+      - name: Add Helm repositories
+        run: make add-helm-repositories
+
+      - name: Package Helm chart
+        run: helm package ./charts/gitlab --version ${{ env.VERSION }} -u
+
+      - name: Create release and promote to Stable
+        uses: replicatedhq/compatibility-actions/create-release@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.GITLAB_REPLICATED_API_TOKEN }}
+          chart: applications/gitlab/gitlab-${{ env.VERSION }}.tgz
+          version: ${{ env.VERSION }}
+          promote-channel: Stable

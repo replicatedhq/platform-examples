@@ -1,0 +1,114 @@
+# GitLab Helm Chart Values
+# This wraps the upstream GitLab chart with Replicated SDK integration.
+# See https://docs.gitlab.com/charts/ for full documentation.
+
+# -- Enable/disable the upstream GitLab chart
+gitlab:
+  enabled: true
+
+  # Global configuration for the upstream chart
+  global:
+    # -- Domain configuration
+    hosts:
+      # -- The base domain for GitLab. All subdomains will be derived from this.
+      domain: ""
+      # -- External IP address for ingress
+      externalIP: ""
+
+    # -- GitLab edition: 'ce' (Community) or 'ee' (Enterprise)
+    edition: ce
+
+    # -- Ingress configuration
+    ingress:
+      configureCertmanager: true
+      class: nginx
+
+    # -- PostgreSQL configuration
+    # Uses external-postgresql service (official postgres:16 image)
+    # For production: replace host with your external PostgreSQL endpoint
+    psql:
+      host: external-postgresql
+      port: 5432
+      database: gitlabhq_production
+      username: gitlab
+      password:
+        secret: gitlab-external-pg-password
+        key: password
+
+    # -- Redis configuration
+    # Uses external-redis service (official redis:7 image)
+    # For production: replace host with your external Redis endpoint
+    redis:
+      host: external-redis
+      port: 6379
+      auth:
+        enabled: true
+        secret: gitlab-external-redis-password
+        key: redis-password
+
+    # -- Object storage (MinIO or S3-compatible)
+    # When using bundled MinIO (eval), leave object_store disabled.
+    # For production, enable and provide an external S3-compatible connection secret.
+    appConfig:
+      object_store:
+        enabled: false
+        proxy_download: true
+
+    # -- Bundled MinIO (for evaluation only)
+    # Note: minio.enabled was removed; the correct location is global.minio.enabled
+    minio:
+      enabled: true
+
+    # -- Initial root password (auto-generated if not set)
+    # Stored in secret: <release-name>-gitlab-initial-root-password
+    # key: password
+
+  # -- Bundled PostgreSQL (disabled — use external-postgresql service or cloudnative-pg)
+  # Set to false to use external PostgreSQL configured via global.psql.*
+  postgresql:
+    install: false
+
+  # -- Bundled Redis (disabled — use external-redis service or valkey)
+  # Set to false to use external Redis configured via global.redis.*
+  redis:
+    install: false
+
+  # -- Bundled NGINX ingress controller
+  nginx-ingress:
+    enabled: true
+
+  # -- Bundled cert-manager
+  certmanager:
+    install: true
+    installCRDs: false
+
+  # -- Bundled Prometheus (for evaluation only)
+  prometheus:
+    install: true
+
+  # -- Bundled registry
+  registry:
+    enabled: true
+
+  # -- GitLab Runner (disabled by default - deploy separately)
+  gitlab-runner:
+    install: false
+
+# -- Replicated SDK configuration (added by install-sdk step)
+replicated:
+  enabled: true
+
+# -- Global values shared across subcharts (required by Replicated SDK)
+global:
+  replicated:
+    customerName: ""
+    licenseID: ""
+    licenseType: ""
+    channelID: ""
+    channelName: ""
+    channelSequence: 0
+    releaseSequence: 0
+    releaseCreatedAt: ""
+    releaseNotes: ""
+    replicatedID: ""
+    appID: ""
