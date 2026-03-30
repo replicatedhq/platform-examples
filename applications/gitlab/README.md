@@ -40,7 +40,7 @@ GitLab is a complex, multi-component application. This example uses the [officia
 1. [Replicated Vendor Portal Account](https://vendor.replicated.com/signup)
 2. [Replicated CLI](https://docs.replicated.com/reference/replicated-cli-installing)
 3. CMX Credits (minimum: `r1.large` or equivalent)
-4. App slug: `gitlab-pika`
+4. App slug set as `REPLICATED_APP` (e.g., `export REPLICATED_APP=<your-app-slug>`)
 5. API token set as `REPLICATED_API_TOKEN`
 
 ## Quick Start
@@ -63,6 +63,7 @@ make lint
 
 ```bash
 export REPLICATED_API_TOKEN=<your-token>
+export REPLICATED_APP=<your-app-slug>
 make release
 ```
 
@@ -71,11 +72,11 @@ Or manually:
 ```bash
 helm package charts/gitlab
 REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release create \
-  --app gitlab-pika \
+  --app $REPLICATED_APP \
   --chart gitlab-*.tgz \
   --release-notes "Initial release"
 REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release promote <seq> Unstable \
-  --app gitlab-pika
+  --app $REPLICATED_APP
 ```
 
 ### 4. Deploy with Embedded Cluster
