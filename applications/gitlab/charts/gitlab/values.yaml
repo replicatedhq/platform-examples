@@ -98,17 +98,3 @@ gitlab:
 replicated:
   enabled: true
 
-# -- Global values shared across subcharts (required by Replicated SDK)
-global:
-  replicated:
-    customerName: ""
-    licenseID: ""
-    licenseType: ""
-    channelID: ""
-    channelName: ""
-    channelSequence: 0
-    releaseSequence: 0
-    releaseCreatedAt: ""
-    releaseNotes: ""
-    replicatedID: ""
-    appID: ""

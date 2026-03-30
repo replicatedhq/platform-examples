@@ -1,7 +1,6 @@
 .PHONY: add-helm-repositories update-dependencies lint package release
 
 CHART_DIR := charts/gitlab
-APP_SLUG  := gitlab-pika
 
 add-helm-repositories:
 	helm repo add gitlab https://charts.gitlab.io/
@@ -20,6 +19,6 @@ package: update-dependencies
 
 release: package
 	REPLICATED_API_TOKEN=$(REPLICATED_API_TOKEN) replicated release create \
-		--app $(APP_SLUG) \
+		--app $(REPLICATED_APP) \
 		--chart gitlab-*.tgz \
 		--release-notes "Release via Makefile"
