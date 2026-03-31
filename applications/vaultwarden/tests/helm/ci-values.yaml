@@ -1,0 +1,13 @@
+# CI test values - minimal configuration for linting and test installs
+vaultwarden:
+  domain: "https://vault.test.local"
+  adminToken: "test-admin-token"
+  signupsAllowed: true
+  database:
+    type: sqlite
+
+persistence:
+  enabled: false
+
+replicated:
+  enabled: false
