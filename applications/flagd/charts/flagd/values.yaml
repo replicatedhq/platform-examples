@@ -1,0 +1,112 @@
+# -- String to override the default generated name
+nameOverride: ""
+
+# -- String to override the default generated fullname
+fullnameOverride: "flagd"
+
+flagd:
+  # -- Labels to add to the flagd deployment
+  labels: {}
+  # -- Annotations to add to the flagd deployment
+  annotations: {}
+  # -- Number of flagd replicas to deploy
+  replicas: 1
+
+  # -- Enable the checksum/config annotation on the pod template.
+  # When true, a hash of the rendered ConfigMap is added to the pod spec,
+  # causing a rolling update whenever flag definitions change.
+  checksumAnnotation: true
+
+  # -- Image configuration for the flagd deployment
+  image:
+    # -- Image registry
+    registry: ghcr.io
+    # -- Image repository
+    repository: open-feature/flagd
+    # -- Image tag
+    tag: v0.11.1
+    # -- Image pull policy
+    pullPolicy: IfNotPresent
+
+  # -- Image pull secrets
+  imagePullSecrets: []
+
+  # -- Service account configuration for the flagd deployment
+  serviceAccount:
+    # -- Specifies whether a service account should be created
+    create: true
+    # -- Name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    name: ""
+    # -- Annotations to add to the service account if create is true
+    annotations: {}
+
+  # -- Pod Labels for the flagd deployment
+  podLabels: {}
+  # -- Configure the Security Context for the Pod
+  podSecurityContext: {}
+  # -- Set the resource requests / limits for the container.
+  resources: {}
+  # -- Configure the Security Context for the Container
+  containerSecurityContext: {}
+
+  # -- Node selection constraint
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+  nodeSelector: {}
+
+  # -- Specify taint tolerations
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/)
+  tolerations: []
+
+  # -- Defines affinity constraint rules.
+  # [[ref]](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity)
+  affinity: {}
+
+  # -- flagd Service configuration
+  service:
+    # -- Specifies which type of service should be created
+    type: ClusterIP
+    # -- gRPC service port
+    grpcPort: 8013
+    # -- HTTP service port
+    httpPort: 8016
+    # -- Annotations to add to the service
+    annotations: {}
+
+  # -- Flag definitions to be served by flagd.
+  # These are rendered as JSON into a ConfigMap and mounted as a volume.
+  # Uses the flagd flag definition schema: https://flagd.dev/schema/v0/flags.json
+  flags:
+    # -- new-checkout-flow: fractional (percentage-based) rollout.
+    # Controls the gradual rollout of the new checkout flow experience.
+    # Starting at 10% rollout — update the weights to increase exposure.
+    new-checkout-flow:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "off"
+      targeting:
+        fractional:
+          - - "on"
+            - 10
+          - - "off"
+            - 90
+
+    # -- dark-mode: simple boolean toggle.
+    # Enables or disables dark mode across the application UI.
+    dark-mode:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "off"
+
+    # -- maintenance-mode: kill-switch flag.
+    # When enabled, puts the application into maintenance mode.
+    maintenance-mode:
+      state: ENABLED
+      variants:
+        "on": true
+        "off": false
+      defaultVariant: "off"
