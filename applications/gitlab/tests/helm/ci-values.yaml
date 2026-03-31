@@ -46,6 +46,8 @@ gitlab:
     enabled: true
   certmanager:
     install: false
+  certmanager-issuer:
+    email: ci@example.com
   prometheus:
     install: false
   registry:

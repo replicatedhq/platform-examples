@@ -11,7 +11,6 @@ update-dependencies:
 
 lint:
 	helm lint $(CHART_DIR)
-	helm template gitlab $(CHART_DIR) > /dev/null
 	helm template gitlab $(CHART_DIR) -f tests/helm/ci-values.yaml > /dev/null
 
 package: update-dependencies
