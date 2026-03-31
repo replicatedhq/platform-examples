@@ -82,6 +82,10 @@ gitlab:
     install: true
     installCRDs: false
 
+  # -- cert-manager ClusterIssuer (required even when certmanager.install: false)
+  certmanager-issuer:
+    email: example@example.com
+
   # -- Bundled Prometheus (for evaluation only)
   prometheus:
     install: true
