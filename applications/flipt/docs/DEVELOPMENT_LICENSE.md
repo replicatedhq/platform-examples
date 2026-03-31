@@ -61,7 +61,7 @@ replicated customer create \
   --app flipt \
   --name "$CUSTOMER_NAME" \
   --channel Unstable \
-  --license-type dev
+  --type dev
 ```
 
 ### Step 2: Download the License
