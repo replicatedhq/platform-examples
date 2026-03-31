@@ -1,0 +1,29 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: vaultwarden
+spec:
+  chart:
+    name: vaultwarden
+    chartVersion: 1.0.0
+  values:
+    vaultwarden:
+      domain: repl{{ ConfigOption "domain" }}
+      adminToken: repl{{ ConfigOption "admin_token" }}
+      signupsAllowed: repl{{ ConfigOptionEquals "signups_allowed" "1" }}
+      invitationsAllowed: repl{{ ConfigOptionEquals "invitations_allowed" "1" }}
+      database:
+        type: repl{{ ConfigOption "database_type" }}
+        postgresHost: repl{{ ConfigOption "postgres_host" }}
+        postgresUser: repl{{ ConfigOption "postgres_user" }}
+        postgresPassword: repl{{ ConfigOption "postgres_password" }}
+        postgresDatabase: repl{{ ConfigOption "postgres_database" }}
+      smtp:
+        enabled: repl{{ ConfigOptionEquals "smtp_enabled" "1" }}
+        host: repl{{ ConfigOption "smtp_host" }}
+        port: repl{{ ConfigOption "smtp_port" }}
+        from: repl{{ ConfigOption "smtp_from" }}
+        username: repl{{ ConfigOption "smtp_username" }}
+        password: repl{{ ConfigOption "smtp_password" }}
+    replicated:
+      enabled: true
