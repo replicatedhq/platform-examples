@@ -1,0 +1,9 @@
+apiVersion: v2
+name: flagd
+description: A Helm chart for flagd - OpenFeature-compliant feature flag evaluation daemon.
+type: application
+version: "0.1.0"
+appVersion: "0.11.1"
+home: https://flagd.dev
+sources:
+  - https://github.com/open-feature/flagd

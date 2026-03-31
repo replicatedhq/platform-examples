@@ -23,7 +23,6 @@ from contextlib import contextmanager
 import requests
 import urllib3
 
-# Self-signed certs are expected in test environments (MinIO auto-generates them)
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logging.basicConfig(
@@ -146,28 +145,27 @@ def check_postgres(namespace, kubeconfig, timeout):
     return _retry_port_forward_tcp(namespace, svc_name, port, kubeconfig, timeout)
 
 
-def check_minio(namespace, kubeconfig, timeout):
-    """HTTPS GET /minio/health/live on the MinIO tenant service."""
-    # MinIO operator creates a service named "minio" in the release namespace
+def check_garage(namespace, kubeconfig, timeout):
+    """HTTP GET /health on the Garage admin API (port 3903)."""
     svc_name, svc_port = discover_service(
-        namespace, "v1.min.io/tenant=minio", kubeconfig=kubeconfig,
+        namespace, "app.kubernetes.io/name=garage", kubeconfig=kubeconfig,
+        prefer_port=3903,
     )
     if not svc_name:
-        # Fallback to well-known name
-        svc_name, svc_port = "minio", 443
-    log.info("[minio] discovered service %s:%s", svc_name, svc_port)
+        svc_name, svc_port = "storagebox-garage", 3903
+    svc_port = svc_port or 3903
+    log.info("[garage] discovered service %s:%s", svc_name, svc_port)
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             with port_forward(namespace, svc_name, svc_port, kubeconfig) as lp:
-                url = f"https://localhost:{lp}/minio/health/live"
-                resp = requests.get(url, verify=False, timeout=5)
+                resp = requests.get(f"http://localhost:{lp}/health", timeout=5)
                 if resp.status_code == 200:
-                    log.info("[minio] health check passed (HTTP %s)", resp.status_code)
+                    log.info("[garage] health check passed (HTTP %s)", resp.status_code)
                     return True
-                log.warning("[minio] unexpected status %s", resp.status_code)
+                log.warning("[garage] unexpected status %s", resp.status_code)
         except Exception as exc:
-            log.debug("[minio] attempt failed: %s", exc)
+            log.debug("[garage] attempt failed: %s", exc)
         time.sleep(5)
     return False
 
@@ -255,7 +253,7 @@ def _retry_port_forward_tcp(namespace, svc_name, svc_port, kubeconfig, timeout):
 
 COMPONENTS = {
     "postgres": check_postgres,
-    "minio": check_minio,
+    "garage": check_garage,
     "nfs": check_nfs,
     "rqlite": check_rqlite,
     "cassandra": check_cassandra,

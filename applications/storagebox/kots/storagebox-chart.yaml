@@ -5,17 +5,127 @@ metadata:
 spec:
   chart:
     name: storagebox
-    chartVersion: 0.24.0
+    chartVersion: 0.26.8
+  helmUpgradeFlags:
+    - --timeout
+    - 10m0s
+  builder:
+    # Static values for air-gap image discovery. The Vendor Portal runs
+    # helm template with these values to find every container image.
+    # All components must be enabled so their templates render.
+    images:
+      alpine:
+        repository: docker.io/library/alpine
+        tag: "3.21"
+    garage:
+      enabled: true
+      bucket: storagebox
+      image:
+        repository: docker.io/dxflrs/garage
+      persistence:
+        meta:
+          size: 1Gi
+        data:
+          size: 50Gi
+    cassandra:
+      enabled: true
+      clusterName: storagebox-cassandra
+      serverVersion: "4.1.6"
+      auth:
+        username: builder
+        password: builder
+      datacenters:
+        - name: dc1
+          size: 1
+          storageConfig:
+            size: 8Gi
+          config:
+            cassandraYaml:
+              num_tokens: 256
+              authenticator: PasswordAuthenticator
+              authorizer: CassandraAuthorizer
+            jvmOptions:
+              heapSize: 512M
+      tls:
+        enabled: false
+    postgres:
+      enabled: true
+      auth:
+        username: builder
+        password: builder
+      embedded:
+        enabled: true
+        image:
+          repository: ghcr.io/cloudnative-pg/postgresql
+          tag: "15.2"
+        instances: 1
+        initdb:
+          database: postgres
+          owner: postgres
+          secret:
+            name: postgres-initdb-secret
+        postgresUID: 26
+        postgresGID: 26
+        storage:
+          size: 10Gi
+        service:
+          enabled: true
+          type: ClusterIP
+        primaryUpdateMethod: switchover
+        primaryUpdateStrategy: unsupervised
+        logLevel: info
+        enableSuperuserAccess: true
+    nfs-server:
+      enabled: true
+      env:
+        NFS_EXPORT_0: /shared *(rw,sync,no_subtree_check,no_root_squash)
+    rqlite:
+      enabled: true
+      replicas: 1
+      image:
+        repository: docker.io/rqlite/rqlite
+      persistence:
+        size: 10Gi
+    gateway:
+      enabled: true
+      garage:
+        enabled: true
+        hostname: garage.local
+      postgres:
+        enabled: true
+      cassandra:
+        enabled: true
+      rqlite:
+        enabled: true
+        hostname: rqlite.local
   values:
     global:
       imagePullSecrets:
         - name: repl{{ ImagePullSecretName }}
     images:
-      busybox:
-        repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/library/busybox") "proxy.xyyzx.net/proxy/storagebox/docker.io/library/busybox" }}
-        tag: 1.37.0
+      alpine:
+        repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/library/alpine") "proxy.xyyzx.net/proxy/storagebox/docker.io/library/alpine" }}
+        tag: "3.21"
     replicated:
       enabled: true
+    gateway:
+      enabled: repl{{ ConfigOptionEquals "gateway_enabled" "1" }}
+      garage:
+        enabled: repl{{ ConfigOptionEquals "gateway_garage_enabled" "1" }}
+        hostname: repl{{ ConfigOption "gateway_garage_hostname" }}
+        tls:
+          enabled: repl{{ ConfigOptionEquals "gateway_garage_tls_enabled" "1" }}
+          secretName: repl{{ ConfigOption "gateway_garage_tls_secret_name" }}
+      postgres:
+        enabled: repl{{ ConfigOptionEquals "gateway_postgres_enabled" "1" }}
+      cassandra:
+        enabled: repl{{ ConfigOptionEquals "gateway_cassandra_enabled" "1" }}
+      rqlite:
+        enabled: repl{{ ConfigOptionEquals "gateway_rqlite_enabled" "1" }}
+        hostname: repl{{ ConfigOption "gateway_rqlite_hostname" }}
+        tls:
+          enabled: repl{{ ConfigOptionEquals "gateway_rqlite_tls_enabled" "1" }}
+          secretName: repl{{ ConfigOption "gateway_rqlite_tls_secret_name" }}
     nfs-server:
       enabled: repl{{ ConfigOptionEquals "nfs_enabled" "1" }}
       imagePullSecrets:
@@ -79,50 +189,23 @@ spec:
         host: repl{{ ConfigOption "postgres_external_host" }}
         port: repl{{ ConfigOption "postgres_external_port" }}
         database: repl{{ ConfigOption "postgres_external_database" }}
-    tenant:
-      enabled: repl{{ ConfigOptionEquals "minio_tenant_enabled" "1" }}
-      tenant:
-        name: repl{{ ConfigOption "minio_tenant_name" }}
-        image:
-          repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/minio/minio") "proxy.xyyzx.net/proxy/storagebox/quay.io/minio/minio" }}
-          tag: RELEASE.2024-08-17T01-24-54Z
-        imagePullSecret:
-          name: repl{{ ImagePullSecretName }}
-        configuration:
-          name: minio-env-configuration
-        certificate:
-          requestAutoCert: repl{{ ConfigOptionEquals "minio_tenant_tls_auto_cert" "1" }}
-        configSecret:
-          name: minio-env-configuration
-          accessKey: repl{{ ConfigOption "minio_tenant_configuration_access_key" }}
-          secretKey: repl{{ ConfigOption "minio_tenant_configuration_secret_key" }}
-        ingress:
-          api:
-            enabled: true
-            ingressClassName: nginx
-            host: repl{{ ConfigOption "minio_tenant_ingress_api_host" }}
-            path: /
-            pathType: Prefix
-          console:
-            enabled: true
-            ingressClassName: nginx
-            host: repl{{ ConfigOption "minio_tenant_ingress_console_host" }}
-            path: /
-            pathType: Prefix
-        pools:
-          - name: repl{{ ConfigOption "minio_tenant_pool_name" }}
-            servers: repl{{ ConfigOption "minio_tenant_pool_servers" }}
-            volumesPerServer: repl{{ ConfigOption "minio_tenant_pool_volumes_per_server" }}
-            size: repl{{ ConfigOption "minio_tenant_pool_size" }}
-            storageClassName: repl{{ ConfigOption "minio_tenant_pool_storage_class_name" }}
-        metrics:
-          enabled: repl{{ ConfigOptionEquals "minio_tenant_metrics_enabled" "1" }}
-          port: repl{{ ConfigOption "minio_tenant_metrics_port" }}
-          protocol: repl{{ ConfigOption "minio_tenant_metrics_protocol" }}
-        buckets:
-          - name: repl{{ ConfigOption "minio_tenant_bucket_name" }}
-            objectLock: repl{{ ConfigOptionEquals "minio_tenant_bucket_object_lock" "1" }}
-            region: repl{{ ConfigOption "minio_tenant_bucket_region" }}
+    garage:
+      enabled: repl{{ ConfigOptionEquals "garage_enabled" "1" }}
+      bucket: repl{{ ConfigOption "garage_bucket" }}
+      image:
+        repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/dxflrs/garage") "proxy.xyyzx.net/proxy/storagebox/docker.io/dxflrs/garage" }}
+      initImage:
+        repository: repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/library/alpine") "proxy.xyyzx.net/proxy/storagebox/docker.io/library/alpine" }}
+        tag: "3.21"
+      imagePullSecrets:
+        - name: repl{{ ImagePullSecretName }}
+      persistence:
+        meta:
+          size: repl{{ ConfigOption "garage_meta_size" }}
+          storageClass: repl{{ ConfigOption "garage_meta_storage_class" }}
+        data:
+          size: repl{{ ConfigOption "garage_data_size" }}
+          storageClass: repl{{ ConfigOption "garage_data_storage_class" }}
     rqlite:
       enabled: repl{{ ConfigOptionEquals "rqlite_enabled" "1" }}
       replicas: repl{{ ConfigOption "rqlite_replicas" }}
@@ -143,3 +226,12 @@ spec:
         cassandra:
           reaper:
             enabled: true
+    # When PostgreSQL gateway is active, switch to ClusterIP (the gateway
+    # handles external access via TCPRoute instead of NodePort).
+    - when: 'repl{{ and (ConfigOptionEquals "gateway_enabled" "1") (ConfigOptionEquals "gateway_postgres_enabled" "1") (ConfigOptionEquals "postgres_enabled" "1") (ConfigOptionNotEquals "postgres_external" "1") }}'
+      recursiveMerge: true
+      values:
+        postgres:
+          embedded:
+            service:
+              type: ClusterIP

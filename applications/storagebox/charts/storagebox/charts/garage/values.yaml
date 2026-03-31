@@ -1,0 +1,33 @@
+# Garage S3-compatible storage - vendored subchart
+# Minimal single-node configuration for Akkoma media storage
+
+image:
+  repository: dxflrs/garage
+  tag: "v1.3.1"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+initImage:
+  repository: alpine
+  tag: "3.21"
+
+# Storage configuration
+persistence:
+  meta:
+    size: 1Gi
+    storageClass: ""
+  data:
+    size: 50Gi
+    storageClass: ""
+
+# Resource limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 512Mi
+
+# Admin API token (auto-generated if empty)
+adminToken: ""

@@ -18,3 +18,8 @@ mlflow:
   # Environment configuration
   # env:
   #   container: []
+
+postgres:
+  embedded:
+    # Single instance is sufficient for CI; reduces startup time on 1-node clusters
+    instances: 1

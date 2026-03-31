@@ -1,0 +1,36 @@
+# Values for using external PostgreSQL database
+# Use this when you have an existing PostgreSQL instance
+
+flipt:
+  enabled: true
+  replicaCount: 2
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+postgresql:
+  type: external
+
+  embedded:
+    enabled: false
+
+  external:
+    enabled: true
+    host: postgresql.database.svc.cluster.local
+    port: 5432
+    database: flipt
+    username: flipt
+    password: "your-secure-password-here"  # Use secret in production
+    sslMode: require
+
+redis:
+  enabled: true
+  architecture: standalone
+
+replicated:
+  enabled: true
