@@ -3,12 +3,12 @@
 # When adding a new Helm chart that depends on the Replicated SDK,
 # add a corresponding entry here so Dependabot keeps it up to date.
 #
-# NOTE: Dependabot does not support YAML anchors/aliases, so the
-# directory lists must be duplicated between entries.
+# NOTE: Dependabot requires unique (ecosystem, directory) pairs, so we
+# use a single entry with groups to separate Replicated SDK updates from
+# everything else. Both follow a weekly cadence as a result.
 #
 version: 2
 updates:
-  # Track the Replicated SDK on a weekly cadence
   - package-ecosystem: "helm"
     directories:
       - "/applications/fake-services/app"
@@ -20,28 +20,10 @@ updates:
       - "/applications/wg-easy/charts/wg-easy"
     schedule:
       interval: "weekly"
-    allow:
-      - dependency-name: "replicated"
     groups:
       replicated-sdk:
         patterns:
           - "replicated"
-
-  # Track all other Helm dependencies on a monthly cadence
-  - package-ecosystem: "helm"
-    directories:
-      - "/applications/fake-services/app"
-      - "/applications/mlflow/charts/mlflow"
-      - "/applications/n8n/charts/n8n"
-      - "/applications/onlineboutique/chart"
-      - "/applications/powerdns/charts/powerdns-authoritative"
-      - "/applications/storagebox/charts/storagebox"
-      - "/applications/wg-easy/charts/wg-easy"
-    schedule:
-      interval: "monthly"
-    ignore:
-      - dependency-name: "replicated"
-    groups:
       all-other-deps:
-        patterns:
-          - "*"
+        exclude-patterns:
+          - "replicated"
