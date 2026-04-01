@@ -162,20 +162,26 @@ jobs:
           TEST_DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          cat > /tmp/status_section.md <<EOF
-          <!-- TEST_STATUS_START -->
+          # Write only the inner content (the markers remain in place as anchors)
+          cat > /tmp/status_inner.md <<EOF
+
           ## Test Status
 
           | Component | Status | Last Tested | Kubernetes Version | Details |
-          |-----------|--------|-------------|-------------------|---------|
+          |-----------|--------|-------------|--------------------|---------|
           | Chart Installation | ${STATUS} | ${TEST_DATE} | v1.33 / v1.34 / v1.35 | [View Run](${RUN_URL}) |
 
           *Status automatically updated by [weekly test workflow](${RUN_URL})*
-          <!-- TEST_STATUS_END -->
+
           EOF
 
-          sed -i.bak '/<!-- TEST_STATUS_START -->/,/<!-- TEST_STATUS_END -->/d' "$README_PATH"
-          sed -i.bak '4r /tmp/status_section.md' "$README_PATH"
+          # Replace content between the marker comments, keeping the markers as anchors
+          sed -i.bak '/<!-- TEST_STATUS_START -->/,/<!-- TEST_STATUS_END -->/{
+            /<!-- TEST_STATUS_START -->/{
+              r /tmp/status_inner.md
+            }
+            /<!-- TEST_STATUS_START -->/!{/<!-- TEST_STATUS_END -->/!d}
+          }' "$README_PATH"
           rm -f "${README_PATH}.bak"
 
           echo "Updated README with test status: ${STATUS}"
