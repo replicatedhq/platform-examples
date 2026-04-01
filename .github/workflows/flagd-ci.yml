@@ -55,10 +55,18 @@ jobs:
           fi
           echo "Checksum changed: $CHECKSUM_BEFORE -> $CHECKSUM_AFTER"
 
+  check-secret:
+    runs-on: ubuntu-22.04
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - id: check
+        run: echo "has-token=${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
   helm-install-test:
     runs-on: ubuntu-22.04
-    needs: [lint-and-template]
-    if: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}
+    needs: [lint-and-template, check-secret]
+    if: needs.check-secret.outputs.has-token == 'true'
     defaults:
       run:
         working-directory: applications/flagd
