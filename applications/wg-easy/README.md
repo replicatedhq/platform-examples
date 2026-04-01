@@ -7,9 +7,9 @@ The target scenario: multiple teams, multiple product verticals, one Replicated 
 <!-- TEST_STATUS_START -->
 ## Test Status
 
-| Component | Status | Last Tested | Kubernetes Version |
-|-----------|--------|-------------|-------------------|
-| Chart Installation | ⏳ Pending | Never | v1.35 |
+| Component | Status | Last Tested | Kubernetes Version | Details |
+|-----------|--------|-------------|--------------------|---------| 
+| Chart Installation | ⏳ Pending | Never | v1.33 / v1.34 / v1.35 | - |
 
 *Status automatically updated by weekly test workflow*
 <!-- TEST_STATUS_END -->

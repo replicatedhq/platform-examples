@@ -31,6 +31,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: run-tests
     if: failure()
+    permissions:
+      issues: write
     steps:
       - name: Create GitHub Issue on Failure
         uses: actions/github-script@v7
@@ -99,6 +101,8 @@ jobs:
     runs-on: ubuntu-24.04
     needs: run-tests
     if: success() && (github.event.inputs.notify_on_success == 'true' || github.event_name == 'schedule')
+    permissions:
+      issues: write
     steps:
       - name: Comment on latest open issue if exists
         uses: actions/github-script@v7
@@ -113,20 +117,24 @@ jobs:
               labels: 'automated-test,wg-easy',
               sort: 'created',
               direction: 'desc',
-              per_page: 1
+              per_page: 10
             });
 
-            if (issues.data.length > 0) {
-              const issue = issues.data[0];
+            // Only comment on issues that are weekly test failure reports
+            const failureIssue = issues.data.find(issue =>
+              issue.title.includes('[Weekly Test Failure]')
+            );
+
+            if (failureIssue) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: issue.number,
+                issue_number: failureIssue.number,
                 body: `✅ **Weekly test passed!**\n\nThe WG-Easy chart is now installing and working correctly.\n\n**Successful Run:** ${runUrl}\n\nConsider closing this issue if the problem is resolved.`
               });
-              console.log(`Added success comment to issue #${issue.number}`);
+              console.log(`Added success comment to issue #${failureIssue.number}`);
             } else {
-              console.log('No open test failure issues found - weekly test passed successfully!');
+              console.log('No open weekly test failure issues found - weekly test passed successfully!');
             }
 
   update-readme-status:

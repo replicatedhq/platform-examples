@@ -6,6 +6,7 @@ on:
     tags: [ 'v*' ]
     paths:
       - 'applications/wg-easy/**'
+      - '!applications/wg-easy/README.md'
       - '.github/workflows/wg-easy-image.yml'
   pull_request:
     paths:
