@@ -1,0 +1,35 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  - name: application_settings
+    title: Application Settings
+    items:
+    - name: simulated_seat_usage
+      title: Simulated Seat Usage
+      type: text
+      default: "12"
+      required: true
+      description: |
+        Number of simulated active seats. Used to demonstrate seat entitlement
+        enforcement against the seat_count license field.
+      validation:
+        regex:
+          pattern: ^\d+$
+          message: Must be a whole number.
+  - name: signature_validation
+    title: Signature Validation
+    description: |
+      Configure the application public key for license field signature validation.
+      The public key is available in the Replicated Vendor Portal under your application settings.
+    items:
+    - name: app_public_key
+      title: Application Public Key (PEM)
+      type: textarea
+      default: ""
+      description: |
+        RSA public key in PEM format for validating license field signatures.
+        Leave empty to disable signature validation.
