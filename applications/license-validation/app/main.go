@@ -80,7 +80,7 @@ var (
 func main() {
 	sdkAddr := os.Getenv("REPLICATED_SDK_ADDRESS")
 	if sdkAddr == "" {
-		sdkAddr = "http://license-validation-replicated:3000"
+		sdkAddr = "http://replicated:3000"
 	}
 
 	pubKeyPEM := os.Getenv("REPLICATED_APP_PUBLIC_KEY")

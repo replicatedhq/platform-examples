@@ -128,7 +128,7 @@ export REPLICATED_APP=license-validation
 
 ```bash
 # Build the Docker image
-docker build -t ttl.sh/license-validation:2h .
+docker build --platform linux/amd64,linux/arm64 -t ttl.sh/license-validation:2h .
 
 # Push to ttl.sh (ephemeral registry, good for demos)
 docker push ttl.sh/license-validation:2h
