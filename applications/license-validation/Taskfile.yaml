@@ -34,7 +34,7 @@ tasks:
   docker:build:
     desc: Build the Docker image locally
     cmds:
-      - docker build -t {{.APP_NAME}}:latest .
+      - docker build -platform linux/amd64,linux/arm64 -t {{.APP_NAME}}:latest .
 
   # ── Release ────────────────────────────────────────────────
 
