@@ -1,7 +1,7 @@
 dependencies:
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.18.0
+  version: 1.19.0
 - name: nfs-server
   repository: https://charts.obeone.cloud
   version: 1.1.2
@@ -11,5 +11,5 @@ dependencies:
 - name: rqlite
   repository: https://rqlite.github.io/helm-charts
   version: 2.0.0
-digest: sha256:45cdb3a9efe357b038aae654b472eeb196715a8cb3ba3a1b4728a136ab8840b7
-generated: "2026-03-26T15:56:30.266926-04:00"
+digest: sha256:da408016f29b374be98a7ebafdf59463fe76125812dcef5e5ae26472f6a52360
+generated: "2026-04-06T06:28:37.482261889Z"
