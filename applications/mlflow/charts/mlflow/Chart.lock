@@ -1,6 +1,6 @@
 dependencies:
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.18.0
-digest: sha256:9cc097be88b39ad29c14925eb7e8d55ef16881c3fd047e5f1c390bd5a80f5936
-generated: "2026-03-23T06:22:20.806324737Z"
+  version: 1.19.2
+digest: sha256:5092ae5e3647134249e983e18e0b8a3dda137dc3edb52fa5abb33a38aead6d9a
+generated: "2026-04-20T06:40:26.605242338Z"

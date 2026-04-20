@@ -12,7 +12,7 @@ dependencies:
   version: 0.9.3
 - name: replicated
   repository: oci://registry.replicated.com/library
-  version: 1.18.0
+  version: 1.19.2
 description: Helm Chart for deploying n8n on Kubernetes, a fair-code workflow automation
   platform with native AI capabilities for technical teams. Easily automate tasks
   across different services.
