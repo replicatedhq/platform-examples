@@ -83,5 +83,19 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+global:
+  replicated:
+    customerName: ""
+    licenseID: ""
+    licenseType: ""
+    channelID: ""
+    channelName: ""
+    channelSequence: 0
+    releaseSequence: 0
+    releaseCreatedAt: ""
+    releaseNotes: ""
+    replicatedID: ""
+    appID: ""
+
 replicated:
   enabled: false

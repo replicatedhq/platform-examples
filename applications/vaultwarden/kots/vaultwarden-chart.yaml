@@ -27,3 +27,12 @@ spec:
         password: repl{{ ConfigOption "smtp_password" }}
     replicated:
       enabled: true
+  builder:
+    image:
+      registry: docker.io
+      repository: vaultwarden/server
+      tag: "1.33.2"
+    vaultwarden:
+      domain: "https://vault.example.com"
+    replicated:
+      enabled: false

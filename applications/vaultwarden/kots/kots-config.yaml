@@ -46,9 +46,9 @@ spec:
     - name: postgres_host
       title: PostgreSQL Host
       type: text
-      default: "postgres:5432"
+      default: "postgres"
       required: true
-      description: PostgreSQL host and port
+      description: PostgreSQL hostname (port is configured separately in the chart)
       when: 'repl{{ ConfigOptionEquals "database_type" "postgresql" }}'
     - name: postgres_user
       title: PostgreSQL User
