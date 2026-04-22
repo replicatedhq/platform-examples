@@ -44,8 +44,9 @@ gitlab:
         key: password
 
     # External Redis — replace host with your Redis service
+    # Note: Bitnami Redis chart always names the master service <fullnameOverride>-master
     redis:
-      host: external-redis
+      host: external-redis-master
       port: 6379
       auth:
         enabled: true

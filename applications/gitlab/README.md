@@ -74,36 +74,33 @@ make update-dependencies
 ### 2. Lint the chart
 
 ```bash
-make lint
+helm lint charts/gitlab
+helm template gitlab charts/gitlab -f tests/helm/ci-values.yaml > /dev/null
 ```
+
+Or via `make lint`.
 
 ### 3. Create a release and promote to Unstable
 
-```bash
-make release
-```
-
-Or manually:
+Package the chart and push a release to the [Replicated Vendor Portal](https://vendor.replicated.com):
 
 ```bash
 helm package charts/gitlab -d kots/
-REPLICATED_API_TOKEN=$REPLICATED_API_TOKEN replicated release create \
+
+replicated release create \
   --app $REPLICATED_APP \
   --yaml-dir kots \
   --promote Unstable \
   --release-notes "Initial release"
 ```
 
-### 4. Install with Helm CLI (customer flow)
+Or via `make release`.
 
-This is the standard customer install path using the Replicated OCI registry.
-See: https://docs.replicated.com/vendor/install-with-helm
-
-**Create a customer** (vendor side):
+### 4. Create a customer and set license env vars
 
 ```bash
 replicated customer create \
-  --app <your-app-slug> \
+  --app $REPLICATED_APP \
   --name my-customer \
   --channel Unstable \
   --type dev \
@@ -112,39 +109,150 @@ replicated customer create \
   --output json
 ```
 
-Note the `installationId` from the output -- this is the license ID used for
-registry authentication.
-
-**Install** (customer side):
+Note the `installationId` from the output — this is the license ID used for
+registry authentication. Add it to your `.envrc`:
 
 ```bash
-# 1. Authenticate to Replicated registry
-helm registry login registry.replicated.com \
-  --username <customer-email> \
-  --password <license-id>
+export REPLICATED_LICENSE_ID=<installationId>
+export REPLICATED_CUSTOMER_EMAIL=customer@example.com
+direnv allow
+```
 
-# 2. Install from OCI registry
-helm install gitlab \
-  oci://registry.replicated.com/<your-app-slug>/unstable/gitlab \
+### 5. Create a CMX cluster
+
+Use the [Replicated Compatibility Matrix](https://docs.replicated.com/vendor/testing-about) to provision a cluster:
+
+```bash
+replicated cluster create \
+  --distribution k3s \
+  --version 1.32 \
+  --instance-type r1.xlarge \
+  --disk 100 \
+  --ttl 4h \
+  --name gitlab-cmx \
+  --wait 10m \
+  --output json | jq -r '.id' > .cluster-id
+
+replicated cluster kubeconfig $(cat .cluster-id)
+kubectl cluster-info   # verify connectivity
+```
+
+Or via `make cluster-create` (uses the same commands with overridable defaults).
+
+### 6. Deploy in-cluster PostgreSQL and Redis
+
+`tests/helm/cmx-deploy-values.yaml` requires external PostgreSQL and Redis — the GitLab chart's bundled Bitnami images were removed from Docker Hub. Deploy them into the cluster using the Bitnami Helm charts before installing GitLab:
+
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo update
+
+# Deploy PostgreSQL 16 with the service name GitLab expects
+helm upgrade --install postgresql bitnami/postgresql \
   --namespace gitlab \
   --create-namespace \
-  --set global.replicated.licenseID=<license-id> \
+  --set fullnameOverride=external-postgresql \
+  --set auth.username=gitlab \
+  --set auth.password=gitlab-pg-pass \
+  --set auth.database=gitlabhq_production \
+  --set primary.resourcesPreset=none \
+  --set primary.resources.requests.memory=1Gi \
+  --set primary.resources.limits.memory=2Gi \
+  --wait
+
+# Deploy Redis 7 (standalone)
+# The Bitnami chart always creates the service as <fullnameOverride>-master,
+# which matches the redis.host value in cmx-deploy-values.yaml (external-redis-master)
+helm upgrade --install redis bitnami/redis \
+  --namespace gitlab \
+  --set fullnameOverride=external-redis \
+  --set architecture=standalone \
+  --set auth.password=gitlab-redis-pass \
+  --wait
+
+# Create the secrets GitLab reads for credentials
+kubectl create secret generic gitlab-external-pg-password \
+  --from-literal=password=gitlab-pg-pass \
+  --namespace gitlab
+
+kubectl create secret generic gitlab-external-redis-password \
+  --from-literal=redis-password=gitlab-redis-pass \
+  --namespace gitlab
+
+# Grant superuser to the gitlab DB user so migrations can CREATE EXTENSION
+# (pg_trgm, btree_gist, amcheck — required by GitLab migrations)
+# The Bitnami chart creates a non-superuser by default; the postgres superuser
+# password is stored in the chart-generated secret.
+kubectl exec -n gitlab pod/external-postgresql-0 -- \
+  env PGPASSWORD=$(kubectl get secret external-postgresql -n gitlab \
+    -o jsonpath='{.data.postgres-password}' | base64 -d) \
+  psql -U postgres -c "ALTER USER gitlab SUPERUSER;"
+```
+
+> - `fullnameOverride` ensures the Kubernetes service names match `psql.host` and `redis.host` in `cmx-deploy-values.yaml`.
+> - The superuser grant is required because GitLab migrations run `CREATE EXTENSION` statements, which require superuser in PostgreSQL.
+
+Or via `make setup-deps` (uses the same commands; override passwords with `PG_PASSWORD` and `REDIS_PASSWORD`).
+
+### 7. Install GitLab
+
+Authenticate to the Replicated OCI registry and install:
+
+```bash
+helm registry login registry.replicated.com \
+  --username $REPLICATED_CUSTOMER_EMAIL \
+  --password $REPLICATED_LICENSE_ID
+
+helm install gitlab \
+  oci://registry.replicated.com/$REPLICATED_APP/unstable/gitlab \
+  --namespace gitlab \
+  --create-namespace \
+  --set global.replicated.licenseID=$REPLICATED_LICENSE_ID \
   -f tests/helm/cmx-deploy-values.yaml \
   --timeout 20m \
   --wait
 ```
 
-Customers receive `<customer-email>` and `<license-id>` from the vendor when a
-customer record is created for them in the Replicated Vendor Portal.
+Or via `make install`.
 
-**Important notes:**
-- The registry password is the `installationId` (license ID), NOT the customer `id`.
-- The OCI URL format is `oci://registry.replicated.com/<app-slug>/<channel>/<chart-name>`.
-- The GitLab chart's bundled Bitnami PostgreSQL/Redis images have been removed from
-  Docker Hub. You must provide external PostgreSQL 16+ and Redis 7+ services.
-  See `tests/helm/cmx-deploy-values.yaml` for an example configuration.
+### 8. Access the GitLab UI
 
-### 5. Deploy with Embedded Cluster
+The chart deploys an nginx ingress controller with `gitlab.example.com` as the domain (see `tests/helm/cmx-deploy-values.yaml`). Port-forward the ingress controller and add a local hosts entry to access it:
+
+```bash
+# Add a hosts entry (requires sudo)
+echo "127.0.0.1 gitlab.example.com" | sudo tee -a /etc/hosts
+
+# Port-forward the nginx ingress controller
+kubectl port-forward svc/gitlab-nginx-ingress-controller 8080:80 -n gitlab
+```
+
+Open http://gitlab.example.com:8080 in your browser.
+
+To get the initial root password:
+
+```bash
+kubectl get secret gitlab-gitlab-initial-root-password -n gitlab \
+  -o jsonpath='{.data.password}' | base64 --decode
+```
+
+Sign in as `root` with that password.
+
+### 9. Clean up
+
+```bash
+helm uninstall gitlab --namespace gitlab
+helm uninstall postgresql --namespace gitlab
+helm uninstall redis --namespace gitlab
+kubectl delete namespace gitlab --ignore-not-found
+
+replicated cluster rm $(cat .cluster-id)
+rm .cluster-id
+```
+
+Or via `make uninstall && make teardown-deps && make cluster-delete`.
+
+### Deploy with Embedded Cluster
 
 Create a customer and download a license, then:
 
@@ -163,6 +271,13 @@ kubectl port-forward svc/kotsadm 3000:3000 -n kotsadm
 ```
 
 Navigate to `http://localhost:3000` and configure GitLab via the KOTS admin console.
+
+**Important notes:**
+- The registry password is the `installationId` (license ID), NOT the customer `id`.
+- The OCI URL format is `oci://registry.replicated.com/<app-slug>/<channel>/<chart-name>`.
+- The GitLab chart's bundled Bitnami PostgreSQL/Redis images have been removed from
+  Docker Hub. You must provide external PostgreSQL 16+ and Redis 7+ services.
+  See `tests/helm/cmx-deploy-values.yaml` for an example configuration.
 
 ## Directory Structure
 
