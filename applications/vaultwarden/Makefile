@@ -17,6 +17,9 @@ KOTS_DIR        = ./kots
 
 VAULTWARDEN_CHART_PATH = ./charts/vaultwarden/Chart.yaml
 
+# Replicated app slug — override with APP_SLUG=<your-slug> if different
+APP_SLUG ?= vaultwarden
+
 # CMX defaults — override on the command line as needed:
 #   make cmx-create CLUSTER_NAME=my-test INSTANCE_TYPE=r1.xlarge
 CLUSTER_NAME  ?= vaultwarden-kurl
@@ -86,7 +89,7 @@ clean: ## Remove packaged chart archives and temp directories
 release: package-and-update ## Package chart and create a Replicated release on Unstable
 	@chart_version=$$(eval $(call get_vaultwarden_chart_version)); \
 	echo "Creating Replicated release version $$chart_version"; \
-	replicated release create --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
+	replicated release create --app $(APP_SLUG) --yaml-dir $(KOTS_DIR) --promote Unstable --version "$$chart_version"
 
 
 # ===================================================================
