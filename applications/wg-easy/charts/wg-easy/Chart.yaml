@@ -7,7 +7,7 @@ dependencies:
   version: '*'
   repository: file://../templates
 - name: replicated
-  version: 1.18.0
+  version: 1.19.3
   repository: oci://registry.replicated.com/library
 description: Simple wireguard with web configuration management
 home: https://github.com/replicatedhq/platform-examples/

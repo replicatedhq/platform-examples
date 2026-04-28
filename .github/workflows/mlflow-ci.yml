@@ -24,6 +24,14 @@ env:
   YQ_VERSION: v4.44.6
 
 jobs:
+  check-secret:
+    runs-on: ubuntu-22.04
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - id: check
+        run: echo "has-token=${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
   lint-and-template:
     runs-on: ubuntu-22.04
     outputs:
@@ -86,7 +94,8 @@ jobs:
 
   create-release:
     runs-on: ubuntu-22.04
-    needs: [lint-and-template]
+    needs: [lint-and-template, check-secret]
+    if: needs.check-secret.outputs.has-token == 'true'
     outputs:
       customer-id: ${{ steps.create-customer.outputs.customer-id }}
       channel-slug: ${{ steps.create-release.outputs.channel-slug }}
@@ -147,7 +156,7 @@ jobs:
 
       - name: Create customer
         id: create-customer
-        uses: replicatedhq/replicated-actions/create-customer@main
+        uses: replicatedhq/replicated-actions/create-customer@v1.17.0
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
@@ -348,31 +357,52 @@ jobs:
           ttl: 1h
           export-kubeconfig: true
 
-      # Download license using task
+      - name: Install Replicated CLI
+        run: |
+          curl -s -H "Authorization: token ${{ github.token }}" \
+            https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*_linux_amd64.tar.gz" \
+            | head -1 | cut -d '"' -f 4 \
+            | xargs curl -sL -o replicated.tar.gz
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          rm replicated.tar.gz
+          replicated version
+
       - name: Download license
         id: download-license
-        working-directory: applications/mlflow
         run: |
           mkdir -p /tmp/replicated
-          CUSTOMER_NAME="${{ needs.create-release.outputs.customer-id }}"
-          echo "Using customer name: $CUSTOMER_NAME for license download"
-          echo "Attempting to download license..."
-          set +e
-          CUSTOMER_NAME="$CUSTOMER_NAME" task license:download
-          DOWNLOAD_RESULT=$?
-          set -e
-          if [ $DOWNLOAD_RESULT -ne 0 ]; then
-            echo "Failed to download license. Error code: $DOWNLOAD_RESULT"
-            echo "Checking if license file exists..."
-            ls -la /tmp/replicated || true
+          CUSTOMER_NAME="automated-${{ github.run_id }}"
+          LICENSE_FILE="/tmp/replicated/license.yaml"
+
+          for attempt in 1 2 3 4 5; do
+            echo "Attempt $attempt: Downloading license for customer $CUSTOMER_NAME..."
+            if replicated customer download-license \
+              --customer "$CUSTOMER_NAME" \
+              --app "${{ env.APP_SLUG }}" \
+              > "$LICENSE_FILE" 2>/tmp/replicated/download-error.txt; then
+              if [ -s "$LICENSE_FILE" ]; then
+                echo "License downloaded successfully"
+                break
+              fi
+            fi
+            echo "Download failed:"
+            cat /tmp/replicated/download-error.txt || true
+            if [ "$attempt" -lt 5 ]; then
+              echo "Retrying in $((attempt * 5)) seconds..."
+              sleep $((attempt * 5))
+            fi
+          done
+
+          if [ ! -s "$LICENSE_FILE" ]; then
+            echo "ERROR: Failed to download license after 5 attempts"
             exit 1
           fi
-          if [ ! -f "/tmp/replicated/license.yaml" ] || [ ! -s "/tmp/replicated/license.yaml" ]; then
-            echo "License file is missing or empty!"
-            exit 1
-          fi
-          echo "License file downloaded successfully to /tmp/replicated/license.yaml"
-          LICENSE_CONTENT=$(cat /tmp/replicated/license.yaml)
+
+          echo "License file content (first 5 lines):"
+          head -n 5 "$LICENSE_FILE"
+          LICENSE_CONTENT=$(cat "$LICENSE_FILE")
           echo "license<<EOF" >> $GITHUB_OUTPUT
           echo "$LICENSE_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -524,6 +554,7 @@ jobs:
       - name: Archive Customer
         if: ${{ always() && needs.create-release.outputs.customer-id != '' }}
         uses: replicatedhq/replicated-actions/archive-customer@v1.17.0
+        continue-on-error: true
         with:
           api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
           customer-id: ${{ needs.create-release.outputs.customer-id }}
@@ -531,6 +562,7 @@ jobs:
       - name: Archive Channel
         if: ${{ always() && needs.create-release.outputs.channel-slug != '' }}
         uses: replicatedhq/replicated-actions/archive-channel@v1.17.0
+        continue-on-error: true
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}

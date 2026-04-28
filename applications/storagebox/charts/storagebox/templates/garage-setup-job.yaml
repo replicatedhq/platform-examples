@@ -45,7 +45,7 @@ spec:
         - -c
         - |
           set -e
-          apk add --no-cache jq > /dev/null 2>&1
+          apk add --no-cache curl jq > /dev/null 2>&1
 
           GARAGE_ADMIN="http://{{ .Release.Name }}-garage:3903"
           ADMIN_TOKEN=$(cat /etc/garage/secrets/admin-token)
