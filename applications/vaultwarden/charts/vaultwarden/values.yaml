@@ -1,0 +1,101 @@
+# Default values for vaultwarden.
+
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: vaultwarden/server
+  tag: "" # Defaults to appVersion
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Vaultwarden configuration
+vaultwarden:
+  # The domain name for the Vaultwarden instance (e.g. https://vault.example.com)
+  domain: ""
+  # Admin panel token. Set to empty string to disable admin panel.
+  adminToken: ""
+  # Enable signups
+  signupsAllowed: true
+  # Enable invitations
+  invitationsAllowed: true
+  # Show password hints
+  showPasswordHint: true
+  # Enable websocket notifications
+  websocketEnabled: true
+
+  # SMTP configuration for email notifications
+  smtp:
+    enabled: false
+    host: ""
+    port: 587
+    security: starttls
+    from: ""
+    username: ""
+    password: ""
+
+  # Database configuration
+  # Supported types: sqlite, postgresql
+  database:
+    type: sqlite
+    # SQLite data path (relative to /data)
+    sqlitePath: "db.sqlite3"
+    # PostgreSQL connection settings (used when type is postgresql)
+    postgresHost: ""
+    postgresPort: "5432"
+    postgresUser: "vaultwarden"
+    postgresPassword: ""
+    postgresDatabase: "vaultwarden"
+
+service:
+  type: ClusterIP
+  port: 80
+  websocketPort: 3012
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: vault.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+global:
+  replicated:
+    customerName: ""
+    licenseID: ""
+    licenseType: ""
+    channelID: ""
+    channelName: ""
+    channelSequence: 0
+    releaseSequence: 0
+    releaseCreatedAt: ""
+    releaseNotes: ""
+    replicatedID: ""
+    appID: ""
+
+replicated:
+  enabled: false

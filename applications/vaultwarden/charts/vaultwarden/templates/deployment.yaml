@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vaultwarden.fullname" . }}
+  labels:
+    {{- include "vaultwarden.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "vaultwarden.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "vaultwarden.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: vaultwarden
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            {{- if .Values.vaultwarden.websocketEnabled }}
+            - name: websocket
+              containerPort: 3012
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: DOMAIN
+              value: {{ .Values.vaultwarden.domain | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.fullname" . }}
+                  key: DATABASE_URL
+            {{- if .Values.vaultwarden.adminToken }}
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.fullname" . }}
+                  key: ADMIN_TOKEN
+            {{- end }}
+            - name: SIGNUPS_ALLOWED
+              value: {{ .Values.vaultwarden.signupsAllowed | quote }}
+            - name: INVITATIONS_ALLOWED
+              value: {{ .Values.vaultwarden.invitationsAllowed | quote }}
+            - name: SHOW_PASSWORD_HINT
+              value: {{ .Values.vaultwarden.showPasswordHint | quote }}
+            - name: WEBSOCKET_ENABLED
+              value: {{ .Values.vaultwarden.websocketEnabled | quote }}
+            {{- if .Values.vaultwarden.smtp.enabled }}
+            - name: SMTP_HOST
+              value: {{ .Values.vaultwarden.smtp.host | quote }}
+            - name: SMTP_PORT
+              value: {{ .Values.vaultwarden.smtp.port | quote }}
+            - name: SMTP_SECURITY
+              value: {{ .Values.vaultwarden.smtp.security | quote }}
+            - name: SMTP_FROM
+              value: {{ .Values.vaultwarden.smtp.from | quote }}
+            - name: SMTP_USERNAME
+              value: {{ .Values.vaultwarden.smtp.username | quote }}
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "vaultwarden.fullname" . }}
+                  key: SMTP_PASSWORD
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "vaultwarden.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

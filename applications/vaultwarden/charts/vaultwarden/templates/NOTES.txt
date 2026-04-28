@@ -1,0 +1,18 @@
+Vaultwarden has been deployed!
+
+{{- if .Values.ingress.enabled }}
+Access Vaultwarden at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+To access Vaultwarden, run:
+  kubectl port-forward svc/{{ include "vaultwarden.fullname" . }} 8080:{{ .Values.service.port }}
+
+Then open http://localhost:8080 in your browser.
+{{- end }}
+
+{{- if .Values.vaultwarden.adminToken }}
+
+Admin panel is available at /admin
+{{- end }}
