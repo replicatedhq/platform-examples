@@ -6,8 +6,8 @@ images:
     repository: alpine
     tag: "3.21"
   garageSetup:
-    repository: curlimages/curl
-    tag: "8.19.0"
+    repository: alpine
+    tag: "3.21"
 
 replicated:
   enabled: true
