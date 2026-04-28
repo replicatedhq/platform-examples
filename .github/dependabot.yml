@@ -24,6 +24,3 @@ updates:
       replicated-sdk:
         patterns:
           - "replicated"
-      all-other-deps:
-        exclude-patterns:
-          - "replicated"

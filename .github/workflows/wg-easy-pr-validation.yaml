@@ -47,6 +47,14 @@ env:
   KUBECTL_VERSION: "v1.30.0"
 
 jobs:
+  check-secret:
+    runs-on: ubuntu-24.04
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - id: check
+        run: echo "has-token=${{ secrets.WG_EASY_REPLICATED_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
   setup:
     runs-on: ubuntu-24.04
     outputs:
@@ -117,7 +125,8 @@ jobs:
 
   create-resources:
     runs-on: ubuntu-24.04
-    needs: [setup, build-and-package]
+    needs: [setup, build-and-package, check-secret]
+    if: needs.check-secret.outputs.has-token == 'true'
     outputs:
       channel-slug: ${{ steps.set-outputs.outputs.channel-slug }}
       release-sequence: ${{ steps.set-outputs.outputs.release-sequence }}

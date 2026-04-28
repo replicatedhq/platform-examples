@@ -19,6 +19,14 @@ on:
       - '.github/workflows/storagebox-ci.yml'
 
 jobs:
+  check-secret:
+    runs-on: ubuntu-22.04
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - id: check
+        run: echo "has-token=${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
   lint-and-template:
     runs-on: ubuntu-22.04
     steps:
@@ -61,7 +69,8 @@ jobs:
 
   helm-install-test:
     runs-on: ubuntu-22.04
-    needs: [lint-and-template]
+    needs: [lint-and-template, check-secret]
+    if: needs.check-secret.outputs.has-token == 'true'
     strategy:
       fail-fast: false
       matrix:
