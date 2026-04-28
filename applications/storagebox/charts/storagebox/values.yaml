@@ -7,7 +7,7 @@ images:
     tag: "3.21"
   garageSetup:
     repository: curlimages/curl
-    tag: "8"
+    tag: "8.19.0"
 
 replicated:
   enabled: true
