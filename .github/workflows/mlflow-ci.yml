@@ -357,6 +357,18 @@ jobs:
           ttl: 1h
           export-kubeconfig: true
 
+      - name: Install Replicated CLI
+        run: |
+          curl -s -H "Authorization: token ${{ github.token }}" \
+            https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*_linux_amd64.tar.gz" \
+            | head -1 | cut -d '"' -f 4 \
+            | xargs curl -sL -o replicated.tar.gz
+          tar xzf replicated.tar.gz
+          sudo mv replicated /usr/local/bin/replicated
+          rm replicated.tar.gz
+          replicated version
+
       - name: Download license
         id: download-license
         run: |
