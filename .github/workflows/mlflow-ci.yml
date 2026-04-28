@@ -24,6 +24,14 @@ env:
   YQ_VERSION: v4.44.6
 
 jobs:
+  check-secret:
+    runs-on: ubuntu-22.04
+    outputs:
+      has-token: ${{ steps.check.outputs.has-token }}
+    steps:
+      - id: check
+        run: echo "has-token=${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
+
   lint-and-template:
     runs-on: ubuntu-22.04
     outputs:
@@ -86,7 +94,8 @@ jobs:
 
   create-release:
     runs-on: ubuntu-22.04
-    needs: [lint-and-template]
+    needs: [lint-and-template, check-secret]
+    if: needs.check-secret.outputs.has-token == 'true'
     outputs:
       customer-id: ${{ steps.create-customer.outputs.customer-id }}
       channel-slug: ${{ steps.create-release.outputs.channel-slug }}
