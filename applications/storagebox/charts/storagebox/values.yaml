@@ -130,7 +130,7 @@ postgres:
     instances: 1
     image:
       repository: ghcr.io/cloudnative-pg/postgresql
-      tag: '15.2'
+      tag: '17.5'
     imagePullPolicy: IfNotPresent
     imagePullSecrets: []
     initdb:
