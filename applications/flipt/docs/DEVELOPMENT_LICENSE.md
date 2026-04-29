@@ -13,32 +13,6 @@ Flipt integrates with Replicated's SDK to provide:
 
 The Replicated SDK requires a valid license to function, even in development environments.
 
-## Quick Start
-
-### Option 1: Automated Setup (Recommended)
-
-```bash
-# 1. Set up your Replicated API token
-export REPLICATED_API_TOKEN=your-token-here
-
-# 2. Run the setup script
-./scripts/setup-dev-license.sh
-
-# 3. Load the license
-source .replicated/license.env
-
-# 4. Install Flipt
-./scripts/install.sh
-```
-
-### Option 2: Using Makefile
-
-```bash
-# Set up license and install in one command
-export REPLICATED_API_TOKEN=your-token-here
-make install-with-license
-```
-
 ## Prerequisites
 
 ### 1. Replicated CLI
@@ -74,46 +48,44 @@ replicated version
    export REPLICATED_API_TOKEN=your-token-here
    ```
 
-   Or add to your shell profile (~/.bashrc, ~/.zshrc):
-   ```bash
-   echo 'export REPLICATED_API_TOKEN=your-token-here' >> ~/.zshrc
-   source ~/.zshrc
-   ```
-
-## Manual License Setup
-
-If you prefer manual setup or need more control:
+## Creating a Development License
 
 ### Step 1: Create a Development Customer
 
+Pick a customer name you'll reuse in subsequent steps:
+
 ```bash
+CUSTOMER_NAME="dev-$(whoami)"
+
 replicated customer create \
   --app flipt \
-  --name "dev-$(whoami)-$(date +%s)" \
+  --name "$CUSTOMER_NAME" \
   --channel Unstable \
-  --license-type dev \
-  --output json > customer.json
+  --type dev
 ```
 
-### Step 2: Extract License ID
+### Step 2: Download the License
 
 ```bash
-LICENSE_ID=$(jq -r '.id' customer.json)
-echo "License ID: $LICENSE_ID"
+replicated customer download-license \
+  --app flipt \
+  --customer "$CUSTOMER_NAME" \
+  --output license.yaml
 ```
 
-### Step 3: Save License Configuration
+### Step 3: Install Flipt with the License
 
 ```bash
-mkdir -p .replicated
-echo "REPLICATED_LICENSE_ID=$LICENSE_ID" > .replicated/license.env
-```
+# Update chart dependencies first
+make update-deps
 
-### Step 4: Use License
-
-```bash
-source .replicated/license.env
-./scripts/install.sh
+# Install with the downloaded license file
+helm install flipt ./chart \
+  --namespace flipt \
+  --create-namespace \
+  --set-file replicated.license=license.yaml \
+  --wait \
+  --timeout 15m
 ```
 
 ## License Management
@@ -137,17 +109,7 @@ replicated customer ls --output json | \
 
 ### License Expiry
 
-Development licenses may have expiration dates. If your license expires:
-
-1. Delete the old license:
-   ```bash
-   make clean-license
-   ```
-
-2. Create a new one:
-   ```bash
-   ./scripts/setup-dev-license.sh
-   ```
+Development licenses may have expiration dates. If your license expires, create a new one following the steps above.
 
 ## Troubleshooting
 
@@ -164,15 +126,20 @@ Your API token may be invalid or expired:
 
 ### Error: "license not found"
 
-The license secret may not be created:
+The license may not be set correctly:
 ```bash
-# Verify secret exists
-kubectl get secret replicated-license -n flipt
+# Check the current helm values
+helm get values flipt --namespace flipt
 
-# Recreate if missing
-kubectl create secret generic replicated-license \
-  --from-literal=license="$REPLICATED_LICENSE_ID" \
-  --namespace flipt
+# Re-download and apply the license
+replicated customer download-license \
+  --app flipt \
+  --customer "$CUSTOMER_NAME" \
+  --output license.yaml
+
+helm upgrade flipt ./chart \
+  --namespace flipt \
+  --set-file replicated.license=license.yaml
 ```
 
 ### Pod Still Crashing
@@ -193,36 +160,40 @@ For automated testing in CI/CD:
 
 ```yaml
 # Example GitHub Actions
-- name: Setup Replicated License
+- name: Create Dev Customer
   env:
     REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
   run: |
-    ./scripts/setup-dev-license.sh
-    source .replicated/license.env
+    CUSTOMER_NAME="ci-${{ github.run_id }}"
+    echo "CUSTOMER_NAME=$CUSTOMER_NAME" >> $GITHUB_ENV
+
+    replicated customer create \
+      --app flipt \
+      --name "$CUSTOMER_NAME" \
+      --channel Unstable \
+      --license-type dev
+
+    replicated customer download-license \
+      --app flipt \
+      --customer "$CUSTOMER_NAME" \
+      --output license.yaml
 
 - name: Install Flipt
   run: |
-    source .replicated/license.env
-    ./scripts/install.sh
+    make update-deps
+    helm install flipt ./chart \
+      --namespace flipt \
+      --create-namespace \
+      --set-file replicated.license=license.yaml \
+      --wait --timeout 15m
 
-- name: Cleanup License
+- name: Cleanup Customer
   if: always()
+  env:
+    REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
   run: |
-    make clean-license
+    replicated customer rm --customer "$CUSTOMER_NAME"
 ```
-
-## Alternative: Disable Replicated SDK
-
-If you absolutely need to run without a license (not recommended for production testing):
-
-```bash
-helm install flipt ./chart \
-  --namespace flipt \
-  --create-namespace \
-  --set replicated.enabled=false
-```
-
-**Note:** This disables all Replicated features including support bundles and preflight checks.
 
 ## Resources
 

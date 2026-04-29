@@ -131,15 +131,21 @@ Error: either license in the config file or integration license id must be speci
 
 **Cause:** No Replicated license is configured.
 
-**Solution:** Set up a development license:
+**Solution:** Download your license file and pass it during install or upgrade:
 
 ```bash
-# Quick setup
-export REPLICATED_API_TOKEN=your-token
-export REPLICATED_LICENSE_ID=your-license-id
+# Download your license (see docs/DEVELOPMENT_LICENSE.md for full setup)
+replicated customer download-license \
+  --app flipt \
+  --customer "<your-customer-name>" \
+  --output license.yaml
+
+helm upgrade flipt ./chart \
+  --namespace flipt \
+  --set-file replicated.license=license.yaml
 ```
 
-**Detailed guide:** See [docs/DEVELOPMENT_LICENSE.md](docs/DEVELOPMENT_LICENSE.md)
+**Need a license?** See [docs/DEVELOPMENT_LICENSE.md](docs/DEVELOPMENT_LICENSE.md)
 
 ---
 
