@@ -1,0 +1,23 @@
+apiVersion: cluster.kurl.sh/v1beta1
+kind: Installer
+metadata:
+  name: vaultwarden
+spec:
+  kubernetes:
+    version: 1.29.9
+  containerd:
+    version: 1.7.29
+  flannel:
+    version: 0.25.7
+  openebs:
+    version: 3.10.0
+    isLocalPVEnabled: true
+    localPVStorageClassName: local
+  minio:
+    version: 2025-02-07T23-21-09Z
+  kotsadm:
+    version: 1.86.0
+  registry:
+    version: 2.8.3
+  contour:
+    version: 1.30.0

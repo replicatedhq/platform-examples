@@ -17,6 +17,7 @@ updates:
       - "/applications/onlineboutique/chart"
       - "/applications/powerdns/charts/powerdns-authoritative"
       - "/applications/storagebox/charts/storagebox"
+      - "/applications/vaultwarden/charts/vaultwarden"
       - "/applications/wg-easy/charts/wg-easy"
     schedule:
       interval: "weekly"

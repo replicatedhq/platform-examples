@@ -1,0 +1,102 @@
+---
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: config
+spec:
+  groups:
+  - name: vaultwarden_settings
+    title: Vaultwarden Settings
+    items:
+    - name: domain
+      title: Domain
+      type: text
+      default: "https://vault.example.com"
+      required: true
+      description: The full URL where Vaultwarden will be accessible (e.g. https://vault.example.com)
+    - name: admin_token
+      title: Admin Token
+      type: password
+      required: false
+      description: Token for accessing the /admin panel. Leave empty to disable the admin panel.
+    - name: signups_allowed
+      title: Allow Signups
+      type: bool
+      default: "1"
+      description: Allow new users to register accounts
+    - name: invitations_allowed
+      title: Allow Invitations
+      type: bool
+      default: "1"
+      description: Allow existing users to invite new users
+
+  - name: database_settings
+    title: Database Settings
+    items:
+    - name: database_type
+      title: Database Type
+      type: select_one
+      items:
+      - name: sqlite
+        title: SQLite (embedded)
+      - name: postgresql
+        title: PostgreSQL (external)
+      default: sqlite
+      description: SQLite is suitable for small deployments. PostgreSQL is recommended for production.
+    - name: postgres_host
+      title: PostgreSQL Host
+      type: text
+      default: "postgres"
+      required: true
+      description: PostgreSQL hostname (port is configured separately in the chart)
+      when: 'repl{{ ConfigOptionEquals "database_type" "postgresql" }}'
+    - name: postgres_user
+      title: PostgreSQL User
+      type: text
+      default: "vaultwarden"
+      required: true
+      when: 'repl{{ ConfigOptionEquals "database_type" "postgresql" }}'
+    - name: postgres_password
+      title: PostgreSQL Password
+      type: password
+      required: true
+      when: 'repl{{ ConfigOptionEquals "database_type" "postgresql" }}'
+    - name: postgres_database
+      title: PostgreSQL Database
+      type: text
+      default: "vaultwarden"
+      required: true
+      when: 'repl{{ ConfigOptionEquals "database_type" "postgresql" }}'
+
+  - name: smtp_settings
+    title: Email / SMTP Settings
+    items:
+    - name: smtp_enabled
+      title: Enable SMTP
+      type: bool
+      default: "0"
+      description: Enable email notifications and invitations
+    - name: smtp_host
+      title: SMTP Host
+      type: text
+      required: true
+      when: 'repl{{ ConfigOptionEquals "smtp_enabled" "1" }}'
+    - name: smtp_port
+      title: SMTP Port
+      type: text
+      default: "587"
+      required: true
+      when: 'repl{{ ConfigOptionEquals "smtp_enabled" "1" }}'
+    - name: smtp_from
+      title: SMTP From Address
+      type: text
+      required: true
+      when: 'repl{{ ConfigOptionEquals "smtp_enabled" "1" }}'
+    - name: smtp_username
+      title: SMTP Username
+      type: text
+      when: 'repl{{ ConfigOptionEquals "smtp_enabled" "1" }}'
+    - name: smtp_password
+      title: SMTP Password
+      type: password
+      when: 'repl{{ ConfigOptionEquals "smtp_enabled" "1" }}'

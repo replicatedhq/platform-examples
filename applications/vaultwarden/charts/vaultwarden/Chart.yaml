@@ -1,0 +1,19 @@
+apiVersion: v2
+appVersion: 1.33.2
+dependencies:
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.17.1
+  condition: replicated.enabled
+description: Vaultwarden - Unofficial Bitwarden-compatible server
+icon: https://raw.githubusercontent.com/dani-garcia/vaultwarden/main/resources/vaultwarden-icon.svg
+keywords:
+- vaultwarden
+- bitwarden
+- password-manager
+- secrets
+name: vaultwarden
+sources:
+- https://github.com/dani-garcia/vaultwarden
+type: application
+version: 1.0.0
