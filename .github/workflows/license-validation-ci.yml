@@ -1,0 +1,429 @@
+name: License Validation CI
+
+on:
+  pull_request:
+    paths:
+      - 'applications/license-validation/**'
+      - '.github/workflows/license-validation-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'applications/license-validation/**'
+      - '.github/workflows/license-validation-ci.yml'
+
+env:
+  APP_SLUG: license-validation
+  REPLICATED_APP: license-validation
+  YQ_VERSION: v4.44.6
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-22.04
+    outputs:
+      helm-cache-key: ${{ steps.helm-deps.outputs.cache-key }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Helm dependencies
+        id: helm-deps
+        uses: actions/cache@v4
+        with:
+          path: applications/license-validation/charts/license-validation/charts/
+          key: helm-deps-${{ hashFiles('applications/license-validation/charts/license-validation/Chart.lock') }}
+          restore-keys: helm-deps-
+
+      - name: Run Lint and Template
+        working-directory: applications/license-validation
+        run: |
+          task helm:update-deps
+          task helm:lint
+          task helm:template
+
+      - name: Upload rendered templates
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-validation-rendered-templates
+          path: applications/license-validation/charts/.rendered-templates/
+          retention-days: 7
+
+  build-and-push-image:
+    runs-on: ubuntu-22.04
+    outputs:
+      image-tag: ${{ steps.image-tag.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate image tag
+        id: image-tag
+        run: |
+          TAG="ci-${{ github.run_id }}-${{ github.run_number }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag: $TAG"
+
+      - name: Build and push to ttl.sh
+        uses: docker/build-push-action@v6
+        with:
+          context: applications/license-validation
+          push: true
+          tags: ttl.sh/license-validation:${{ steps.image-tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-release:
+    runs-on: ubuntu-22.04
+    needs: [lint-and-template, build-and-push-image]
+    outputs:
+      customer-id: ${{ steps.create-customer.outputs.customer-id }}
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+      chart-version: ${{ steps.chart-version.outputs.chart_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Install Task
+        uses: arduino/setup-task@v1
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install yq
+        run: |
+          wget -q https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      - name: Restore Helm dependency cache
+        uses: actions/cache@v4
+        with:
+          path: applications/license-validation/charts/license-validation/charts/
+          key: helm-deps-${{ hashFiles('applications/license-validation/charts/license-validation/Chart.lock') }}
+          restore-keys: helm-deps-
+
+      - name: Update image tag in HelmChart CR for CI
+        working-directory: applications/license-validation
+        run: |
+          yq -i '.spec.values.image.tag = "${{ needs.build-and-push-image.outputs.image-tag }}"' kots/license-validation-chart.yaml
+
+      - name: Package chart
+        working-directory: applications/license-validation
+        run: |
+          task helm:update-deps
+          task release-prepare
+
+      - name: Extract chart version
+        id: chart-version
+        working-directory: applications/license-validation
+        run: |
+          CHART_VERSION=$(yq '.version' charts/license-validation/Chart.yaml)
+          echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
+          echo "Using chart version: $CHART_VERSION"
+
+      - name: Create release
+        id: create-release
+        uses: replicatedhq/replicated-actions/create-release@v1.17.0
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          yaml-dir: applications/license-validation/kots/
+          promote-channel: ci-automation-${{ github.run_id }}-${{ github.run_number }}-${{ github.run_attempt }}
+          version: ${{ steps.chart-version.outputs.chart_version }}
+
+      - name: Create customer
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@main
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          customer-name: automated-${{ github.run_id }}
+          customer-email: testcustomer@replicated.com
+          license-type: dev
+          channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+          is-kots-install-enabled: "true"
+          entitlements: |
+            - name: edition
+              value: enterprise
+            - name: seat_count
+              value: "50"
+
+  helm-install-test:
+    runs-on: ubuntu-22.04
+    needs: [create-release, build-and-push-image]
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - distribution: k3s
+            version: "1.33"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.13.3
+
+      - name: Create Cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          kubernetes-distribution: ${{ matrix.cluster.distribution }}
+          kubernetes-version: ${{ matrix.cluster.version }}
+          cluster-name: lv-ci-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          disk: 50
+          nodes: 1
+          ttl: 1h
+          export-kubeconfig: true
+
+      - name: Install via Helm
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+
+          KUBECONFIG="$KUBECONFIG_FILE" helm upgrade --install license-validation \
+            applications/license-validation/charts/license-validation \
+            --namespace license-validation \
+            --create-namespace \
+            --set replicated.enabled=false \
+            --set image.repository=ttl.sh/license-validation \
+            --set image.tag=${{ needs.build-and-push-image.outputs.image-tag }} \
+            --wait \
+            --timeout 5m
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Verify deployment
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+
+          echo "Waiting for pods to be ready..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl wait --for=condition=Ready pods \
+            -l app.kubernetes.io/name=license-validation \
+            -n license-validation \
+            --timeout=2m
+
+          echo "Checking deployment status..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n license-validation
+
+          echo "Testing health endpoint..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl port-forward \
+            svc/license-validation 8888:80 \
+            -n license-validation &
+          sleep 5
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/healthz)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check failed with HTTP $HTTP_CODE"
+            KUBECONFIG="$KUBECONFIG_FILE" kubectl logs -l app.kubernetes.io/name=license-validation -n license-validation
+            exit 1
+          fi
+          echo "Health check passed (HTTP $HTTP_CODE)"
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/)
+          echo "Dashboard returned HTTP $HTTP_CODE"
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          echo "=== Pod status ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n license-validation -o wide
+          echo "=== Pod describe ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl describe pods -n license-validation
+          echo "=== Pod logs ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl logs -l app.kubernetes.io/name=license-validation -n license-validation --tail=50
+          echo "=== Events ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl get events -n license-validation --sort-by='.lastTimestamp'
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Remove Cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.17.0
+        if: ${{ always() && steps.create-cluster.outputs.cluster-id != '' }}
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+
+  kots-install-test:
+    runs-on: ubuntu-22.04
+    needs: [create-release, build-and-push-image]
+    strategy:
+      fail-fast: false
+      matrix:
+        cluster:
+          - distribution: k3s
+            version: "1.33"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          wget -q https://github.com/mikefarah/yq/releases/download/${{ env.YQ_VERSION }}/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+      - name: Create Cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          kubernetes-distribution: ${{ matrix.cluster.distribution }}
+          kubernetes-version: ${{ matrix.cluster.version }}
+          cluster-name: lv-kots-${{ github.run_id }}-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          disk: 50
+          nodes: 1
+          ttl: 1h
+          export-kubeconfig: true
+
+      - name: Download license
+        id: download-license
+        run: |
+          CUSTOMER_ID="${{ needs.create-release.outputs.customer-id }}"
+          curl -s -H "Authorization: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}" \
+            "https://api.replicated.com/vendor/v3/app/${{ env.APP_SLUG }}/customer/$CUSTOMER_ID/license-download" \
+            > /tmp/license.yaml
+
+          if [ ! -s /tmp/license.yaml ]; then
+            echo "ERROR: License file is empty"
+            exit 1
+          fi
+
+          yq eval . /tmp/license.yaml > /dev/null
+          echo "License downloaded and validated"
+
+          LICENSE_CONTENT=$(cat /tmp/license.yaml)
+          echo "license<<EOF" >> $GITHUB_OUTPUT
+          echo "$LICENSE_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: KOTS Install
+        uses: replicatedhq/replicated-actions/kots-install@v1.17.0
+        with:
+          kubeconfig: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+          kots-version: latest
+          app-slug: ${{ env.APP_SLUG }}/${{ needs.create-release.outputs.channel-slug }}
+          app-version-label: ${{ needs.create-release.outputs.chart-version }}
+          license-file: ${{ steps.download-license.outputs.license }}
+          namespace: license-validation
+          wait-duration: 10m
+          shared-password: 'license-validation-ci'
+          skip-preflights: true
+          debug: true
+
+      - name: Verify KOTS deployment
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-kots-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+
+          echo "Waiting for deployment to be ready..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl wait --for=condition=Ready pods \
+            -l app.kubernetes.io/name=license-validation \
+            -n license-validation \
+            --timeout=5m
+
+          echo "Setting up port forwarding..."
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl port-forward \
+            svc/license-validation 8888:80 \
+            -n license-validation &
+          sleep 5
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/healthz)
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          echo "Health check passed (HTTP $HTTP_CODE)"
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Debug on failure
+        if: failure()
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-kots-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          echo "=== Pod status ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl get pods -n license-validation -o wide
+          echo "=== Pod describe ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl describe pods -n license-validation
+          echo "=== Pod logs ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl logs -l app.kubernetes.io/name=license-validation -n license-validation --tail=50
+          echo "=== Events ==="
+          KUBECONFIG="$KUBECONFIG_FILE" kubectl get events -n license-validation --sort-by='.lastTimestamp'
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Install troubleshoot
+        run: curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/support-bundle_linux_amd64.tar.gz | tar xzvf -
+        if: failure()
+
+      - name: Collect bundle
+        run: |
+          KUBECONFIG_FILE="/tmp/kubeconfig-kots-bundle-${{ github.run_id }}"
+          echo "$KUBECONFIG" > "$KUBECONFIG_FILE"
+          ./support-bundle --kubeconfig="$KUBECONFIG_FILE" --interactive=false \
+            -o kots-ci-bundle-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }} \
+            https://raw.githubusercontent.com/replicatedhq/troubleshoot-specs/main/in-cluster/default.yaml
+        if: failure()
+        env:
+          KUBECONFIG: ${{ steps.create-cluster.outputs.cluster-kubeconfig }}
+
+      - name: Upload support bundle artifact
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lv-kots-bundle-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}
+          path: 'kots-ci-bundle-${{ matrix.cluster.distribution }}-${{ matrix.cluster.version }}.tar.gz'
+
+      - name: Remove Cluster
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.17.0
+        if: ${{ always() && steps.create-cluster.outputs.cluster-id != '' }}
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+
+  cleanup-test-release:
+    runs-on: ubuntu-22.04
+    needs: [create-release, kots-install-test, helm-install-test]
+    if: always()
+    steps:
+      - name: Archive Customer
+        if: ${{ always() && needs.create-release.outputs.customer-id != '' }}
+        uses: replicatedhq/replicated-actions/archive-customer@v1.17.0
+        with:
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          customer-id: ${{ needs.create-release.outputs.customer-id }}
+
+      - name: Archive Channel
+        if: ${{ always() && needs.create-release.outputs.channel-slug != '' }}
+        uses: replicatedhq/replicated-actions/archive-channel@v1.17.0
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_PLATFORM_EXAMPLES_TOKEN }}
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}

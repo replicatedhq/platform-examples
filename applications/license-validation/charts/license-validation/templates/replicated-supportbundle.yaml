@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "license-validation.fullname" . }}-supportbundle
+  labels:
+    {{- include "license-validation.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: support-bundle
+type: Opaque
+stringData:
+  support-bundle.yaml: |
+    {{ include "license-validation.supportbundle" . | nindent 4 }}

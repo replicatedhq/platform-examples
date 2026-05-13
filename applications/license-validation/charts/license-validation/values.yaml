@@ -1,0 +1,39 @@
+global:
+  imagePullSecrets: []
+
+replicated:
+  enabled: true
+
+image:
+  repository: ttl.sh/license-validation
+  tag: 2h
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# The Replicated SDK address for the app to query license info.
+# By default the SDK subchart creates a service named <release>-replicated.
+replicatedSDKAddress: ""
+
+# RSA public key (PEM) for validating license field signatures.
+# Obtain this from the Replicated Vendor Portal under your application settings.
+appPublicKey: ""
+
+# Simulated seat usage for demo purposes.
+simulatedSeatUsage: 12
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 32Mi
+  limits:
+    cpu: 200m
+    memory: 64Mi
+
+nameOverride: ""
+fullnameOverride: ""

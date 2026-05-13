@@ -1,0 +1,90 @@
+version: '3'
+
+vars:
+  APP_NAME: license-validation
+  CHART_DIR: charts/license-validation
+  KOTS_DIR: kots
+  CHART_VERSION:
+    sh: yq '.version' {{.CHART_DIR}}/Chart.yaml
+  CHANNEL: '{{.CHANNEL | default "Unstable"}}'
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ── Build ──────────────────────────────────────────────────
+
+  helm:update-deps:
+    desc: Update Helm chart dependencies
+    cmds:
+      - helm dependency update {{.CHART_DIR}}
+
+  helm:lint:
+    desc: Lint the Helm chart
+    cmds:
+      - helm lint {{.CHART_DIR}}
+
+  helm:template:
+    desc: Render chart templates locally for debugging
+    cmds:
+      - helm template {{.APP_NAME}} {{.CHART_DIR}} --debug
+
+  docker:build:
+    desc: Build the Docker image locally
+    cmds:
+      - docker build --platform linux/amd64,linux/arm64 -t {{.APP_NAME}}:latest .
+
+  # ── Release ────────────────────────────────────────────────
+
+  release-prepare:
+    desc: Package chart and update KOTS manifest version reference
+    cmds:
+      - helm package {{.CHART_DIR}} -d {{.KOTS_DIR}}
+      - yq -i '.spec.chart.chartVersion = "{{.CHART_VERSION}}"' {{.KOTS_DIR}}/{{.APP_NAME}}-chart.yaml
+
+  release-create:
+    desc: Create a Replicated release and promote to channel
+    deps: [release-prepare]
+    cmds:
+      - replicated release create --yaml-dir {{.KOTS_DIR}} --promote {{.CHANNEL}} --version {{.CHART_VERSION}}
+
+  # ── Local Development ──────────────────────────────────────
+
+  helm:install-local:
+    desc: Install chart locally without Replicated SDK
+    cmds:
+      - |
+        helm upgrade --install {{.APP_NAME}} {{.CHART_DIR}} \
+          --set replicated.enabled=false \
+          --set image.repository={{.APP_NAME}} \
+          --set image.tag=latest \
+          --set image.pullPolicy=Never \
+          --create-namespace \
+          --namespace {{.APP_NAME}}
+
+  helm:uninstall:
+    desc: Uninstall chart from local cluster
+    cmds:
+      - helm uninstall {{.APP_NAME}} --namespace {{.APP_NAME}}
+
+  # ── Validation ─────────────────────────────────────────────
+
+  go:build:
+    desc: Build the Go binary locally
+    dir: app
+    cmds:
+      - go build -o ../license-validation .
+
+  go:run:
+    desc: Run the app locally (will fail to reach SDK but shows the UI)
+    dir: app
+    cmds:
+      - go run .
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f {{.KOTS_DIR}}/*.tgz
+      - rm -f license-validation

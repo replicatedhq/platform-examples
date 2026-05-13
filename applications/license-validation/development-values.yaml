@@ -1,0 +1,16 @@
+---
+apiVersion: kots.io/v1beta1
+kind: ConfigValues
+metadata:
+  name: license-validation
+spec:
+  values:
+    # Application Settings
+    simulated_seat_usage:
+      default: "12"
+      value: "12"
+
+    # Signature Validation
+    app_public_key:
+      default: ""
+      value: ""
