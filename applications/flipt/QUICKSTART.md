@@ -8,20 +8,9 @@ Get up and running with Flipt in 5 minutes.
 - Helm 3.8+
 - kubectl configured
 
-## ⚠️ Prerequisites
+## ⚠️ Replicated License
 
-Before you begin, you need a **Replicated development license**:
-
-```bash
-# 1. Set your Replicated API token & License
-export REPLICATED_API_TOKEN=<your-token>
-export REPLICATED_LICENSE_ID=<your-license-id>
-```
-
-**Don't have a Replicated account?**
-
-- Sign up at [vendor.replicated.com](https://vendor.replicated.com)
-- See [Development License Guide](docs/DEVELOPMENT_LICENSE.md) for detailed instructions
+The Replicated SDK requires a development license. See the [Development License Guide](docs/DEVELOPMENT_LICENSE.md) for how to create one.
 
 ## Option 1: Manual Helm Install on local machine
 
@@ -29,20 +18,13 @@ If you prefer to run commands manually:
 
 ```bash
 # Step 1: Update chart dependencies (includes CloudNativePG operator)
-cd chart
-rm -f Chart.lock  # Clean cached files
-helm repo add flipt https://helm.flipt.io
-helm repo add valkey https://valkey.io/valkey-helm/
-helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm repo add replicated https://charts.replicated.com
-helm repo update
-helm dependency update
-cd ..
+make update-deps
 
 # Step 2: Install Flipt (operator included automatically)
 helm install flipt ./chart \
   --namespace flipt \
   --create-namespace \
+  --set-file replicated.license=license.yaml \
   --wait \
   --timeout 10m
 
@@ -60,7 +42,7 @@ For enterprise deployments with Admin Console:
 
    ```bash
    export REPLICATED_APP=flipt
-   export REPLICATED_LICENSE_ID=<license-id>
+   export REPLICATED_API_TOKEN=<your-api-token>
    make release
    ```
 
