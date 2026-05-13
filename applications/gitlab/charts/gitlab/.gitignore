@@ -1,0 +1,2 @@
+# Helm dependency tarballs — fetched at build time via helm dependency update
+charts/*.tgz

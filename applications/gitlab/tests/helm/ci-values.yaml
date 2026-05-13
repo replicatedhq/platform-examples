@@ -1,0 +1,74 @@
+# CI values for GitLab chart — lint/template validation ONLY (not for deployment).
+# WARNING: This file references external PostgreSQL and Redis services that must
+# exist before deployment. For actual cluster deployment, use cmx-deploy-values.yaml
+# and provision external PostgreSQL 16+ and Redis 7+ first.
+# The GitLab chart's bundled Bitnami images have been removed from Docker Hub.
+
+gitlab:
+  enabled: true
+
+  global:
+    hosts:
+      domain: gitlab.example.com
+      externalIP: 10.0.0.1
+
+    edition: ce
+
+    ingress:
+      configureCertmanager: false
+      class: nginx
+      tls:
+        enabled: false
+
+    # External PostgreSQL and Redis (no bundled deps — bitnami images removed from Docker Hub)
+    psql:
+      host: external-postgresql
+      port: 5432
+      database: gitlabhq_production
+      username: gitlab
+      password:
+        secret: gitlab-external-pg-password
+        key: password
+    redis:
+      host: external-redis
+      port: 6379
+      auth:
+        enabled: true
+        secret: gitlab-external-redis-password
+        key: redis-password
+
+  # Disable bundled PostgreSQL and Redis
+  postgresql:
+    install: false
+  redis:
+    install: false
+  nginx-ingress:
+    enabled: true
+  certmanager:
+    install: false
+  certmanager-issuer:
+    email: ci@example.com
+  prometheus:
+    install: false
+  registry:
+    enabled: true
+  gitlab-runner:
+    install: false
+
+  # Reduce resource requirements for CI
+  gitlab:
+    webservice:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 512Mi
+    sidekiq:
+      replicaCount: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 300Mi
+
+replicated:
+  enabled: true

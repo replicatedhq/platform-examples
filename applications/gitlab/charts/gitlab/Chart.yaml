@@ -1,0 +1,26 @@
+apiVersion: v2
+name: gitlab
+description: GitLab - The One DevSecOps Platform
+type: application
+version: 0.1.0
+appVersion: "18.0.0"
+icon: https://about.gitlab.com/images/press/logo/svg/gitlab-logo-500.svg
+keywords:
+  - gitlab
+  - devops
+  - ci/cd
+  - git
+  - code review
+  - issue tracker
+sources:
+  - https://gitlab.com/gitlab-org/charts/gitlab
+home: https://gitlab.com
+dependencies:
+  - name: gitlab
+    version: "9.0.2"
+    repository: "https://charts.gitlab.io/"
+    condition: gitlab.enabled
+  - name: replicated
+    repository: oci://registry.replicated.com/library
+    version: "1.18.0"
+    condition: replicated.enabled
