@@ -12,7 +12,7 @@ controllers:
         enabled: true
         image:
           repository: powerdns/pdns-auth-49
-          tag: 4.9.13
+          tag: 4.9.14
         env:
           DEBUG_CONFIG: 'yes'
           PDNS_AUTH_API_KEY: 'changeme'
