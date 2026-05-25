@@ -65,3 +65,9 @@ applications/flipt/chart/Chart.lock
 
 **/.claude/settings.local.json
 .worktrees/
+
+# Gas Town runtime
+.beads/
+.runtime/
+CLAUDE.md
+.claude/
