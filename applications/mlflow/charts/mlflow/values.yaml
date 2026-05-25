@@ -47,11 +47,20 @@ mlflow:
   # -- Pod Labels for the mlflow deployment
   podLabels: {}
   # -- Configure the Security Context for the Pod
-  podSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
   # -- Set the resource requests / limits for the container.
   resources: {}
   # -- Configure the Security Context for the Container
-  containerSecurityContext: {}
+  containerSecurityContext:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   # -- Specify probes for the container
   # [[ref]](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
   probes:
@@ -583,6 +592,47 @@ minio:
     #        - ALL
     #    seccompProfile:
     #      type: RuntimeDefault
+
+# -- NetworkPolicy configuration for restricting pod traffic
+networkPolicy:
+  # -- Specifies whether to create a NetworkPolicy
+  enabled: false
+  # -- Allow traffic from pods in the same namespace
+  allowSameNamespace: true
+  # -- Ingress rules beyond same-namespace defaults
+  ingress:
+    # -- Allow ingress-nginx to reach mlflow on the service port
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 5000
+          protocol: TCP
+  # -- Egress rules beyond same-namespace defaults
+  egress:
+    # -- Allow mlflow to reach postgres on port 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: mlflow-postgres
+      ports:
+        - port: 5432
+          protocol: TCP
+    # -- Allow mlflow to reach minio on port 9000
+    - to:
+        - podSelector:
+            matchLabels:
+              v1.min.io/tenant: minio
+      ports:
+        - port: 9000
+          protocol: TCP
+    # -- Allow DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
 
 # -- Embedded Postgres configuration
 # Deploys a cluster using the CloudnativePG Operator
