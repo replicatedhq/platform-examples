@@ -63,5 +63,10 @@ applications/wg-easy/release/
 applications/flipt/release/
 applications/flipt/chart/Chart.lock
 
-**/.claude/settings.local.json
+.claude/
+CLAUDE.md
 .worktrees/
+
+# Gas Town polecat infrastructure
+.beads/
+.runtime/
