@@ -1,0 +1,12 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: postgres-support
+spec:
+  chart:
+    name: postgres-support
+    chartVersion: 0.1.0
+  exclude: 'repl{{ ConfigOptionEquals `postgres_type` `external_postgres` }}'
+  weight: -5
+  values: {}
+  builder: {}
