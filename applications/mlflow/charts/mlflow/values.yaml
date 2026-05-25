@@ -325,6 +325,13 @@ mlflow:
         # -- Specify whether to ignore TLS
         ignoreTls: false
 
+# -- License entitlements passed from KOTS Config via HelmChart CR values
+license:
+  # -- License tier (e.g. "community", "team", "enterprise")
+  tier: ""
+  # -- Maximum number of users allowed by the license
+  maxUsers: ""
+
 # -- GPU node scheduling configuration for ML/AI workloads
 # When enabled, merges GPU-specific nodeSelector, tolerations, and resource
 # limits into the mlflow deployment alongside any existing scheduling config.
