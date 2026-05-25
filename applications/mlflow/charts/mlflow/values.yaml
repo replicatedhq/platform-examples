@@ -325,6 +325,35 @@ mlflow:
         # -- Specify whether to ignore TLS
         ignoreTls: false
 
+# -- GPU node scheduling configuration for ML/AI workloads
+# When enabled, merges GPU-specific nodeSelector, tolerations, and resource
+# limits into the mlflow deployment alongside any existing scheduling config.
+#
+# This pattern uses NVIDIA GPU resources by default. To adapt for other providers:
+#   - AMD ROCm: change resource key to "amd.com/gpu", update nodeSelector/tolerations
+#     to match your AMD GPU node labels (e.g., "amd.com/gpu.present: 'true'")
+#   - Intel: use "gpu.intel.com/i915" as the resource key
+#   - Cloud-specific: GKE uses "cloud.google.com/gke-accelerator", EKS uses
+#     "k8s.amazonaws.com/accelerator", AKS uses "kubernetes.azure.com/accelerator"
+gpu:
+  # -- Enable GPU node scheduling
+  enabled: false
+  # -- Node selector for GPU-capable nodes
+  # Common labels: "nvidia.com/gpu.present: 'true'" (NVIDIA GPU Operator),
+  # "cloud.google.com/gke-accelerator: nvidia-tesla-t4" (GKE)
+  nodeSelector: {}
+  #   nvidia.com/gpu.present: "true"
+  # -- Tolerations for GPU node taints
+  # Most GPU node pools use taints to prevent non-GPU workloads from scheduling
+  tolerations: []
+  #   - key: nvidia.com/gpu
+  #     operator: Exists
+  #     effect: NoSchedule
+  # -- Resource limits for GPU allocation
+  resources:
+    limits: {}
+    #   nvidia.com/gpu: "1"
+
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
   enabled: true
