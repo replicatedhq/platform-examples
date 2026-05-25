@@ -47,11 +47,22 @@ mlflow:
   # -- Pod Labels for the mlflow deployment
   podLabels: {}
   # -- Configure the Security Context for the Pod
-  podSecurityContext: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
   # -- Set the resource requests / limits for the container.
   resources: {}
   # -- Configure the Security Context for the Container
-  containerSecurityContext: {}
+  containerSecurityContext:
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   # -- Specify probes for the container
   # [[ref]](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)
   probes:
@@ -364,6 +375,34 @@ gpu:
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
   enabled: true
+
+# -- NetworkPolicy configuration for restricting pod traffic
+networkPolicy:
+  # -- Specifies whether to create a NetworkPolicy resource
+  enabled: false
+  # -- Allow ingress from pods in the same namespace
+  allowSameNamespace: true
+  # -- Ingress rules
+  ingress:
+    # -- Allow ingress-nginx to reach mlflow on the tracking server port
+    ingressNginx:
+      enabled: true
+      # -- Namespace where the ingress controller lives
+      namespace: ingress-nginx
+  # -- Egress rules
+  egress:
+    # -- Allow mlflow to reach postgres on port 5432
+    postgres:
+      enabled: true
+      port: 5432
+    # -- Allow mlflow to reach minio on port 9000
+    minio:
+      enabled: true
+      port: 9000
+    # -- Allow DNS resolution (required for service discovery)
+    dns:
+      enabled: true
+      port: 53
 
 minio:
   enabled: true

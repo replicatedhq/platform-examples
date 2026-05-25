@@ -214,6 +214,8 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         {{- if .Values.mlflow.extraPipPackages }}
         - name: pip-packages
           mountPath: /pip-packages
@@ -260,6 +262,8 @@ spec:
         {{ toYaml . | nindent 6 }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       {{- if .Values.mlflow.extraPipPackages }}
       - name: pip-packages
         emptyDir: {}
