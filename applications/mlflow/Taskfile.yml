@@ -15,7 +15,7 @@ vars:
   PORT: 5000
   
   # Chart configuration
-  CHARTS: mlflow infra
+  CHARTS: mlflow infra postgres-support
   
   # Environment detection
   CI:
@@ -39,7 +39,9 @@ vars:
     sh: helm show chart ./charts/mlflow | grep '^version:' | cut -d ' ' -f 2
   INFRA_VERSION:
     sh: helm show chart ./charts/infra | grep '^version:' | cut -d ' ' -f 2
-    
+  POSTGRES_SUPPORT_VERSION:
+    sh: helm show chart ./charts/postgres-support | grep '^version:' | cut -d ' ' -f 2
+
   # Release configuration
   # APP_NAME can be overridden by setting REPLICATED_APP environment variable 
   APP_NAME: '{{.REPLICATED_APP | default "diamon-mlflow"}}'
@@ -338,10 +340,12 @@ tasks:
         # Get chart versions
         MLFLOW_VERSION="{{.MLFLOW_VERSION}}"
         INFRA_VERSION="{{.INFRA_VERSION}}"
-        
+        POSTGRES_SUPPORT_VERSION="{{.POSTGRES_SUPPORT_VERSION}}"
+
         echo "Working with chart versions:"
         echo "MLflow chart version: $MLFLOW_VERSION"
         echo "Infra chart version: $INFRA_VERSION"
+        echo "Postgres Support chart version: $POSTGRES_SUPPORT_VERSION"
         
         # Update MLflow HelmChart manifest
         MLFLOW_HELMCHART="{{.RELEASE_DIR}}/mlflow-chart.yaml"
@@ -374,7 +378,21 @@ tasks:
         else
           echo "⚠️ Infra HelmChart not found at $INFRA_HELMCHART"
         fi
-        
+
+        # Update Postgres Support HelmChart manifest
+        PG_SUPPORT_HELMCHART="{{.RELEASE_DIR}}/postgres-support-chart.yaml"
+        if [ -f "$PG_SUPPORT_HELMCHART" ]; then
+          echo "Updating version in $PG_SUPPORT_HELMCHART to $POSTGRES_SUPPORT_VERSION..."
+
+          if command -v yq &> /dev/null; then
+            yq eval ".spec.chart.chartVersion = \"$POSTGRES_SUPPORT_VERSION\"" -i "$PG_SUPPORT_HELMCHART"
+          else
+            sed -i.bak "s/chartVersion:.*/chartVersion: \"$POSTGRES_SUPPORT_VERSION\"/" "$PG_SUPPORT_HELMCHART" && rm "${PG_SUPPORT_HELMCHART}.bak"
+          fi
+        else
+          echo "⚠️ Postgres Support HelmChart not found at $PG_SUPPORT_HELMCHART"
+        fi
+
         echo "✅ Release manifest versions updated successfully."
       - cmd: task versions:verify || echo "⚠️ Version check failed after update. Please verify manually."
         ignore_error: true

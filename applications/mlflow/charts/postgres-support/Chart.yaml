@@ -1,0 +1,5 @@
+apiVersion: v2
+name: postgres-support
+description: Support bundle specs for CloudnativePG PostgreSQL
+type: application
+version: 0.1.0
