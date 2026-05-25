@@ -67,6 +67,8 @@ applications/flipt/chart/Chart.lock
 CLAUDE.md
 .worktrees/
 
-# Gas Town polecat infrastructure
+# Gas Town workspace artifacts
 .beads/
+.claude/
 .runtime/
+CLAUDE.md

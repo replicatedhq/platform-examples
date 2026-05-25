@@ -32,6 +32,7 @@ helm install mlflow oci://registry.replicated.com/mlflow/stable
 
 - [MLflow Helm Chart Documentation](./charts/mlflow/README.md) - Installation and configuration details
 - [Configuration Reference](./charts/mlflow/README_CONFIG.md) - Detailed configuration options
+- [Auto-Update Behavior](./docs/auto-update.md) - How KOTS auto-deploy works with multi-chart weight ordering
 - [Development Guide](./DEVELOPMENT.md) - Guide for development including containerized environment
 
 ## For Developers
@@ -96,6 +97,28 @@ This solution offers flexibility in how you store MLflow data:
 - **External S3-compatible Storage**: Store artifacts in your own S3, GCS, or other S3-compatible storage service
 
 See the [Configuration Reference](./charts/mlflow/README_CONFIG.md) for detailed setup instructions.
+
+## Preflight Checks
+
+KOTS installations run automated preflight checks to validate the target environment before deploying. These checks catch common issues early and provide actionable remediation guidance.
+
+| Check | Type | What it validates |
+|-------|------|-------------------|
+| Kubernetes Version | Cluster | Kubernetes 1.21+ required, 1.28+ recommended |
+| CPU Capacity | Node Resources | At least 4 CPU cores across all nodes |
+| Storage Class | Storage | A default storage class exists for PostgreSQL and MinIO PVCs |
+| Registry & Image Availability | Air-gap | Critical container images (mlflow, postgresql, minio) are accessible in the configured registry |
+
+### Air-Gap Image Validation
+
+The registry preflight check validates that critical container images are available before installation begins. In air-gap environments, this confirms all images from the airgap bundle were successfully pushed to the local registry. In online environments, it verifies network access to upstream registries (ghcr.io, quay.io).
+
+Images validated:
+- `mlflow` — MLflow tracking server
+- `cloudnative-pg/postgresql` — PostgreSQL database for metadata storage
+- `minio` — S3-compatible object storage for artifacts
+
+If this check fails in an air-gap environment, re-push the airgap bundle to the local registry. In online environments, verify that the cluster has outbound network access to the image registries.
 
 ## Getting Started
 
