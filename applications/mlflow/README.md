@@ -32,6 +32,7 @@ helm install mlflow oci://registry.replicated.com/mlflow/stable
 
 - [MLflow Helm Chart Documentation](./charts/mlflow/README.md) - Installation and configuration details
 - [Configuration Reference](./charts/mlflow/README_CONFIG.md) - Detailed configuration options
+- [Auto-Update Behavior](./docs/auto-update.md) - How KOTS auto-deploy works with multi-chart weight ordering
 - [Development Guide](./DEVELOPMENT.md) - Guide for development including containerized environment
 
 ## For Developers
