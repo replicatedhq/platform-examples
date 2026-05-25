@@ -34,3 +34,16 @@ spec:
               message: No default storage class found
           - pass:
               message: Default storage class found
+    - customResourceDefinition:
+        checkName: Velero is installed for snapshot support
+        customResourceDefinitionName: backups.velero.io
+        outcomes:
+          - warn:
+              when: "< 1"
+              message: >-
+                Velero is not installed. KOTS snapshots for backup and restore
+                of PostgreSQL and MinIO data volumes will not be available.
+                Install Velero with a compatible storage provider to enable snapshots.
+          - pass:
+              when: ">= 1"
+              message: Velero is installed and available for KOTS snapshots.
