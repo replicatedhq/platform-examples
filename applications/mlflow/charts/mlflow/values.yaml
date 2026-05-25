@@ -325,6 +325,13 @@ mlflow:
         # -- Specify whether to ignore TLS
         ignoreTls: false
 
+# -- License entitlements passed from KOTS Config via HelmChart CR values
+license:
+  # -- License tier (e.g. "community", "team", "enterprise")
+  tier: ""
+  # -- Maximum number of users allowed by the license
+  maxUsers: ""
+
 replicated:
   # -- Specifies whetherto enable the Replicated SDK
   enabled: true

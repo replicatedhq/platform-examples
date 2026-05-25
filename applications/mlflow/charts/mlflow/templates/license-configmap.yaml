@@ -1,0 +1,15 @@
+{{- if or .Values.license.tier .Values.license.maxUsers }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mlflow.fullname" . }}-license
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+data:
+  {{- with .Values.license.tier }}
+  LICENSE_TIER: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.license.maxUsers }}
+  LICENSE_MAX_USERS: {{ . | quote }}
+  {{- end }}
+{{- end }}
