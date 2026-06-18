@@ -220,12 +220,12 @@ mlflow:
       enabled: false
       # -- Specifies whether to generate self-signed certificate
       genSelfSignedCert: false
-      cert: |
-        -----BEGIN CERTIFICATE-----
-        -----END CERTIFICATE-----
-      key: |
-        -----BEGIN PRIVATE KEY-----
-        -----END PRIVATE KEY-----
+      # -- PEM-encoded TLS certificate. Replace the placeholder with your real
+      # certificate (or set genSelfSignedCert: true to generate one).
+      cert: "REPLACE_WITH_YOUR_PEM_ENCODED_TLS_CERTIFICATE"
+      # -- PEM-encoded TLS private key. Replace the placeholder with your real key
+      # (or set genSelfSignedCert: true to generate one).
+      key: "REPLACE_WITH_YOUR_PEM_ENCODED_TLS_PRIVATE_KEY"
     # -- Extra hosts to configure for the ingress object
     extraHosts: []
     # -- Extra paths to configure for the ingress object

@@ -14,12 +14,10 @@ ingress:
   tls:
     enabled: true
     genSelfSignedCert: true
-    cert: |
-      -----BEGIN CERTIFICATE-----
-      -----END CERTIFICATE-----
-    key: |
-      -----BEGIN PRIVATE KEY-----
-      -----END PRIVATE KEY-----
+    # Replace the placeholders with your real PEM-encoded cert/key, or set
+    # genSelfSignedCert: true to have them generated and omit these.
+    cert: "REPLACE_WITH_YOUR_PEM_ENCODED_TLS_CERTIFICATE"
+    key: "REPLACE_WITH_YOUR_PEM_ENCODED_TLS_PRIVATE_KEY"
 ```
 
 2. Add a tls secret to your chart and implement the templating to conditionally choose between user-provided and self-signed
