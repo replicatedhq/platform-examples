@@ -835,7 +835,7 @@ When making changes to the MLflow Helm chart, corresponding updates may be neede
 | mlflow.image.repository | string | `"mlflow/mlflow"` | Image repository |
 | mlflow.image.tag | string | `"v3.3.2"` | Image tag |
 | mlflow.imagePullSecets | list | `[]` | Image pull secrets |
-| mlflow.ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"extraHosts":[],"extraPaths":[],"extraRules":[],"extraTls":[],"hostname":"chart-example.local","path":"/","pathType":"ImplementationSpecific","tls":{"cert":"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n","enabled":false,"genSelfSignedCert":false,"key":"-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n"}}` | Mlflow Ingress configuration [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/) |
+| mlflow.ingress | object | `{"annotations":{},"className":"nginx","enabled":false,"extraHosts":[],"extraPaths":[],"extraRules":[],"extraTls":[],"hostname":"chart-example.local","path":"/","pathType":"ImplementationSpecific","tls":{"cert":"REPLACE_WITH_YOUR_PEM_ENCODED_TLS_CERTIFICATE","enabled":false,"genSelfSignedCert":false,"key":"REPLACE_WITH_YOUR_PEM_ENCODED_TLS_PRIVATE_KEY"}}` | Mlflow Ingress configuration [[ref]](https://kubernetes.io/docs/concepts/services-networking/ingress/) |
 | mlflow.ingress.annotations | object | `{}` | Annotations to add to the ingress |
 | mlflow.ingress.className | string | `"nginx"` | Ingress class name |
 | mlflow.ingress.enabled | bool | `false` | Specifies whether a ingress should be created |
@@ -846,7 +846,7 @@ When making changes to the MLflow Helm chart, corresponding updates may be neede
 | mlflow.ingress.hostname | string | `"chart-example.local"` | Ingress hostname |
 | mlflow.ingress.path | string | `"/"` | Ingress path |
 | mlflow.ingress.pathType | string | `"ImplementationSpecific"` | Ingress path type |
-| mlflow.ingress.tls | object | `{"cert":"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n","enabled":false,"genSelfSignedCert":false,"key":"-----BEGIN PRIVATE KEY-----\n-----END PRIVATE KEY-----\n"}` | Ingress TLS configuration |
+| mlflow.ingress.tls | object | `{"cert":"REPLACE_WITH_YOUR_PEM_ENCODED_TLS_CERTIFICATE","enabled":false,"genSelfSignedCert":false,"key":"REPLACE_WITH_YOUR_PEM_ENCODED_TLS_PRIVATE_KEY"}` | Ingress TLS configuration |
 | mlflow.ingress.tls.enabled | bool | `false` | Specifies whether to enable TLS |
 | mlflow.ingress.tls.genSelfSignedCert | bool | `false` | Specifies whether to generate self-signed certificate |
 | mlflow.labels | object | `{}` | Labels to add to the mlflow deployment |
