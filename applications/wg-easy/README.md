@@ -4,6 +4,16 @@ This project demonstrates a **composable multi-chart workflow** for packaging an
 
 The target scenario: multiple teams, multiple product verticals, one Replicated release.
 
+<!-- TEST_STATUS_START -->
+## Test Status
+
+| Component | Status | Last Tested | Kubernetes Version | Details |
+|-----------|--------|-------------|--------------------|---------| 
+| Chart Installation | ⏳ Pending | Never | v1.33 / v1.34 / v1.35 | - |
+
+*Status automatically updated by weekly test workflow*
+<!-- TEST_STATUS_END -->
+
 ## The Problem with Monolithic Releases
 
 In a monolithic Replicated application, all components share a single set of release artifacts:
@@ -147,6 +157,27 @@ Key components:
 - **Replicated Integration**: Enables enterprise distribution with modular configuration
 
 > **New to Task or Helmfile?** These tools are convenient wrappers around standard Helm and shell commands -- they are not the point of this example. See the [Tooling Guide](docs/tooling-guide.md) for what each tool does, why it was chosen over Make and plain Helm CLI, and how to translate the workflows to your own tooling.
+
+## Automated Testing
+
+### Weekly Chart Validation
+
+The repository includes an automated weekly test workflow that runs every Monday at 9:00 AM UTC to ensure the chart remains installable and functional:
+
+**Workflow:** `.github/workflows/wg-easy-weekly-test.yaml`
+
+**What it tests:**
+- Chart validation and linting
+- Chart packaging and release creation
+- Deployment to a fresh Kubernetes cluster (latest stable version)
+- Application health checks and functionality tests
+
+**Notifications:**
+- Creates a GitHub Issue automatically when tests fail
+- Comments on existing issues when tests pass again
+- Can be triggered manually via workflow_dispatch
+
+This provides continuous validation that the chart is always ready to install, even during periods of low development activity.
 
 ## Learn More
 
