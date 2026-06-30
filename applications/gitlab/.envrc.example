@@ -1,0 +1,23 @@
+# Copy this file to .envrc and fill in your values, then run `direnv allow`.
+# .envrc is git-ignored so your credentials stay local.
+#
+# Install direnv: https://direnv.net/docs/installation.html
+
+# Your Replicated Vendor Portal API token.
+# Create one at: vendor.replicated.com > Account Settings > API Tokens
+# For CI, use a dedicated service account token instead of a personal token.
+export REPLICATED_API_TOKEN=
+
+# Your Replicated app slug (shown in the Vendor Portal URL and app settings).
+# Example: my-app-slug
+export REPLICATED_APP=
+
+# (Optional) License ID for testing the customer Helm install flow.
+# This is the `installationId` field from `replicated customer create --output json`,
+# NOT the top-level `id` field. Used with `helm registry login` and
+# `--set global.replicated.licenseID=` during CMX validation.
+export REPLICATED_LICENSE_ID=
+
+# (Optional) Customer email associated with the license above.
+# Used as the username for `helm registry login registry.replicated.com`.
+export REPLICATED_CUSTOMER_EMAIL=

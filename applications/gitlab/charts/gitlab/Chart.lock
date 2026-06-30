@@ -1,0 +1,9 @@
+dependencies:
+- name: gitlab
+  repository: https://charts.gitlab.io/
+  version: 9.0.2
+- name: replicated
+  repository: oci://registry.replicated.com/library
+  version: 1.18.0
+digest: sha256:461d0fe54f5029c9137a81a2ca273f15011615eb03d14615292cc8dcb1ab669d
+generated: "2026-03-22T14:36:32.670592-04:00"

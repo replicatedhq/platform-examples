@@ -1,0 +1,111 @@
+apiVersion: kots.io/v1beta2
+kind: HelmChart
+metadata:
+  name: gitlab
+spec:
+  chart:
+    name: gitlab
+    chartVersion: 0.1.0
+
+  values:
+    gitlab:
+      enabled: true
+
+      global:
+        hosts:
+          domain: repl{{ ConfigOption "gitlab_domain" }}
+        edition: repl{{ ConfigOption "gitlab_edition" }}
+
+        ingress:
+          configureCertmanager: repl{{ ConfigOptionEquals "tls_enabled" "1" }}
+          class: nginx
+          tls:
+            enabled: repl{{ ConfigOptionEquals "tls_enabled" "1" }}
+
+        psql:
+          database: repl{{ ConfigOption "postgres_db" }}
+          username: repl{{ ConfigOption "postgres_user" }}
+          password:
+            secret: gitlab-postgresql-password
+            key: postgresql-password
+
+        redis:
+          auth:
+            enabled: true
+
+      registry:
+        enabled: true
+
+      gitlab-runner:
+        install: false
+
+    replicated:
+      enabled: true
+
+  optionalValues:
+    # External PostgreSQL
+    - when: 'repl{{ ConfigOptionEquals "internal_postgres_enabled" "0" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          postgresql:
+            install: false
+          global:
+            psql:
+              host: repl{{ ConfigOption "postgres_host" }}
+              port: repl{{ ConfigOption "postgres_port" }}
+
+    # Bundled PostgreSQL
+    - when: 'repl{{ ConfigOptionEquals "internal_postgres_enabled" "1" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          postgresql:
+            install: true
+
+    # External Redis
+    - when: 'repl{{ ConfigOptionEquals "internal_redis_enabled" "0" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          redis:
+            install: false
+          global:
+            redis:
+              host: repl{{ ConfigOption "redis_host" }}
+
+    # Bundled Redis
+    - when: 'repl{{ ConfigOptionEquals "internal_redis_enabled" "1" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          redis:
+            install: true
+
+    # External object storage
+    - when: 'repl{{ ConfigOptionEquals "internal_minio_enabled" "0" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          minio:
+            enabled: false
+          global:
+            appConfig:
+              object_store:
+                enabled: true
+                connection:
+                  secret: repl{{ ConfigOption "object_store_connection_secret" }}
+                  key: connection
+
+    # Bundled MinIO
+    - when: 'repl{{ ConfigOptionEquals "internal_minio_enabled" "1" }}'
+      recursiveMerge: true
+      values:
+        gitlab:
+          minio:
+            enabled: true
+
+  helmUpgradeFlags:
+    - --timeout
+    - 20m
+    - --cleanup-on-fail
