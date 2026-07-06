@@ -176,7 +176,7 @@ jobs:
           - distribution: k3s
             version: 1.32
             nodes: 1
-          - distribution: gke
+          - distribution: eks
             version: 1.32
             nodes: 3
         config:
@@ -315,7 +315,7 @@ jobs:
           - distribution: k3s
             version: 1.32
             nodes: 1
-          - distribution: gke
+          - distribution: eks
             version: 1.32
             nodes: 3
     steps:

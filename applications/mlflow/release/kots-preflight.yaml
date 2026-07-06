@@ -3,6 +3,13 @@ kind: Preflight
 metadata:
   name: mlflow
 spec:
+  collectors:
+    - registryImages:
+        collectorName: critical-images
+        images:
+          - 'repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/" LocalRegistryNamespace "/mlflow:v3.3.2") "ghcr.io/mlflow/mlflow:v3.3.2" }}'
+          - 'repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/" LocalRegistryNamespace "/postgresql:15.2") "ghcr.io/cloudnative-pg/postgresql:15.2" }}'
+          - 'repl{{ HasLocalRegistry | ternary (print LocalRegistryHost "/" LocalRegistryNamespace "/minio:RELEASE.2024-05-01T01-11-10Z") "quay.io/minio/minio:RELEASE.2024-05-01T01-11-10Z" }}'
   analyzers:
     - clusterVersion:
         outcomes:
@@ -28,9 +35,45 @@ spec:
           - pass:
               message: There are at least 2 cores in the cluster
     - storageClass:
-        checkName: Check for default storage class
+        checkName: Storage class for PVC-backed services
         outcomes:
           - fail:
-              message: No default storage class found
+              message: |
+                No default storage class found. PostgreSQL and MinIO require persistent
+                volume claims for data storage. Configure a default storage class before
+                installing.
           - pass:
-              message: Default storage class found
+              message: Default storage class found for PostgreSQL and MinIO persistent volumes.
+    - customResourceDefinition:
+        checkName: Velero is installed for snapshot support
+        customResourceDefinitionName: backups.velero.io
+        outcomes:
+          - warn:
+              when: "< 1"
+              message: >-
+                Velero is not installed. KOTS snapshots for backup and restore
+                of PostgreSQL and MinIO data volumes will not be available.
+                Install Velero with a compatible storage provider to enable snapshots.
+          - pass:
+              when: ">= 1"
+              message: Velero is installed and available for KOTS snapshots.
+    - registryImages:
+        checkName: Registry and Image Availability
+        collectorName: critical-images
+        outcomes:
+          - fail:
+              when: "missing > 0"
+              message: |
+                One or more required container images are missing from the registry.
+                In air-gap environments, ensure all images from the airgap bundle have
+                been pushed to the local registry. In online environments, verify network
+                access to ghcr.io and quay.io.
+                Required images: mlflow, cloudnative-pg/postgresql, minio
+          - warn:
+              when: "errors > 0"
+              message: |
+                Failed to verify one or more container images in the registry. This may
+                indicate registry authentication issues or network connectivity problems.
+                Verify the registry is accessible from the cluster.
+          - pass:
+              message: All required container images are available in the registry.

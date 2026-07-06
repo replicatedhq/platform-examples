@@ -127,6 +127,21 @@ spec:
         when: '{{repl ConfigOptionEquals "postgres_type" "external_postgres"}}'
         type: text
         default: postgres
+  # License settings (read-only, sourced from license entitlements)
+  - name: license_settings
+    title: License
+    description: License entitlements (read-only, set by your license)
+    items:
+    - name: license_tier
+      title: License Tier
+      type: text
+      value: '{{repl LicenseFieldValue "tier"}}'
+      readonly: true
+    - name: license_max_users
+      title: Max Users
+      type: text
+      value: '{{repl LicenseFieldValue "max_users"}}'
+      readonly: true
   # Object Store Settings
   - name: objectstore_settings
     title: Object Storage

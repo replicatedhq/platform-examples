@@ -214,6 +214,8 @@ spec:
         {{- end }}
         {{- end }}
         volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         {{- if .Values.mlflow.extraPipPackages }}
         - name: pip-packages
           mountPath: /pip-packages
@@ -226,7 +228,11 @@ spec:
         {{- with .Values.mlflow.extraVolumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- with .Values.mlflow.resources }}
+        {{- $resources := .Values.mlflow.resources | default dict }}
+        {{- if and .Values.gpu.enabled .Values.gpu.resources }}
+        {{- $resources = mergeOverwrite (deepCopy $resources) .Values.gpu.resources }}
+        {{- end }}
+        {{- with $resources }}
         resources:
           {{- toYaml . | nindent 10 }}
         {{- end }}
@@ -256,6 +262,8 @@ spec:
         {{ toYaml . | nindent 6 }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       {{- if .Values.mlflow.extraPipPackages }}
       - name: pip-packages
         emptyDir: {}
@@ -276,7 +284,11 @@ spec:
       hostAliases:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.mlflow.nodeSelector }}
+      {{- $nodeSelector := .Values.mlflow.nodeSelector | default dict }}
+      {{- if and .Values.gpu.enabled .Values.gpu.nodeSelector }}
+      {{- $nodeSelector = merge .Values.gpu.nodeSelector $nodeSelector }}
+      {{- end }}
+      {{- with $nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -313,7 +325,11 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.mlflow.tolerations }}
+      {{- $tolerations := .Values.mlflow.tolerations | default list }}
+      {{- if and .Values.gpu.enabled .Values.gpu.tolerations }}
+      {{- $tolerations = concat $tolerations .Values.gpu.tolerations }}
+      {{- end }}
+      {{- with $tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
